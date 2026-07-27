@@ -2936,6 +2936,42 @@ and `Sources/ArtscribeApp/`. Add `Tests/ArtscribeUITests/` coverage for the pure
       no click, and no loss of position.
 - [ ] Degraded engine state (R3 → R2 → passthrough) is **visibly** indicated per spec §8.
 
+- [ ] **A `Playback` menu in the macOS menu bar** carrying the transport and speed actions
+      with their shortcuts shown, alongside the Output Device submenu Task 9 added. User
+      feedback: discovering these only from a help sheet is not enough — they belong in the
+      menu where macOS users look for them. Minimum contents, each showing its key
+      equivalent and correctly enabled/disabled when no track is loaded:
+      - **Play / Pause** (`Space`) — the title toggles to reflect current state
+      - **Stop** — halt and leave the playhead where it is
+      - **Play from Start** (`Return`) — from selection start if there is a selection, else 0
+      - separator
+      - **Faster** (`W`) and **Slower** (`Q`), ∓5%
+      - **Faster (Fine)** (`⇧W`) and **Slower (Fine)** (`⇧Q`), ∓1%
+      - **Speed presets** 100 / 75 / 50 / 33% (`1`–`4`), with a checkmark on the active one
+      - **Studio / Fast engine** toggle (`⌥E`), showing which is active
+      - separator
+      - **Loop** items: Set Loop In (`A`), Set Loop Out (`S`), Toggle Loop (`D`),
+        Restart Loop (`F`), Selection → Loop (`G`)
+      Beware: a prior task found that `.disabled()` in a SwiftUI `Commands` body goes stale
+      against `@Observable` and silently broke ⌘9. Verify enablement actually updates.
+
+- [ ] **Consume `PlaybackEngine.renderStallCount` and `rejectedCommandCount`.** Task 8
+      publishes both atomics and nothing reads them; Task 8's reviewer noted that a counter
+      nobody reads is only half a fix for silent degradation, and that the existing §8 line
+      above covers only engine *fallback*, not stalls or rejected commands. Poll them
+      alongside the playhead and surface a visible indication when either advances. Note
+      that after a stall the engine deliberately stays `playing`, so an unsurfaced permanent
+      stall presents to the user as "playing, playhead frozen, silence, forever."
+
+- [ ] **Beware the CLI bug Task 9 already hit here**: `isPlaying` is not observable until
+      the render thread has drained the command ring, so code that pushes `.setPlaying(true)`
+      and immediately checks `isPlaying` will conclude playback ended before a single frame
+      was rendered. Task 9 fixed this in the CLI; the UI's play/pause state must not repeat it.
+
+- [ ] **`.setPlaying(true)` at EOF with no loop bounces** — the engine restarts the stream,
+      immediately re-finalises, and clears the playing flag within the same render call. The
+      play button will visibly flicker unless the UI handles it.
+
 **Acceptance — verify by running, and report what you actually heard:**
 - [ ] A 4-second loop at 50% speed repeats with **no click, pop, or gap at the seam**. This
       is the single most important qualitative check in the whole project.
