@@ -21,6 +21,241 @@ This plan implements §§ 3–5, 9, 10 of `docs/superpowers/specs/2026-07-27-art
 - Inside a render block: no allocation, no locks, no `async`/`await`, no actor access, no Swift retain/release, no Foundation collections.
 - Prerequisite: `brew install rubberband`. Verified present at 4.0.0.
 - Real integration media lives at `$ARTSCRIBE_TEST_MEDIA_DIR`; tests **skip cleanly** when unset. Never commit audio over 100 KB.
+- **Every task ends with `make check` passing** (swift-format lint, SwiftLint, tests). Warnings are errors. Task 0 establishes these gates.
+- Reuse `sharedSwiftSettings` from `Package.swift` on every target added.
+
+---
+
+### Task 0: Tooling and quality gates
+
+Done first so every later task is checked by the same gates. Formatting, linting,
+and warnings-as-errors are cheap to adopt now and expensive to retrofit across
+nine tasks of existing code.
+
+**Files:**
+- Create: `.swift-format`
+- Create: `.swiftlint.yml`
+- Create: `Makefile`
+- Create: `.github/workflows/ci.yml`
+- Create: `Package.swift` (minimal; Task 1 fills in the real targets)
+
+**Interfaces:**
+- Consumes: nothing
+- Produces: `make format`, `make lint`, `make test`, `make check`; the
+  `sharedSwiftSettings` array in `Package.swift` that every later target reuses
+
+- [ ] **Step 1: Install the toolchain**
+
+`swift format` ships inside the Swift 6.3 toolchain — do not install it separately.
+SwiftLint and XcodeGen come from Homebrew.
+
+Run: `brew install swiftlint xcodegen rubberband`
+Expected: swiftlint ≥ 0.65, xcodegen ≥ 2.46, rubberband ≥ 4.0.
+
+- [ ] **Step 2: Create the formatter configuration**
+
+`.swift-format`:
+
+```json
+{
+  "version": 1,
+  "lineLength": 100,
+  "indentation": { "spaces": 4 },
+  "respectsExistingLineBreaks": true,
+  "lineBreakBeforeEachArgument": false,
+  "indentConditionalCompilationBlocks": false,
+  "rules": {
+    "AlwaysUseLowerCamelCase": true,
+    "NeverUseImplicitlyUnwrappedOptionals": true,
+    "UseShorthandTypeNames": true,
+    "OrderedImports": true,
+    "ReturnVoidInsteadOfEmptyTuple": true
+  }
+}
+```
+
+- [ ] **Step 3: Create the linter configuration**
+
+`.swiftlint.yml`:
+
+```yaml
+included:
+  - Sources
+  - Tests
+excluded:
+  - .build
+
+analyzer_rules:
+  - unused_import
+
+opt_in_rules:
+  - force_unwrapping
+  - empty_count
+  - explicit_init
+  - first_where
+  - redundant_nil_coalescing
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+
+line_length:
+  warning: 100
+  error: 140
+  ignores_comments: true
+
+identifier_name:
+  # Audio code legitimately uses short names: n, c, b, lo, hi, fpp.
+  min_length: 1
+  excluded: [i, j, k, n, c, b, r, s, v, lo, hi, fpp, dst, src]
+
+function_body_length:
+  warning: 80
+  error: 140
+
+type_body_length:
+  warning: 300
+  error: 450
+
+# The render path deliberately uses unsafe pointer arithmetic.
+force_unwrapping:
+  severity: warning
+```
+
+- [ ] **Step 4: Create the minimal Package.swift with shared settings**
+
+Task 1 replaces the target list; the `sharedSwiftSettings` array below is what every
+later target must reuse.
+
+```swift
+// swift-tools-version: 6.2
+import PackageDescription
+
+/// Applied to every target. Swift 6 language mode already implies complete
+/// strict concurrency; `treatAllWarnings(as: .error)` keeps the build honest.
+let sharedSwiftSettings: [SwiftSetting] = [
+    .treatAllWarnings(as: .error)
+]
+
+let package = Package(
+    name: "Artscribe",
+    platforms: [.macOS(.v26)],
+    products: [
+        .library(name: "ArtscribeKit", targets: ["ArtscribeKit"])
+    ],
+    targets: [
+        .target(name: "ArtscribeKit", swiftSettings: sharedSwiftSettings)
+    ]
+)
+```
+
+Create `Sources/ArtscribeKit/Placeholder.swift` so the target compiles:
+
+```swift
+// Replaced in Task 1 by FrameIndex.swift.
+enum Placeholder {}
+```
+
+If `treatAllWarnings(as:)` is rejected by this toolchain, fall back to
+`.unsafeFlags(["-warnings-as-errors"])` and note the substitution in the report.
+
+- [ ] **Step 5: Create the Makefile**
+
+```make
+.PHONY: bootstrap format lint test coverage check clean
+
+bootstrap:
+	brew list rubberband >/dev/null 2>&1 || brew install rubberband
+	brew list swiftlint  >/dev/null 2>&1 || brew install swiftlint
+	brew list xcodegen   >/dev/null 2>&1 || brew install xcodegen
+
+# swift format ships with the Swift 6.3 toolchain.
+format:
+	swift format --in-place --recursive Sources Tests
+
+format-check:
+	swift format lint --strict --recursive Sources Tests
+
+lint:
+	swiftlint lint --quiet --strict
+
+test:
+	swift test
+
+coverage:
+	swift test --enable-code-coverage
+
+# The single gate. Run before every commit.
+check: format-check lint test
+
+clean:
+	rm -rf .build
+```
+
+- [ ] **Step 6: Verify the gates actually catch problems**
+
+Write a deliberately bad file, confirm each gate rejects it, then delete it.
+
+```bash
+mkdir -p Sources/ArtscribeKit
+cat > Sources/ArtscribeKit/Bad.swift <<'EOF'
+enum Bad {
+      static let VeryBadlyIndentedAndNamed =    1
+}
+EOF
+make format-check   # expect: FAIL (indentation / line breaks)
+make lint           # expect: FAIL (identifier_name — should be lowerCamelCase)
+rm Sources/ArtscribeKit/Bad.swift
+```
+
+Expected: both commands exit non-zero while `Bad.swift` exists. If either passes,
+the configuration is not being picked up — check that `.swift-format` and
+`.swiftlint.yml` are at the repository root.
+
+- [ ] **Step 7: Verify the clean tree passes every gate**
+
+Run: `make check`
+Expected: format-check, lint, and test all pass (zero tests is fine at this point).
+
+- [ ] **Step 8: Create the CI workflow**
+
+`.github/workflows/ci.yml`:
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install rubberband swiftlint
+
+      - name: Check formatting
+        run: swift format lint --strict --recursive Sources Tests
+
+      - name: Lint
+        run: swiftlint lint --quiet --strict
+
+      - name: Test
+        run: swift test
+```
+
+Note: integration tests that read `$ARTSCRIBE_TEST_MEDIA_DIR` skip automatically in
+CI because the variable is unset. That is intended — CI must stay green without the
+copyrighted reference album.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add .swift-format .swiftlint.yml Makefile Package.swift Sources .github
+git commit -m "build: formatting, linting, warnings-as-errors, and CI gates"
+```
 
 ---
 
