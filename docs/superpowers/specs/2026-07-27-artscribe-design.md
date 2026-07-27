@@ -39,7 +39,9 @@ Explicitly out (see §11):
 
 ### 1.2 Success criteria
 
-- A 10-minute 24-bit FLAC opens and renders a full waveform in under 2 s
+- A 10-minute 24-bit FLAC opens and renders a full waveform in under 2 s. Measured
+  baseline: CoreAudio decodes the 9:35 reference track to Float32 in **1.03 s**
+  single-threaded, leaving roughly 1 s of budget for the peak pyramid and first paint
 - Speed and loop changes are audible on the next render quantum, with no dropout
 - The core loop — select, loop, slow, nudge, zoom — is fully reachable by the left
   hand alone
@@ -123,7 +125,7 @@ setting of `kAudioFormatFlagIsFloat`, 32-bit, non-interleaved. The default path 
 Int16 and silently discard 8 bits of a 24-bit source — which is exactly the reference
 material (24-bit/44.1 FLAC). Covered by a test.
 
-**Memory:** ~200 MB for a 10-minute stereo track (575 s × 44100 × 2 ch × 4 B). Acceptable
+**Memory:** 194 MB measured for the 9:35 reference track (575 s × 44100 × 2 ch × 4 B). Acceptable
 on Apple Silicon. For very long files a memory-mapped decode scratch file is the documented
 escape hatch; not implemented in the MVP.
 
@@ -229,6 +231,13 @@ important detail for a tool whose core use is listening to the same four bars fi
 | `view.toggleInspector` | `⌥⌘I` | Toggle inspector |
 | `help.shortcuts` | `⌘/` | Help sheet |
 | `app.settings` | `⌘,` | Settings |
+
+**Note on ⇧, which is deliberately inconsistent between the two nudge bindings.** On the
+arrow keys ⇧ *extends the selection*, following the macOS text-editing convention every Mac
+user already has. On `Z`/`X` it means *finer increment*, matching `⇧Q`/`⇧W` in the speed
+cluster. This is intentional: the arrows belong to the system-conventions layer and the
+left-hand cluster belongs to the ergonomic layer, and each is internally consistent. It is
+recorded here so it is not later "fixed" as an oversight.
 
 Pointer input: drag to select, ⇧-drag to extend, double-click to select all, pinch to
 zoom, two-finger scroll to pan.
