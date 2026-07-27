@@ -3011,6 +3011,76 @@ icon, `Makefile` targets, README updates.
 **Acceptance:** double-click the built app from Finder, open a file through its own ⌘O, and
 confirm playback works from the bundled binary — not just from `swift run`.
 
+---
+
+### Task 13: UI polish from acceptance testing — scroll-zoom, speed emphasis, theming
+
+Three items from the user driving the real app, in their stated priority order.
+
+**Files:** `Sources/ArtscribeUI/` (TrackpadMonitor, Palette, WaveformRenderer, StatusBarView,
+OverviewStripView, WaveformLanesView, ViewerCommands/PlaybackCommands, ViewerModel),
+`Sources/ArtscribeApp/`. Tests for the pure logic in `Tests/ArtscribeUITests/`.
+
+#### P0 — Scroll wheel zooms
+
+Today `TrackpadMonitor` maps every `.scrollWheel` event to `.pan`, without consulting
+`NSEvent.hasPreciseScrollingDeltas`. That flag is how macOS distinguishes a physical mouse
+wheel (coarse, non-precise) from a two-finger trackpad swipe (precise). The two carry
+opposite conventions, so they must be handled differently:
+
+- [ ] **Mouse wheel (`hasPreciseScrollingDeltas == false`) → zoom.** Up zooms in, down zooms
+      out. This is the user's request and matches essentially every app with a zoom concept.
+- [ ] **Trackpad two-finger scroll (`hasPreciseScrollingDeltas == true`) → keep panning.**
+      Reversing this would fight a system-wide macOS convention. (Controller decision; the
+      user has been told and can override.)
+- [ ] **`⌘` + scroll → zoom regardless of device.** Universal escape hatch, idiomatic from
+      browsers and maps, and it gives trackpad users a zoom gesture that isn't a pinch.
+- [ ] **Scroll-zoom anchors on the pointer**, not the playhead. Cursor-driven zoom that
+      anchors elsewhere feels broken. Keyboard zoom (`E`/`R`) keeps its playhead anchor —
+      `Viewport.zoom(by:anchorFrame:)` already takes the anchor, so this is a call-site
+      choice, not new machinery.
+- [ ] **Works in both the main waveform lane and the overview strip.** In the overview,
+      zooming changes the main viewport (the strip itself always shows the whole file).
+- [ ] **Respect natural-scrolling direction** so the gesture doesn't invert for users who
+      have flipped it.
+- [ ] Test the pure mapping: event characteristics → action, for wheel/trackpad/⌘-modified,
+      including the direction sign.
+
+#### P1 — Speed readout stands out when it is not 100%
+
+- [ ] When `speed.ratio != 1.0`, render the speed readout **bold and in an accent colour**
+      so an altered speed is obvious at a glance. At exactly 100% it returns to the normal
+      readout treatment, so the emphasis means something.
+- [ ] Use an existing palette accent rather than inventing a colour, and make sure it stays
+      legible in **both** themes once P2 lands — a colour that pops on dark and vanishes on
+      light is not done.
+- [ ] Apply the same treatment in the Playback menu's checked speed preset if it reads well.
+
+#### P2 — Light / Dark / System theme
+
+- [ ] A **Theme** preference with three options — System (default behaviour follows macOS),
+      Light, Dark — persisted across launches and reachable from the menu bar (View menu or
+      Settings; pick whichever is more idiomatic and say why).
+- [ ] Dark stays the default look the user already likes; **Light must be genuinely designed,
+      not an inversion.** Waveform, selection, loop region, playhead, ruler, overview lens
+      and the inline error banner all need light-mode values with real contrast. Check
+      contrast rather than eyeballing it.
+- [ ] **The trap:** `WaveformRenderer` rasterises into a cached bitmap with colours baked in
+      (see its own doc comment on why it writes pixels directly rather than filling rects).
+      A theme change **must invalidate that cache and re-render**, or the waveform will keep
+      its old colours against the new background. The same applies to the overview strip's
+      cached image. Make the theme part of the render cache key.
+- [ ] Switching theme must not disturb playback, position, selection, loop, or zoom.
+- [ ] Test the pure part: that the render cache key changes with the theme, so a stale
+      bitmap cannot survive a switch.
+
+**Acceptance — verify by running:**
+- [ ] Mouse wheel zooms in the main lane and in the overview, anchored under the pointer
+- [ ] Trackpad two-finger scroll still pans; pinch still zooms; ⌘+scroll zooms on both devices
+- [ ] Speed readout is visibly emphasised at 50% and normal at 100%
+- [ ] All three theme settings look deliberate, and switching mid-playback re-renders the
+      waveform correctly without interrupting audio
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
