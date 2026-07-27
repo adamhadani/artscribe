@@ -2739,6 +2739,112 @@ git commit -m "feat: AVAudioSourceNode output and artscribe-cli"
 
 ---
 
+---
+
+### Task 10: Waveform viewer — first runnable GUI (executed out of numeric order, before Task 7)
+
+**Why this task exists and why it is specified differently.** The user asked to drive the
+app early, even with reduced functionality. After Task 6 we have decode, peaks, and
+viewport math — everything a waveform viewer needs except sound. This task ships a window
+you can open a real track in and zoom around, with no audio.
+
+Unlike Tasks 1-9, this task does **not** dictate the implementation code. Every code block
+this plan supplied for Tasks 1-6 contained at least one defect found in review (eleven
+Important defects total, all controller-authored). For view code, which the plan author
+cannot verify by reasoning, prescribing exact SwiftUI would repeat that mistake at higher
+cost. Instead: exact module APIs, exact behavioural requirements, exact acceptance
+criteria. The implementer writes the view code against the real interfaces.
+
+**Files:**
+- Create: `Sources/ArtscribeUI/` — view layer (split into focused files; no single file over ~200 lines)
+- Create: `Sources/ArtscribeApp/` — `@main` executable
+- Modify: `Package.swift` — add `ArtscribeUI` library target and `ArtscribeApp` executable target, both with `sharedSwiftSettings`
+- Test: `Tests/ArtscribeUITests/` — for the pure logic only (see Testing below)
+
+**Interfaces available — these are exact, verified, and already shipped:**
+
+```swift
+// ArtscribeKit — imports nothing
+public typealias FrameIndex = Int64
+public struct FrameRange { init(start: FrameIndex, count: FrameIndex)
+    var start, count, end: FrameIndex; var isEmpty: Bool
+    func clamped(to: FrameIndex) -> FrameRange; func contains(_: FrameIndex) -> Bool }
+public struct Viewport { init(totalFrames: FrameIndex, widthPixels: Int)
+    static let minFramesPerPixel: Double
+    let totalFrames: FrameIndex
+    private(set) var startFrame: FrameIndex, framesPerPixel: Double, widthPixels: Int
+    var maxFramesPerPixel: Double, visibleFrames: FrameIndex, endFrame: FrameIndex
+    mutating func resize(widthPixels: Int); mutating func fit()
+    mutating func zoom(by: Double, anchorFrame: FrameIndex); mutating func zoom(to: FrameRange)
+    mutating func scroll(byPixels: Int)
+    func pixel(forFrame: FrameIndex) -> Double; func frame(atPixel: Double) -> FrameIndex }
+public struct Selection { init()
+    private(set) var anchor, head: FrameIndex; var isEmpty: Bool; var range: FrameRange
+    mutating func begin(at: FrameIndex); mutating func extend(to: FrameIndex); mutating func clear() }
+
+// AudioDecode
+public enum AudioFileDecoder {
+    static func decode(url: URL, progress: (@Sendable (Double) -> Void)?) async throws -> DecodedAudio }
+public struct DecodedAudio { let channels: Int; let sampleRate: Double
+    let frameCount: FrameIndex; var duration: Double
+    func channel(_ index: Int) -> UnsafePointer<Float> }
+public enum DecodeError: Error, LocalizedError { /* has errorDescription */ }
+
+// Waveform
+public struct PeakPyramid { static func build(_ audio: DecodedAudio) -> PeakPyramid
+    struct Peak { var min, max: Float }
+    func peaks(channel: Int, range: FrameRange, buckets: Int) -> [Peak] }
+```
+
+**Behavioural requirements:**
+
+1. `swift run ArtscribeApp` opens a window. Call `NSApplication.shared.setActivationPolicy(.regular)` and activate, so an unbundled SwiftPM executable still gets a menu bar and keyboard focus.
+2. **⌘O** opens a file picker filtered to the supported audio types. Drag-and-drop onto the window loads a file too.
+3. Decoding runs off the main actor with a visible, determinate progress indicator. Errors surface as an **inline banner** carrying `DecodeError.errorDescription` — never a modal alert, and the previously loaded file stays loaded.
+4. **Waveform lane**: min/max peaks per pixel column from `PeakPyramid.peaks`, one lane per channel, stacked. Silence draws as a centre line, not a gap.
+5. **Overview strip** above the waveform: whole file at constant scale, with the current viewport drawn as a highlighted window.
+6. **Time ruler** with sensible tick spacing that adapts to zoom (mm:ss.SSS at high zoom, mm:ss when zoomed out).
+7. **Keyboard** (the agreed left-hand cluster subset): `E` zoom out, `R` zoom in, `Z` scroll left, `X` scroll right, `⌘0` fit whole file, `⌘9` zoom to selection, `Esc` clear selection. Zoom **must anchor on the playhead** (use frame 0 or the selection start until a playhead exists) — never the viewport centre.
+8. **Mouse**: drag to select, ⇧-drag to extend, double-click selects all, pinch to zoom, two-finger scroll to pan.
+9. **Status readout**: filename, sample rate, channel count, duration, current zoom (frames/pixel or a x-factor), and the selection range as mm:ss.SSS–mm:ss.SSS with its duration.
+10. Window resize calls `Viewport.resize(widthPixels:)` and re-renders correctly.
+
+**Visual direction** (dark-first, matching the agreed mockups): background `#131417`, panel `#1B1D22`, waveform `#7A889A`, selection fill `#F0A35E` at ~13% with 2px `#F0A35E` edges, accent/viewport-window `#4FD1C5`, text `#C9CED6`, dimmed text `#6F7783`. Use a monospaced font for all time readouts so digits do not jitter.
+
+**Performance requirement — this is the one that dictates the design:**
+The waveform must only be recomputed when the viewport changes, not on every frame.
+Render it into a cached layer/image and redraw only on viewport or size change; overlays
+(selection, cursor) draw on top cheaply. Zooming and panning must stay smooth on the
+25-million-frame reference track. State the approach you chose in your report.
+
+**Explicitly OUT of scope** — do not build these, they belong to Tasks 7-9 and Plan 2:
+playback, transport controls, speed control, looping, markers, the inspector panel, the
+generated help sheet, the binding table, `.artscribe` session sidecars, and XcodeGen
+bundling. A `swift run` executable is sufficient; a double-clickable `.app` comes later.
+
+**Testing:** view rendering is not unit-tested here — that is deliberate, and consistent
+with the spec's "not doing SwiftUI snapshot tests" decision. Do test the **pure logic** you
+add: ruler tick-interval selection across zoom levels, time formatting at boundaries
+(0, <1s, >1h), and the mapping from a drag gesture's pixel range to a `FrameRange`. If you
+find yourself unable to test a piece of logic because it is tangled into a view, extract it
+— that is the signal the boundary is wrong.
+
+**Acceptance — the implementer must verify all of these by running the app:**
+- [ ] `swift run ArtscribeApp` opens a window with a menu bar and keyboard focus
+- [ ] ⌘O loads `~/Downloads/Wynton Marsalis - Black Codes (From The Underground)  - 1985-2023 (24-44)/01. Wynton Marsalis - Black Codes.flac` (9:35, 24-bit) and draws its waveform
+- [ ] The waveform has visible musical structure — not a solid block, not a flat line
+- [ ] E/R zoom smoothly from whole-file down to individual cycles; the anchor frame stays put
+- [ ] Z/X pan without stutter, and clamp correctly at both ends
+- [ ] Drag-select shows the highlighted region and a correct mm:ss.SSS readout
+- [ ] ⌘9 frames the selection; ⌘0 returns to the whole file
+- [ ] Resizing the window re-renders correctly at the new width
+- [ ] Opening a non-audio file shows the inline error banner and keeps the previous file
+- [ ] `make check` green and pre-commit hooks pass
+
+**Report additionally:** a screenshot path if you can capture one, the caching approach you
+chose, and the measured time from "file chosen" to "waveform on screen" for the reference
+track (spec §1.2 budget: under 2 s; decode alone is ~1.54 s, pyramid ~5 ms).
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
