@@ -28,7 +28,7 @@ Measured pitch error at half speed, FFT peak against a 440 Hz reference:
 | Engine | Mode | Pitch error |
 |---|---|---|
 | Rubber Band R3 | Studio (default) | ~0.00 cents |
-| Rubber Band R2 | Fast | frequency-dependent, up to ~16 cents |
+| Rubber Band R2 | Fast | frequency-dependent, up to ~26 cents (worst found: -25.95 at 300 Hz) |
 
 Studio is the default. Fast exists for low-CPU scrubbing and trades pitch accuracy for speed.
 
