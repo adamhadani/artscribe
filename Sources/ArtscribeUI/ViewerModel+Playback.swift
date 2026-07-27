@@ -41,9 +41,11 @@ extension ViewerModel {
             devices?.attach(output: session.output)
             try session.start()
             session.push(.setTimeRatio(speed.timeRatio))
+            isResampling = session.output.needsSampleRateConversion()
             startClock()
         } catch {
             session = nil
+            isResampling = false
             playbackNotice =
                 "Audio output is unavailable: \(TrackLoader.message(for: error)) "
                 + "The waveform is still usable, but nothing will play."
@@ -63,6 +65,8 @@ extension ViewerModel {
         devices?.attach(output: nil)
         transport = TransportLatch()
         degradation = DegradationCounts()
+        isResampling = false
+        lastRateCheck = 0
     }
 
     private func startClock() {
@@ -83,6 +87,15 @@ extension ViewerModel {
     func tickPlayback(now: Double) {
         guard let session else { return }
         pollDegradation(session)
+        // Once a second, not once a frame: switching output device from the menu
+        // succeeds silently, and the new device may run at a different rate. The
+        // query allocates an `AVAudioFormat`, so it is deliberately not on the
+        // per-frame path.
+        if now - lastRateCheck > 1 {
+            lastRateCheck = now
+            let resampling = session.output.needsSampleRateConversion()
+            if resampling != isResampling { isResampling = resampling }
+        }
 
         switch transport.poll(enginePlaying: session.engine.isPlaying, now: now) {
         case .unchanged, .started:
@@ -128,14 +141,18 @@ extension ViewerModel {
             if let banner = counts.banner { playbackNotice = banner }
         }
         // Notices are cleared as they are taken so a second, different one can
-        // still be seen; the banner itself is only dismissed by the user.
+        // still be seen; the banner itself is only dismissed by the user. Both
+        // sources mean the graph was re-negotiated, so the resampling readout is
+        // no longer trustworthy either.
         if let notice = session.output.notice {
             playbackNotice = notice
             session.output.clearNotice()
+            isResampling = session.output.needsSampleRateConversion()
         }
         if let devices, let notice = devices.notice {
             playbackNotice = notice
             devices.clearNotice()
+            isResampling = session.output.needsSampleRateConversion()
         }
     }
 

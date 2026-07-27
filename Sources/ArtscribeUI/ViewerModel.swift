@@ -89,7 +89,11 @@ public final class ViewerModel {
     public var canPlay: Bool { session != nil }
     /// True when the graph is resampling between the file and the device. Not a
     /// failure, but the user is entitled to know (spec §8).
-    public var isResampling: Bool { session?.output.needsSampleRateConversion() ?? false }
+    ///
+    /// Stored rather than computed: answering it means asking `AVAudioEngine`
+    /// for an `AVAudioFormat`, and the status bar reads it on every frame while
+    /// the playhead moves. Refreshed whenever the graph could have changed.
+    public internal(set) var isResampling = false
 
     var transport = TransportLatch()
     var session: PlaybackSession?
@@ -97,6 +101,8 @@ public final class ViewerModel {
     /// file ran out" from "the user pressed pause", which is what keeps the play
     /// button from flickering when play is pressed at the end.
     var reachedEnd = false
+    /// When the output device's sample rate was last queried; see `tickPlayback`.
+    @ObservationIgnored var lastRateCheck: Double = 0
     @ObservationIgnored var devices: OutputDeviceController?
     @ObservationIgnored let clock = PlayheadClock()
 

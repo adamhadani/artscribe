@@ -107,7 +107,12 @@ struct PlaybackMenu: View {
         Button("Set Loop Out  (S)") { model.setLoopOut() }
         Toggle(
             "Loop  (D)",
-            isOn: Binding(get: { model.loop.isEnabled }, set: { _ in model.toggleLoop() })
+            isOn: Binding(
+                get: { model.loop.isEnabled },
+                // Compared rather than blindly toggled: a `Binding` set to the
+                // value it already holds must be a no-op, or the item inverts
+                // the state it was asked to confirm.
+                set: { isOn in if isOn != model.loop.isEnabled { model.toggleLoop() } })
         )
         .disabled(model.loop.range.isEmpty && !model.loop.isEnabled)
         Button("Restart Loop  (F)") { model.restartLoop() }
