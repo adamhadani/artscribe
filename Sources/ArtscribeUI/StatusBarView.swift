@@ -29,8 +29,7 @@ struct StatusBarView: View {
             field("FORMAT", format).frame(width: 104, alignment: .leading)
             Spacer(minLength: 8)
             if let warning {
-                field("DEGRADED", warning)
-                    .foregroundStyle(palette.danger.color())
+                field("DEGRADED", warning, tint: palette.danger.color())
             } else if let seconds = model.lastLoadSeconds {
                 field("LOADED IN", String(format: "%.2f s", seconds))
             }
@@ -60,14 +59,22 @@ struct StatusBarView: View {
     /// `emphasised` bolds and colours the *value* only; the eyebrow keeps its own
     /// dimmed style, so the field still reads as one of a row rather than
     /// becoming a second heading.
-    private func field(_ label: String, _ value: String, emphasised: Bool = false) -> some View {
+    ///
+    /// `tint` overrides the colour, and has to be applied *here* rather than by
+    /// the caller: this `foregroundStyle` sits nearer the `Text` and would win
+    /// over anything wrapped around the field. That is exactly how the spec §8
+    /// DEGRADED warning had been rendering in the ordinary text colour, visually
+    /// identical to the readout beside it.
+    private func field(
+        _ label: String, _ value: String, emphasised: Bool = false, tint: Color? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Eyebrow(label)
             Text(value)
                 .font(emphasised ? Typography.readoutEmphasis : Typography.readout)
                 .lineLimit(1)
         }
-        .foregroundStyle(emphasised ? palette.emphasis.color() : palette.text.color())
+        .foregroundStyle(tint ?? (emphasised ? palette.emphasis.color() : palette.text.color()))
     }
 
     /// Position over length, the way every transport reads it — the length on its

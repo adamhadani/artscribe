@@ -38,7 +38,7 @@ extension ViewerModel {
         guard key != renderedKey else { return }
         renderedKey = key
         waveformImage = WaveformRenderer.render(
-            audio: audio, pyramid: pyramid, palette: palette, key: key)
+            audio: audio, pyramid: pyramid, key: key)
     }
 
     private func refreshOverview(audio: DecodedAudio, pyramid: PeakPyramid) {
@@ -58,6 +58,6 @@ extension ViewerModel {
         guard key != overviewKey else { return }
         overviewKey = key
         overviewImage = WaveformRenderer.render(
-            audio: audio, pyramid: pyramid, palette: palette, key: key)
+            audio: audio, pyramid: pyramid, key: key)
     }
 }

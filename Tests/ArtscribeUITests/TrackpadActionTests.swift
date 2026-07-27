@@ -107,7 +107,24 @@ struct TrackpadActionTests {
     /// stays a pan — which is also the only pan a plain mouse has left.
     @Test("a horizontal-only wheel movement pans")
     func wheelTiltPans() {
-        #expect(wheel(x: 12) == .pan(points: -12))
+        #expect(wheel(x: 1) == .pan(points: -Int(TrackpadAction.pointsPerLine)))
+    }
+
+    /// A wheel reports **lines**, not points — that is the same fact the device
+    /// split is built on. Feeding a line count straight into a pan measured in
+    /// points moves the viewport one point per detent, which is a dead control:
+    /// about twelve hundred detents to cross the window.
+    @Test("a wheel detent pans a whole line's worth of points, not one point")
+    func wheelPanIsMeasuredInPoints() {
+        #expect(wheel(y: 1, shift: true) == .pan(points: Int(TrackpadAction.pointsPerLine)))
+        #expect(wheel(y: -2, shift: true) == .pan(points: -2 * Int(TrackpadAction.pointsPerLine)))
+    }
+
+    /// The trackpad's deltas really are in points, and must not be scaled.
+    @Test("a trackpad swipe pans by exactly the points it reported")
+    func trackpadPanIsUnscaled() {
+        #expect(swipe(y: 9) == .pan(points: 9))
+        #expect(swipe(x: 12) == .pan(points: -12))
     }
 
     @Test("a wheel event with no movement at all is discarded")
@@ -133,9 +150,10 @@ struct TrackpadActionTests {
     /// without it a plain mouse could no longer scroll the timeline at all.
     @Test("Shift-scroll pans on both devices")
     func shiftPans() {
-        #expect(wheel(y: 9, shift: true) == .pan(points: 9))
+        let line = Int(TrackpadAction.pointsPerLine)
+        #expect(wheel(y: 1, shift: true) == .pan(points: line))
         #expect(swipe(y: 9, shift: true) == .pan(points: 9))
-        #expect(wheel(x: 9, shift: true) == .pan(points: -9))
+        #expect(wheel(x: 1, shift: true) == .pan(points: -line))
     }
 
     /// The coasting tail after the fingers leave the trackpad.
@@ -200,6 +218,14 @@ struct TrackpadActionTests {
 
         #expect(factor(TrackpadAction(event: lines)).map { $0 > 1 } == true)
         #expect(TrackpadAction(event: points) == .pan(points: 24))
+
+        // The same line-unit event, panned rather than zoomed: one detent has to
+        // be worth a line of travel, not a single point.
+        let shifted = TrackpadAction(
+            scrollingDeltaX: lines.scrollingDeltaX, scrollingDeltaY: lines.scrollingDeltaY,
+            hasPreciseScrollingDeltas: lines.hasPreciseScrollingDeltas,
+            commandHeld: false, shiftHeld: true, at: nil)
+        #expect(shifted == .pan(points: Int(TrackpadAction.pointsPerLine)))
     }
 
     /// The natural-scrolling preference is applied by macOS *before* the event

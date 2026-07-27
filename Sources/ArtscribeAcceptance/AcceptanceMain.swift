@@ -20,11 +20,14 @@ import SwiftUI
 struct AcceptanceMain: App {
     @State private var model = ViewerModel()
     @State private var devices = OutputDeviceController(source: CoreAudioDeviceSource())
-    /// Its own defaults suite: an acceptance run must not rewrite the theme the
-    /// user left the real app in, and it needs a known starting point anyway.
-    @State private var recents = RecentFiles()
-    @State private var theme = ThemeController(
-        defaults: UserDefaults(suiteName: "com.artscribe.acceptance") ?? .standard)
+    /// Both on their own defaults suite: an acceptance run must not rewrite the
+    /// theme the user left the real app in, nor drop its test file into their
+    /// Open Recent menu. The theme also needs a known starting point.
+    @State private var recents = RecentFiles(defaults: Self.defaults)
+    @State private var theme = ThemeController(defaults: Self.defaults)
+
+    private static let defaults =
+        UserDefaults(suiteName: "com.artscribe.acceptance") ?? .standard
 
     init() {
         // Same reasoning as `ArtscribeAppMain`: an unbundled SwiftPM executable

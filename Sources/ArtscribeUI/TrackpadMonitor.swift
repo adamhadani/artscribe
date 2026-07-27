@@ -32,6 +32,14 @@ enum TrackpadAction: Equatable, Sendable {
     /// few hundred of them, so the gain has to be far gentler than the wheel's.
     static let pointsPerDoubling = 90.0
 
+    /// A wheel's deltas are in **lines**, not points — the same fact the device
+    /// split is read off. Panning is measured in points, so a line has to be
+    /// converted or a detent moves the viewport by a single point: about twelve
+    /// hundred detents to cross the window, which is a dead control. Roughly a
+    /// sixth of the keyboard's `Z`/`X` step, so a wheel flick and a key press
+    /// are in the same world.
+    static let pointsPerLine = 24.0
+
     /// Ceilings on one event's travel. A synthesised or flung event can report
     /// an absurd delta, and `pow` turns that into a zoom of millions in a single
     /// step — the viewport clamps the result, but the view would still teleport.
@@ -77,7 +85,9 @@ enum TrackpadAction: Equatable, Sendable {
             self = .zoom(factor: factor, anchor: anchor)
             return
         }
-        let delta = scrollingDeltaX != 0 ? scrollingDeltaX : -scrollingDeltaY
+        // A trackpad already reports points; a wheel reports lines.
+        let travel = hasPreciseScrollingDeltas ? 1 : Self.pointsPerLine
+        let delta = (scrollingDeltaX != 0 ? scrollingDeltaX : -scrollingDeltaY) * travel
         let points = Int(delta.rounded())
         guard points != 0 else { return nil }
         self = .pan(points: -points)
@@ -91,6 +101,7 @@ enum TrackpadAction: Equatable, Sendable {
 
     @MainActor
     init?(event: NSEvent) {
+        guard Self.isOverTheViewer(event) else { return nil }
         let anchor = Self.windowPoint(for: event)
         switch event.type {
         case .scrollWheel:
@@ -121,6 +132,26 @@ enum TrackpadAction: Equatable, Sendable {
         }
         guard factor > 0, factor.isFinite else { return nil }
         return factor
+    }
+
+    /// Whether this scroll belongs to the viewer at all.
+    ///
+    /// A local monitor sees every scroll the *application* receives, including
+    /// ones over the open panel, and the frames the anchor is hit-tested against
+    /// are the viewer's. Without this, rolling the wheel over the file list in
+    /// `⌘O` zooms the waveform behind the panel — and the panel does not scroll,
+    /// because the monitor swallows what it handles.
+    ///
+    /// Known limit: this recognises a panel and a modal session, not an
+    /// arbitrary second window. Task 14's Settings scene is a plain window and
+    /// will need the viewer's own window identity to be threaded through here.
+    @MainActor
+    private static func isOverTheViewer(_ event: NSEvent) -> Bool {
+        guard NSApp?.modalWindow == nil else { return false }
+        // A synthesised event carries no window; the acceptance harness posts
+        // those, and nothing else in this app produces one.
+        guard let window = event.window else { return true }
+        return !(window is NSPanel)
     }
 
     /// The pointer position in the window's content view, with a top-left origin

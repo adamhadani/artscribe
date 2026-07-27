@@ -127,10 +127,6 @@ public final class ViewerModel {
     /// (`DocumentView`), which is also what makes `system` follow macOS.
     public private(set) var appearance: Appearance = .dark
 
-    /// The colours the cached bitmaps are drawn with. The views take theirs from
-    /// the environment; this is the same value, for the rasteriser.
-    var palette: Palette { Palette.of(appearance) }
-
     /// Switching theme touches nothing but the pixels: position, selection,
     /// loop, zoom and the audio graph are all untouched, so playback carries on
     /// across it.

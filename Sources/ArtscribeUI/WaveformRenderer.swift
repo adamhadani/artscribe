@@ -50,9 +50,11 @@ enum WaveformRenderer {
     /// Draws one stacked lane per channel, for exactly the `key` the result will
     /// be cached under.
     ///
-    /// Taking the key rather than a loose range and size is what makes it
-    /// impossible to cache a bitmap under a key that does not describe it — the
-    /// failure mode this cache is most exposed to.
+    /// Taking the key rather than a loose range, size and palette is what makes
+    /// it impossible to cache a bitmap under a key that does not describe it —
+    /// the failure mode this cache is most exposed to. The colours come from
+    /// `key.appearance` for the same reason: there is no way to pass a palette
+    /// that disagrees with the key the result is filed under.
     ///
     /// `key.pixelWidth`/`pixelHeight` are backing-store pixels, so peaks are
     /// computed at full Retina resolution and the image maps 1:1 onto the display.
@@ -61,12 +63,8 @@ enum WaveformRenderer {
     /// the pyramid cannot resolve finer than 256 frames, so zooming past that
     /// against it alone turns a waveform into a staircase of 256-frame blocks
     /// instead of showing individual cycles.
-    static func render(
-        audio: DecodedAudio,
-        pyramid: PeakPyramid,
-        palette: Palette,
-        key: Key
-    ) -> CGImage? {
+    static func render(audio: DecodedAudio, pyramid: PeakPyramid, key: Key) -> CGImage? {
+        let palette = Palette.of(key.appearance)
         let pixelWidth = key.pixelWidth
         let pixelHeight = key.pixelHeight
         let range = FrameRange(start: key.startFrame, count: key.visibleFrames)
