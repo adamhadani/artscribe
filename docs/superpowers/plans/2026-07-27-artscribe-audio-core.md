@@ -2738,6 +2738,59 @@ Confirm by ear, in order:
    single most important qualitative check in the plan — a click here means
    `feedSource` is resetting the stretcher at the loop boundary.
 
+
+#### Task 9 addendum: Playback menu and output device selection
+
+Requested directly by the user. There is no stock Apple picker view for audio output
+devices on macOS — the idiomatic pattern is a menu of radio-style items — so this is
+"standard macOS interface" in the sense of a real menu-bar menu wired to the real HAL, not
+a bespoke panel.
+
+**Note:** `AVAudioSession` does **not** exist on macOS; it is iOS-only. Device enumeration
+and selection go through the CoreAudio HAL.
+
+- [ ] **Add a top-level `Playback` menu** to the app's menu bar via SwiftUI `Commands`
+      (`CommandMenu("Playback")`). It carries an **Output Device** submenu listing every
+      available output device, with a checkmark on the active one.
+
+- [ ] **Enumerate devices through the CoreAudio HAL**, not AVFoundation:
+      `AudioObjectGetPropertyData` with `kAudioHardwarePropertyDevices` on
+      `kAudioObjectSystemObject`, then keep only devices that actually have output streams
+      (query `kAudioDevicePropertyStreamConfiguration` on `kAudioObjectPropertyScopeOutput`
+      and require a non-zero channel count). Read each device's name from
+      `kAudioObjectPropertyName`. A device with input streams only must not appear.
+
+- [ ] **Include a "System Default" entry** that follows
+      `kAudioHardwarePropertyDefaultOutputDevice` rather than pinning a specific device.
+      This should be the default selection, because it is what a user expects when they
+      plug in headphones mid-session.
+
+- [ ] **Switch the device** by setting `kAudioOutputUnitProperty_CurrentDevice` on the
+      `AVAudioEngine`'s `outputNode.audioUnit`. The engine must be stopped and restarted
+      around the change; **playback position, speed, and loop state must survive it** — a
+      device switch is not a reason to lose the user's place.
+
+- [ ] **Observe changes** with `AudioObjectAddPropertyListenerBlock` on both
+      `kAudioHardwarePropertyDevices` (device list) and
+      `kAudioHardwarePropertyDefaultOutputDevice` (default changed). The menu must update
+      live when a device is plugged in or removed, without reopening it.
+
+- [ ] **Handle disappearance without silence.** If the selected device is removed while
+      playing (headphones unplugged, interface powered off), fall back to the system default
+      and **say so visibly** — spec §8 forbids silent degradation, and audio simply stopping
+      with no explanation is exactly that. Do not crash, and do not leave the engine in a
+      stopped state the user has to notice themselves.
+
+- [ ] **Test what is testable headlessly.** Device *selection* needs hardware, but the
+      device-list filtering (output-capable only), the name resolution, and the
+      fallback-on-disappearance decision logic are pure and must be unit-tested against
+      synthetic device lists. Do not let untestable AppKit glue absorb the decision logic —
+      keep it in a plain type the tests can drive.
+
+**Report:** the actual device list observed on this machine, and what happened when a
+device was removed mid-playback (test it for real if you have a pair of headphones or an
+external interface available; say plainly if you could not).
+
 - [ ] **Step 9: Commit**
 
 ```bash
