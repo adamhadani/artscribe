@@ -41,5 +41,15 @@ let package = Package(
             dependencies: ["AudioDecode"],
             swiftSettings: sharedSwiftSettings
         ),
+        .target(
+            name: "Waveform",
+            dependencies: ["ArtscribeKit", "AudioDecode"],
+            swiftSettings: sharedSwiftSettings
+        ),
+        .testTarget(
+            name: "WaveformTests",
+            dependencies: ["Waveform"],
+            swiftSettings: sharedSwiftSettings
+        ),
     ]
 )
