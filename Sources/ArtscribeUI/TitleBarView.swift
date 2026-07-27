@@ -29,7 +29,7 @@ struct TitleBarView: View {
 
             if model.isLoading {
                 HStack(spacing: 8) {
-                    Text("Decoding")
+                    Text(model.loadPhase?.label ?? "Loading…")
                         .font(Typography.readoutSmall)
                         .foregroundStyle(Palette.dimmed.color())
                     ProgressView(value: model.progress)

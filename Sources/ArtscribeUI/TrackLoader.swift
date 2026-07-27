@@ -18,9 +18,18 @@ enum TrackLoader {
 
     /// `nonisolated` so it never adopts the caller's actor: decoding a
     /// ten-minute file on the main actor would freeze the window for seconds.
-    nonisolated static func load(url: URL, reporter: ProgressReporter) async throws -> LoadedTrack {
+    ///
+    /// `onPhaseChange` fires once, between decode finishing and the pyramid
+    /// build starting — the one phase transition this function can see that
+    /// the progress callback cannot, since `PeakPyramid.build` reports no
+    /// progress of its own.
+    nonisolated static func load(
+        url: URL, reporter: ProgressReporter,
+        onPhaseChange: @escaping @Sendable (ViewerModel.LoadPhase) -> Void
+    ) async throws -> LoadedTrack {
         let audio = try await AudioFileDecoder.decode(url: url, progress: reporter.callback)
         try Task.checkCancellation()
+        onPhaseChange(.buildingWaveform)
         return LoadedTrack(audio: audio, pyramid: PeakPyramid.build(audio))
     }
 

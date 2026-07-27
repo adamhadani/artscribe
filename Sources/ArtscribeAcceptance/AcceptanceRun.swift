@@ -17,10 +17,10 @@ enum AcceptanceRun {
     @MainActor
     static func runIfRequested(model: ViewerModel) async {
         let args = CommandLine.arguments
-        guard let flag = args.firstIndex(of: "--acceptance"), flag + 1 < args.count else { return }
-        let audio = URL(fileURLWithPath: args[flag + 1])
-        let badFile = args.firstIndex(of: "--bad-file").map { URL(fileURLWithPath: args[$0 + 1]) }
-        let outputDirectory = args.firstIndex(of: "--out").map { args[$0 + 1] } ?? "."
+        guard let audioPath = value(after: "--acceptance", in: args) else { return }
+        let audio = URL(fileURLWithPath: audioPath)
+        let badFile = value(after: "--bad-file", in: args).map { URL(fileURLWithPath: $0) }
+        let outputDirectory = value(after: "--out", in: args) ?? "."
 
         var log = Logger()
         await settle(seconds: 1.0)
@@ -165,6 +165,15 @@ enum AcceptanceRun {
 
     static func rounded(_ value: Double) -> String {
         String(format: "%.1f", value)
+    }
+
+    /// The value following `flag` in `args`, or `nil` if the flag is absent
+    /// *or is the last argument*. Bounds-checked deliberately: a flag with no
+    /// value after it (e.g. `--out` typed last on the command line) must not
+    /// trap with an index-out-of-range.
+    static func value(after flag: String, in args: [String]) -> String? {
+        guard let index = args.firstIndex(of: flag), index + 1 < args.count else { return nil }
+        return args[index + 1]
     }
 
     /// Drags from x=200 to x=520 and checks the resulting selection.

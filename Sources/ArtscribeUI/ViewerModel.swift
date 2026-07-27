@@ -24,11 +24,35 @@ public final class ViewerModel {
 
     public private(set) var isLoading = false
     public private(set) var progress: Double = 0
+    /// Which real stage of `open(url:)` is currently running, shown beside the
+    /// progress bar so a long wait says *why*, not merely that it is waiting.
+    /// `nil` when nothing is loading. Each case corresponds to genuinely
+    /// distinct work — there is no timer-driven guessing here.
+    public private(set) var loadPhase: LoadPhase?
     /// Set from `DecodeError.errorDescription`. Shown as an inline banner; the
     /// previously loaded track stays loaded (spec §8, never degrade silently).
     public private(set) var errorMessage: String?
     /// Seconds from "file chosen" to "waveform rasterised", for the status bar.
     public private(set) var lastLoadSeconds: Double?
+
+    public enum LoadPhase: Sendable {
+        /// Between `open(url:)` being called and the decoder's first progress
+        /// callback — the file is being located and its header parsed.
+        case opening
+        /// The decoder is reporting chunk progress.
+        case decoding
+        /// Decode finished; `PeakPyramid.build` and the bitmap rasterisation
+        /// are running.
+        case buildingWaveform
+
+        public var label: String {
+            switch self {
+            case .opening: return "Opening…"
+            case .decoding: return "Decoding audio…"
+            case .buildingWaveform: return "Building waveform…"
+            }
+        }
+    }
 
     // MARK: - View state
 
@@ -99,6 +123,7 @@ public final class ViewerModel {
         errorMessage = nil
         isLoading = true
         progress = 0
+        loadPhase = .opening
         let started = Date()
         loadToken += 1
         let token = loadToken
@@ -112,7 +137,11 @@ public final class ViewerModel {
         // decoder polls `Task.isCancelled`, so cancelling this stops it early.
         loadTask = Task.detached(priority: .userInitiated) { [weak self] in
             do {
-                let loaded = try await TrackLoader.load(url: url, reporter: reporter)
+                let loaded = try await TrackLoader.load(
+                    url: url, reporter: reporter,
+                    onPhaseChange: { phase in
+                        Task { @MainActor in self?.setPhase(phase, token: token) }
+                    })
                 try Task.checkCancellation()
                 await self?.adopt(loaded, url: url, startedAt: started, token: token)
             } catch is CancellationError {
@@ -132,6 +161,14 @@ public final class ViewerModel {
     private func reportProgress(_ value: Double, token: Int) {
         guard token == loadToken else { return }
         progress = value
+        // The decoder only calls back once it is actually reading chunks, so
+        // this is the genuine boundary between "opening" and "decoding".
+        loadPhase = .decoding
+    }
+
+    private func setPhase(_ phase: LoadPhase, token: Int) {
+        guard token == loadToken else { return }
+        loadPhase = phase
     }
 
     private func adopt(_ loaded: LoadedTrack, url: URL, startedAt: Date, token: Int) {
@@ -144,6 +181,7 @@ public final class ViewerModel {
         playhead = 0
         isLoading = false
         progress = 1
+        loadPhase = nil
         viewport = Viewport(totalFrames: loaded.audio.frameCount, widthPixels: lanePointWidth)
         refresh()
         // Measured through to the rasterised bitmap, not just the decode, so the
@@ -154,6 +192,7 @@ public final class ViewerModel {
     private func cancelLoading(token: Int) {
         guard token == loadToken else { return }
         isLoading = false
+        loadPhase = nil
     }
 
     /// The decode failed. The previously loaded track is deliberately left
@@ -161,6 +200,7 @@ public final class ViewerModel {
     private func fail(with message: String, token: Int) {
         guard token == loadToken else { return }
         isLoading = false
+        loadPhase = nil
         errorMessage = message
     }
 
@@ -183,4 +223,23 @@ public final class ViewerModel {
     }
 
     var lanePointWidth: Int { Swift.max(1, Int(laneSize.width.rounded())) }
+
+    // MARK: - Testing
+
+    /// Adopts a track synchronously, bypassing the async decode pipeline.
+    ///
+    /// `audio`/`pyramid` have no public setter — `open(url:)` is the only
+    /// production path — so unit tests over `ViewerModel+Interaction` (the drag
+    /// and click state machine) need a same-module seam to reach a state where
+    /// `hasTrack` is true. Internal, not public: invisible outside `ArtscribeUI`,
+    /// so only `ArtscribeUITests` can reach it via `@testable import`.
+    func loadForTesting(audio: DecodedAudio, pyramid: PeakPyramid, widthPixels: Int = 1000) {
+        self.audio = audio
+        self.pyramid = pyramid
+        fileName = "test-track"
+        generation += 1
+        selection.clear()
+        playhead = 0
+        viewport = Viewport(totalFrames: audio.frameCount, widthPixels: widthPixels)
+    }
 }

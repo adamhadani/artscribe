@@ -9,7 +9,26 @@ struct OverviewStripView: View {
     @Environment(\.displayScale) private var displayScale
     @State private var overviewWidth: Double = 1
 
+    /// Everything the lens overlay needs, read once at body level and handed
+    /// to the `Canvas` closure as one value.
+    private struct OverlayState {
+        let hasTrack: Bool
+        let viewport: Viewport
+        let totalFrames: FrameIndex
+        let selectionRange: FrameRange
+    }
+
     var body: some View {
+        // Read at body level: `overviewImage` is deliberately invariant under
+        // pan/zoom, but the lens rectangle — the entire point of this strip —
+        // is driven by `model.viewport`, which must be read somewhere SwiftUI
+        // definitely tracks, not only inside the `Canvas` closure.
+        let state = OverlayState(
+            hasTrack: model.hasTrack,
+            viewport: model.viewport,
+            totalFrames: model.totalFrames,
+            selectionRange: model.selection.range)
+
         ZStack(alignment: .topLeading) {
             Palette.panel.color()
 
@@ -21,7 +40,7 @@ struct OverviewStripView: View {
             }
 
             Canvas(rendersAsynchronously: false) { context, size in
-                drawWindow(in: &context, size: size)
+                drawWindow(in: &context, size: size, state: state)
             }
             .allowsHitTesting(false)
         }
@@ -44,13 +63,12 @@ struct OverviewStripView: View {
         }
     }
 
-    private func drawWindow(in context: inout GraphicsContext, size: CGSize) {
-        guard model.hasTrack else { return }
-        let total = model.totalFrames
+    private func drawWindow(in context: inout GraphicsContext, size: CGSize, state: OverlayState) {
+        guard state.hasTrack else { return }
         let left = PixelMapping.overviewPixel(
-            forFrame: model.viewport.startFrame, totalFrames: total, width: size.width)
+            forFrame: state.viewport.startFrame, totalFrames: state.totalFrames, width: size.width)
         let right = PixelMapping.overviewPixel(
-            forFrame: model.viewport.endFrame, totalFrames: total, width: size.width)
+            forFrame: state.viewport.endFrame, totalFrames: state.totalFrames, width: size.width)
         // A fully zoomed-out window would otherwise vanish into a hairline.
         let windowWidth = max(2.0, right - left)
 
@@ -68,11 +86,13 @@ struct OverviewStripView: View {
             with: .color(Palette.accent.color(opacity: 0.9)),
             lineWidth: 1)
 
-        drawSelection(in: &context, size: size, total: total)
+        drawSelection(
+            in: &context, size: size, total: state.totalFrames, range: state.selectionRange)
     }
 
-    private func drawSelection(in context: inout GraphicsContext, size: CGSize, total: FrameIndex) {
-        let range = model.selection.range
+    private func drawSelection(
+        in context: inout GraphicsContext, size: CGSize, total: FrameIndex, range: FrameRange
+    ) {
         guard !range.isEmpty else { return }
         let left = PixelMapping.overviewPixel(
             forFrame: range.start, totalFrames: total, width: size.width)

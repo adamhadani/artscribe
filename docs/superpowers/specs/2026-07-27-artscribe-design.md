@@ -347,13 +347,36 @@ Ordered by expected value.
    existing loops and markers across. High value, low cost; the user has live `.xsc` files.
 2. **MIDI input** — a `MIDIInputSource` emitting `InputEvent`, plus note/CC cases on
    `InputBinding`. No changes to `Action`, dispatch, or the help sheet.
-3. **Markers lane** — named positions, next/previous navigation.
-4. **Pitch shift / transpose** — Rubber Band already supports it; UI and action IDs only.
-5. **Spectrum / piano-roll lane** — a new `TimelineLane`; the shared viewport already exists.
-6. **EQ and mono/karaoke mixing.**
-7. **Varispeed** (pitch follows speed) as a menu option.
-8. **ffmpeg conversion fallback** for exotic formats (WMA, MKV/WebM), if `ffmpeg` is on PATH.
-9. **Video display.**
+3. **Stem separation** — run an ML separator (HTDemucs or similar) to split the track into
+   drums/bass/vocals/other, then stretch each stem independently and remix. Two reasons this
+   is worth real investment: transient smearing is worst when percussion and sustained
+   instruments share spectral bins, so separating them removes the conflict at its source;
+   and soloing an individual stem is independently one of the most useful things a
+   transcriber can do. Uses ML where it is strong (separation) rather than where it is weak
+   (resynthesis) — a generative stretcher that invents plausible detail is disqualifying
+   here, because the user would be transcribing the model's invention.
+
+   **Architectural constraints this places on the MVP** (see §5 and the note in Task 8):
+   - `PlaybackEngine` must read source audio through a single, replaceable accessor rather
+     than scattering `DecodedAudio.channel(_:)` calls through the render path. Swapping one
+     buffer for N stem buffers should touch one place.
+   - All stems must be driven with **identical ratios and identical frame counts every
+     render quantum**. Independent stretchers fed slightly different amounts will drift out
+     of sample alignment, and the result is phasing — the failure mode is subtle and
+     cumulative, not immediately obvious.
+   - CPU scales with stem count. Four R3 instances is a very different budget from one;
+     expect to need R2 for unfocused stems, or to pre-render.
+   - Separation is offline and slow (tens of seconds for a 10-minute track). It needs the
+     same background-task, progress, and breadcrumb treatment as decoding, plus a disk cache
+     keyed off the source file so it runs once per track, not once per open.
+
+4. **Markers lane** — named positions, next/previous navigation.
+5. **Pitch shift / transpose** — Rubber Band already supports it; UI and action IDs only.
+6. **Spectrum / piano-roll lane** — a new `TimelineLane`; the shared viewport already exists.
+7. **EQ and mono/karaoke mixing.**
+8. **Varispeed** (pitch follows speed) as a menu option.
+9. **ffmpeg conversion fallback** for exotic formats (WMA, MKV/WebM), if `ffmpeg` is on PATH.
+10. **Video display.**
 
 ---
 

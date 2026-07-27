@@ -10,6 +10,15 @@ struct TimeRulerView: View {
     private static let minorTickHeight: Double = 4
 
     var body: some View {
+        // Read at body level, not inside the `Canvas` closure: SwiftUI's
+        // `@Observable` tracking is only guaranteed where `body` itself reads
+        // the property. This view's body previously read nothing from `model`
+        // at all, so panning or zooming risked leaving the ruler frozen.
+        let hasTrack = model.hasTrack
+        let viewport = model.viewport
+        let sampleRate = model.sampleRate
+        let selectionRange = model.selection.range
+
         Canvas(rendersAsynchronously: false) { context, size in
             context.fill(
                 Path(CGRect(origin: .zero, size: size)),
@@ -17,10 +26,10 @@ struct TimeRulerView: View {
             context.fill(
                 Path(CGRect(x: 0, y: size.height - 1, width: size.width, height: 1)),
                 with: .color(Palette.rule.color()))
-            guard model.hasTrack else { return }
+            guard hasTrack else { return }
 
-            for tick in RulerTicks.ticks(viewport: model.viewport, sampleRate: model.sampleRate) {
-                let x = model.viewport.pixel(forFrame: tick.frame).rounded()
+            for tick in RulerTicks.ticks(viewport: viewport, sampleRate: sampleRate) {
+                let x = viewport.pixel(forFrame: tick.frame).rounded()
                 guard x >= 0, x <= size.width else { continue }
                 let height = tick.isMajor ? Self.majorTickHeight : Self.minorTickHeight
                 context.fill(
@@ -40,18 +49,20 @@ struct TimeRulerView: View {
                 }
             }
 
-            drawSelectionMarkers(in: &context, size: size)
+            drawSelectionMarkers(
+                in: &context, size: size, range: selectionRange, viewport: viewport)
         }
         .frame(height: 24)
     }
 
     /// The selection edges repeat on the ruler so the in/out points stay findable
     /// when the lanes are busy.
-    private func drawSelectionMarkers(in context: inout GraphicsContext, size: CGSize) {
-        let range = model.selection.range
+    private func drawSelectionMarkers(
+        in context: inout GraphicsContext, size: CGSize, range: FrameRange, viewport: Viewport
+    ) {
         guard !range.isEmpty else { return }
         for frame in [range.start, range.end] {
-            let x = model.viewport.pixel(forFrame: frame)
+            let x = viewport.pixel(forFrame: frame)
             guard x >= 0, x <= size.width else { continue }
             context.fill(
                 Path(CGRect(x: x - 1, y: size.height - 5, width: 2, height: 5)),

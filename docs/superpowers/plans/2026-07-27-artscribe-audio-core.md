@@ -2112,6 +2112,14 @@ git commit -m "feat: lock-free SPSC command ring for the render-thread boundary"
 
 ### Task 8: PlaybackEngine with seamless looping
 
+> **Do not build for stems — just do not preclude them.** Stem separation is a planned
+> post-MVP feature (spec §11.3): split the track into drums/bass/vocals/other, stretch each
+> independently, remix. Building any of that now would be YAGNI and is explicitly out of
+> scope. The single thing this task must get right is to read source audio through **one**
+> accessor rather than scattering `audio.channel(c)` through the render path, so that
+> swapping one buffer for N is a contained change rather than a rewrite. Nothing more: no
+> mixer, no stem types, no abstraction with a single implementation.
+
 The core of the plan. Tested entirely with `IdentityStretcher`, so loop-wrap positions are exactly assertable.
 
 **Files:**

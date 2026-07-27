@@ -12,7 +12,34 @@ struct WaveformLanesView: View {
     let model: ViewerModel
     @Environment(\.displayScale) private var displayScale
 
+    /// Everything the overlay draw needs, read once at body level and handed
+    /// down to the `Canvas` closure as a single value — not read piecemeal
+    /// from `model` inside the closure, and not passed as a long parameter
+    /// list either.
+    private struct OverlayState {
+        let channels: Int
+        let selectionRange: FrameRange
+        let viewport: Viewport
+        let hasTrack: Bool
+        let playhead: FrameIndex
+    }
+
     var body: some View {
+        // Read every value the overlay depends on here, at body level, rather
+        // than inside the `Canvas` closure below. SwiftUI's `@Observable`
+        // tracking is only guaranteed for reads that happen while a view's
+        // `body` is being evaluated; a `Canvas` renderer closure runs as part
+        // of the display list, not necessarily under that same tracking scope.
+        // A pure selection change touches none of `body`'s other dependencies
+        // (the bitmap is selection-invariant), so without this the selection
+        // band and channel rules could freeze until an unrelated redraw.
+        let state = OverlayState(
+            channels: model.channels,
+            selectionRange: model.selection.range,
+            viewport: model.viewport,
+            hasTrack: model.hasTrack,
+            playhead: model.playhead)
+
         ZStack(alignment: .topLeading) {
             Palette.panel.color()
 
@@ -27,7 +54,7 @@ struct WaveformLanesView: View {
             }
 
             Canvas(rendersAsynchronously: false) { context, size in
-                draw(in: &context, size: size)
+                draw(in: &context, size: size, state: state)
             }
             .allowsHitTesting(false)
         }
@@ -56,17 +83,18 @@ struct WaveformLanesView: View {
             }
     }
 
-    private func draw(in context: inout GraphicsContext, size: CGSize) {
-        drawChannelRules(in: &context, size: size)
-        drawSelection(in: &context, size: size)
-        drawPlayhead(in: &context, size: size)
-        drawChannelLabels(in: &context, size: size)
+    private func draw(in context: inout GraphicsContext, size: CGSize, state: OverlayState) {
+        drawChannelRules(in: &context, size: size, channels: state.channels)
+        drawSelection(
+            in: &context, size: size, range: state.selectionRange, viewport: state.viewport)
+        drawPlayhead(in: &context, size: size, state: state)
+        drawChannelLabels(in: &context, size: size, channels: state.channels)
     }
 
-    private func drawChannelRules(in context: inout GraphicsContext, size: CGSize) {
-        guard model.channels > 1 else { return }
-        let laneHeight = size.height / Double(model.channels)
-        for lane in 1..<model.channels {
+    private func drawChannelRules(in context: inout GraphicsContext, size: CGSize, channels: Int) {
+        guard channels > 1 else { return }
+        let laneHeight = size.height / Double(channels)
+        for lane in 1..<channels {
             let y = laneHeight * Double(lane)
             context.fill(
                 Path(CGRect(x: 0, y: y, width: size.width, height: 1)),
@@ -74,11 +102,12 @@ struct WaveformLanesView: View {
         }
     }
 
-    private func drawSelection(in context: inout GraphicsContext, size: CGSize) {
-        let range = model.selection.range
+    private func drawSelection(
+        in context: inout GraphicsContext, size: CGSize, range: FrameRange, viewport: Viewport
+    ) {
         guard !range.isEmpty else { return }
-        let startX = model.viewport.pixel(forFrame: range.start)
-        let endX = model.viewport.pixel(forFrame: range.end)
+        let startX = viewport.pixel(forFrame: range.start)
+        let endX = viewport.pixel(forFrame: range.end)
         guard endX > 0, startX < size.width else { return }
 
         let left = max(0, startX)
@@ -96,20 +125,24 @@ struct WaveformLanesView: View {
     }
 
     /// The zoom anchor. Drawn so it is obvious what `E`/`R` pivot around.
-    private func drawPlayhead(in context: inout GraphicsContext, size: CGSize) {
-        guard model.hasTrack, model.selection.isEmpty else { return }
-        let x = model.viewport.pixel(forFrame: model.playhead)
+    private func drawPlayhead(
+        in context: inout GraphicsContext, size: CGSize, state: OverlayState
+    ) {
+        guard state.hasTrack, state.selectionRange.isEmpty else { return }
+        let x = state.viewport.pixel(forFrame: state.playhead)
         guard x >= 0, x <= size.width else { return }
         context.fill(
             Path(CGRect(x: x - 0.5, y: 0, width: 1, height: size.height)),
             with: .color(Palette.accent.color(opacity: 0.9)))
     }
 
-    private func drawChannelLabels(in context: inout GraphicsContext, size: CGSize) {
-        guard model.channels > 0 else { return }
-        let laneHeight = size.height / Double(model.channels)
-        for lane in 0..<model.channels {
-            let text = Text(Self.channelLabel(lane, of: model.channels))
+    private func drawChannelLabels(
+        in context: inout GraphicsContext, size: CGSize, channels: Int
+    ) {
+        guard channels > 0 else { return }
+        let laneHeight = size.height / Double(channels)
+        for lane in 0..<channels {
+            let text = Text(Self.channelLabel(lane, of: channels))
                 .font(Typography.laneLabel)
                 .foregroundStyle(Palette.dimmed.color())
             context.draw(

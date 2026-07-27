@@ -75,6 +75,14 @@ let package = Package(
             name: "ArtscribeApp",
             dependencies: ["ArtscribeUI"],
             swiftSettings: sharedSwiftSettings
+        ),
+        // The scripted acceptance harness (see `AcceptanceRun.swift`). A
+        // separate executable so it never ships inside `ArtscribeApp`: the
+        // product binary should be just the app.
+        .executableTarget(
+            name: "ArtscribeAcceptance",
+            dependencies: ["ArtscribeUI"],
+            swiftSettings: sharedSwiftSettings
         )
     ]
 )

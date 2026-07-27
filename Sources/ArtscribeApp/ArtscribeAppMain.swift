@@ -18,16 +18,15 @@ struct ArtscribeAppMain: App {
             DocumentView(model: model)
                 .frame(minWidth: 720, minHeight: 420)
                 .preferredColorScheme(.dark)
-                .task { await start() }
+                .task { start() }
         }
         .defaultSize(width: 1280, height: 720)
         .commands { ViewerCommands(model: model) }
     }
 
     @MainActor
-    private func start() async {
+    private func start() {
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
-        await AcceptanceRun.runIfRequested(model: model)
     }
 }

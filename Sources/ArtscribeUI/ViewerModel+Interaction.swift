@@ -71,9 +71,17 @@ extension ViewerModel {
 
     /// A drag in the waveform lane. `extending` is shift-drag: it keeps the
     /// existing anchor and moves only the head.
+    ///
+    /// The "is this a new drag" check compares against `startPixel` rather than
+    /// testing `dragOrigin == nil`. `DragGesture.Value.startLocation` is stable
+    /// for the whole lifetime of one drag, so a mismatch always means a new
+    /// gesture started — this is self-correcting even if `dragEnded` never ran
+    /// (a cancelled gesture, or another gesture winning the recognizer race),
+    /// where a nil-only check would leave `dragOrigin` stuck from the previous
+    /// drag and silently extend its selection from a stale anchor.
     public func dragChanged(startPixel: Double, currentPixel: Double, extending: Bool) {
         guard hasTrack else { return }
-        if dragOrigin == nil {
+        if dragOrigin != startPixel {
             dragOrigin = startPixel
             if extending && !selection.isEmpty {
                 // Keep the anchor; the head follows the pointer.
@@ -89,6 +97,10 @@ extension ViewerModel {
     /// Ends a drag. A drag that never really moved is a click: it places the
     /// playhead and clears the selection, and two of them in quick succession
     /// select the whole file.
+    ///
+    /// The `dragOrigin` reset here is a courtesy, not the correctness
+    /// mechanism — see `dragChanged`, which recovers on its own if this never
+    /// runs.
     public func dragEnded(startPixel: Double, endPixel: Double, now: Double) {
         defer { dragOrigin = nil }
         guard hasTrack else { return }
