@@ -73,7 +73,24 @@ enum AcceptanceRun {
         snapshot(to: "\(outputDirectory)/06-error-banner.png")
 
         log.report()
-        exit(log.failures == 0 ? 0 : 1)
+        exit(log.exitCode)
+    }
+
+    /// Why the playhead cannot possibly move in this session, or `nil` when it
+    /// can and therefore must.
+    ///
+    /// The eight checks that measure `model.playhead` while the transport runs
+    /// all need the CoreAudio render thread to be called, and it is not called
+    /// when the HAL has no output device to route to — audio does not render in
+    /// every agent session. That is a fact about the machine, which the app
+    /// already publishes, so it is what gets read here. Deliberately **not**
+    /// derived from the playhead itself: "skip the position checks when the
+    /// position does not move" would pass on any broken build. With a routable
+    /// device present a stationary playhead is still a failure, and still FAILs.
+    @MainActor
+    static func positionChecksAreImpossible(model: ViewerModel) -> String? {
+        guard let notice = model.deviceNotice else { return nil }
+        return "the audio render thread is never called in this session: \(notice)"
     }
 
     // MARK: - Checks

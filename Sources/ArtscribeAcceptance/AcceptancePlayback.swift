@@ -26,11 +26,14 @@ extension AcceptanceRun {
             return
         }
 
-        await checkTransport(model: model, log: &log)
+        let stalled = positionChecksAreImpossible(model: model)
+        log.note("output device", model.deviceNotice ?? "routable")
+
+        await checkTransport(model: model, log: &log, stalled: stalled)
         checkVolume(model: model, log: &log)
-        await checkSpeed(model: model, log: &log)
-        await checkLoop(model: model, log: &log, outputDirectory: outputDirectory)
-        await checkAutoScroll(model: model, log: &log)
+        await checkSpeed(model: model, log: &log, stalled: stalled)
+        await checkLoop(model: model, log: &log, outputDirectory: outputDirectory, stalled: stalled)
+        await checkAutoScroll(model: model, log: &log, stalled: stalled)
         await checkPlaybackMenu(model: model, log: &log)
         checkCounters(model: model, log: &log)
     }
@@ -38,7 +41,9 @@ extension AcceptanceRun {
     // MARK: - Transport
 
     @MainActor
-    private static func checkTransport(model: ViewerModel, log: inout Logger) async {
+    private static func checkTransport(
+        model: ViewerModel, log: inout Logger, stalled: String?
+    ) async {
         press(.space)
         // The trap: `isPlaying` on the engine is not observable until the render
         // thread drains the ring, so the *button* must be true immediately.
@@ -46,17 +51,20 @@ extension AcceptanceRun {
 
         await settle(seconds: 0.6)
         let moved = model.playhead
-        log.check("the playhead advances during playback (\(moved) frames)", moved > 0)
+        log.check(
+            "the playhead advances during playback (\(moved) frames)", moved > 0, unless: stalled)
         await settle(seconds: 0.6)
         let later = model.playhead
-        log.check("the playhead keeps advancing (\(moved) → \(later))", later > moved)
+        log.check(
+            "the playhead keeps advancing (\(moved) → \(later))", later > moved, unless: stalled)
 
         // Real time against source time: at 1.0x they must agree to well within
         // the poll interval. This is the objective form of "the playhead stays
         // synchronised with what you hear".
         let elapsed = Double(later - moved) / model.sampleRate
         log.note("playhead advance over ~0.6 s of wall clock", String(format: "%.3f s", elapsed))
-        log.check("the playhead tracks real time at 1.0x", abs(elapsed - 0.6) < 0.15)
+        log.check(
+            "the playhead tracks real time at 1.0x", abs(elapsed - 0.6) < 0.15, unless: stalled)
 
         press(.space)
         log.check("Space pauses", !model.isPlaying)
@@ -68,7 +76,10 @@ extension AcceptanceRun {
         press(.enter)
         log.check("Return plays from the start", model.isPlaying)
         await settle(seconds: 0.2)
-        log.check("Return moved the position back to zero", model.playhead < paused)
+        // Position-dependent only because `paused` is 0 when nothing ever
+        // rendered, and nothing is less than zero.
+        log.check(
+            "Return moved the position back to zero", model.playhead < paused, unless: stalled)
         press(.space)
         await settle(seconds: 0.1)
     }
@@ -155,7 +166,9 @@ extension AcceptanceRun {
     /// equivalent and a window binding, one press would step twice — so the exact
     /// value after a single press is the evidence, not just "it changed".
     @MainActor
-    private static func checkSpeed(model: ViewerModel, log: inout Logger) async {
+    private static func checkSpeed(
+        model: ViewerModel, log: inout Logger, stalled: String?
+    ) async {
         model.setSpeedPreset(1.0)
         press(.w)
         log.check(
@@ -206,7 +219,9 @@ extension AcceptanceRun {
         await settle(seconds: 0.8)
         let covered = Double(model.playhead - start) / model.sampleRate
         log.note("source covered in ~0.8 s at 50% speed", String(format: "%.3f s", covered))
-        log.check("50% speed advances the playhead at half rate", covered > 0.25 && covered < 0.55)
+        log.check(
+            "50% speed advances the playhead at half rate", covered > 0.25 && covered < 0.55,
+            unless: stalled)
 
         press(.space)
         press(.one)
@@ -217,7 +232,7 @@ extension AcceptanceRun {
 
     @MainActor
     private static func checkLoop(
-        model: ViewerModel, log: inout Logger, outputDirectory: String
+        model: ViewerModel, log: inout Logger, outputDirectory: String, stalled: String?
     ) async {
         model.fitWholeFile()
         model.clearSelection()
@@ -281,7 +296,8 @@ extension AcceptanceRun {
         log.check(
             "the playhead never leaves the loop region (\(outside) samples outside)", outside == 0)
         log.check(
-            "a 4 s loop at 50% speed repeats (\(wraps) wraps observed over 18 s)", wraps >= 2)
+            "a 4 s loop at 50% speed repeats (\(wraps) wraps observed over 18 s)", wraps >= 2,
+            unless: stalled)
         log.check(
             "no render stall at any loop seam",
             model.degradation.stalls == stallsBefore)
@@ -304,7 +320,9 @@ extension AcceptanceRun {
     /// Page-flip, not continuous scrolling: the viewport must be *stationary*
     /// across most polls and move in whole pages when it moves at all.
     @MainActor
-    private static func checkAutoScroll(model: ViewerModel, log: inout Logger) async {
+    private static func checkAutoScroll(
+        model: ViewerModel, log: inout Logger, stalled: String?
+    ) async {
         model.clearLoop()
         model.clearSelection()
         model.fitWholeFile()
@@ -335,14 +353,14 @@ extension AcceptanceRun {
         log.check(
             "the view is stationary between flips, not scrolling continuously",
             jumps <= starts.count / 8)
-        log.check("the view did follow the playhead", distinct > 1)
+        log.check("the view did follow the playhead", distinct > 1, unless: stalled)
         if distinct > 1, let first = starts.first, let last = starts.last {
             let perFlip = (last - first) / FrameIndex(distinct - 1)
             log.check(
                 "each flip moves about a page (\(perFlip) frames vs \(visible) visible)",
-                perFlip > visible / 2)
+                perFlip > visible / 2, unless: stalled)
         } else {
-            log.check("each flip moves about a page", false)
+            log.check("each flip moves about a page", false, unless: stalled)
         }
 
         // Now with a loop that fits: the view must not move at all.
