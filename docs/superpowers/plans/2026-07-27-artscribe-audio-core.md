@@ -3081,6 +3081,63 @@ opposite conventions, so they must be handled differently:
 - [ ] All three theme settings look deliberate, and switching mid-playback re-renders the
       waveform correctly without interrupting audio
 
+---
+
+### Task 14: Navigation nudges and a Settings window
+
+**Context the implementer needs:** the spec's action catalog (§6.2) has documented three
+nudge tiers since day one, but **none of them were ever implemented** — `grep -rn nudge
+Sources/` returns nothing. Task 11's brief omitted them and its review checked against that
+brief rather than the spec, so the gap survived. This task closes it, with the user's
+preferred defaults rather than the spec's original ones.
+
+**Do not add a fourth tier.** The user's "nudge" and "rewind" map onto the existing
+`nudge` and `nudge.coarse` actions with new default values. Retune, don't duplicate.
+
+| Action | Binding | Old spec default | **New default** |
+|---|---|---|---|
+| Nudge fine back/forward | `⇧Z` / `⇧X` | 50 ms | 50 ms (unchanged) |
+| **Nudge** back/forward | `Z` / `X`, `←` / `→` | 0.5 s | **2 s** |
+| **Rewind/Skip** back/forward | `⌥Z` / `⌥X`, `⌥←` / `⌥→` | 5 s | **10 s** |
+
+- [ ] Implement all three tiers on `ViewerModel`, seeking via `PlaybackCommand.seek`.
+- [ ] **Nudging must work whether or not playback is running**, and must not stutter or
+      restart audio when it is. Clamp to `[0, frameCount]`; when a loop is active, decide
+      and document whether a nudge may leave the loop region (recommended: it may, matching
+      Transcribe!, since `F` already exists to jump back into the loop).
+- [ ] Add all six to the **Playback menu** in a Navigation section, each showing its key
+      equivalent, disabled when no track is loaded.
+- [ ] Update spec §6.2's table to the new values so the catalog stops lying.
+
+#### Settings window (⌘,)
+
+- [ ] Use SwiftUI's **`Settings` scene**, which wires ⌘, and the standard
+      "Artscribe → Settings…" menu item automatically. That is the idiomatic macOS route —
+      do not hand-roll a window and a shortcut.
+- [ ] **Playback tab** exposing the three nudge amounts as editable values with sensible
+      units and validation. Reject or clamp nonsense (negative, zero, absurdly large) rather
+      than storing it — a nudge of 0 s silently does nothing, which is the silent-degradation
+      failure this project keeps finding.
+- [ ] Persist via `@AppStorage`/`UserDefaults`, applied live without relaunch, with a
+      **Restore Defaults** control.
+- [ ] **Move Task 13's Theme preference here** if Task 13 has already landed — a Settings
+      window is its natural home and two preference surfaces is one too many. Coordinate:
+      whichever task lands second owns the consolidation.
+- [ ] The menu items' displayed shortcuts must stay correct; only the *amounts* are
+      configurable in this task, not the key bindings themselves. (Full rebindable
+      bindings are the deferred `BindingTable` work — spec §6.3 — not this.)
+
+**Testing:** the amounts, clamping, validation, and seconds→frames conversion are pure and
+must be unit-tested, including at the file's start and end boundaries. The Settings view
+itself is not snapshot-tested, consistent with the project's standing choice.
+
+**Acceptance — verify by running:**
+- [ ] `Z`/`X` move by 2 s, `⌥Z`/`⌥X` by 10 s, `⇧Z`/`⇧X` by 50 ms, both stopped and playing
+- [ ] Nudging near either end of the file clamps instead of misbehaving
+- [ ] ⌘, opens Settings; changing the nudge amount takes effect immediately
+- [ ] Restore Defaults returns 50 ms / 2 s / 10 s
+- [ ] All six navigation items appear in the Playback menu with correct shortcuts
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
