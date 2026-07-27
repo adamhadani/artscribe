@@ -11,7 +11,8 @@ let package = Package(
     name: "Artscribe",
     platforms: [.macOS(.v26)],
     products: [
-        .library(name: "ArtscribeKit", targets: ["ArtscribeKit"])
+        .library(name: "ArtscribeKit", targets: ["ArtscribeKit"]),
+        .executable(name: "artscribe-cli", targets: ["ArtscribeCLI"])
     ],
     targets: [
         .systemLibrary(
@@ -73,12 +74,19 @@ let package = Package(
         ),
         .target(
             name: "ArtscribeUI",
-            dependencies: ["ArtscribeKit", "AudioDecode", "Waveform"],
+            dependencies: ["ArtscribeKit", "AudioDecode", "Waveform", "Playback"],
             swiftSettings: sharedSwiftSettings
         ),
         .testTarget(
             name: "ArtscribeUITests",
             dependencies: ["ArtscribeUI"],
+            swiftSettings: sharedSwiftSettings
+        ),
+        // The debug listening tool: decode, stretch, loop, and play to a chosen
+        // output device, with the render-thread degradation counters reported.
+        .executableTarget(
+            name: "ArtscribeCLI",
+            dependencies: ["ArtscribeKit", "AudioDecode", "TimeStretch", "Playback"],
             swiftSettings: sharedSwiftSettings
         ),
         .executableTarget(

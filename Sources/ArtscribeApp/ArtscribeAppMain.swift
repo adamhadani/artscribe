@@ -1,10 +1,15 @@
 import AppKit
 import ArtscribeUI
+import Playback
 import SwiftUI
 
 @main
 struct ArtscribeAppMain: App {
     @State private var model = ViewerModel()
+    /// Owns the output-device selection for the whole app. It exists before any
+    /// track is loaded and outlives every `AudioOutput`, which is why the
+    /// selection lives here rather than inside the audio graph.
+    @State private var devices = OutputDeviceController(source: CoreAudioDeviceSource())
 
     init() {
         // A SwiftPM executable is not an app bundle, so AppKit starts it as an
@@ -21,7 +26,10 @@ struct ArtscribeAppMain: App {
                 .task { start() }
         }
         .defaultSize(width: 1280, height: 720)
-        .commands { ViewerCommands(model: model) }
+        .commands {
+            ViewerCommands(model: model)
+            PlaybackCommands(devices: devices)
+        }
     }
 
     @MainActor
