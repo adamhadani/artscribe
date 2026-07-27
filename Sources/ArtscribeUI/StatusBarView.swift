@@ -17,7 +17,11 @@ struct StatusBarView: View {
             // Beside the transport, not buried in a menu: the level is something
             // you reach for constantly while transcribing.
             VolumeSliderView(model: model).frame(width: 150, alignment: .leading)
-            field("SPEED", speedText).frame(width: 150, alignment: .leading)
+            // A speed that is not 100% is the one piece of state you can forget
+            // you left on, and it changes what you are hearing, so it is the one
+            // readout that shouts.
+            field("SPEED", speedText, emphasised: SpeedStepping.isAltered(model.speed.ratio))
+                .frame(width: 150, alignment: .leading)
             field("LOOP", loopText).frame(width: 160, alignment: .leading)
             field("SELECTION", selectionText).frame(width: 150, alignment: .leading)
             field("ZOOM", zoom).frame(width: 146, alignment: .leading)
@@ -52,14 +56,17 @@ struct StatusBarView: View {
         }
     }
 
-    private func field(_ label: String, _ value: String) -> some View {
+    /// `emphasised` bolds and colours the *value* only; the eyebrow keeps its own
+    /// dimmed style, so the field still reads as one of a row rather than
+    /// becoming a second heading.
+    private func field(_ label: String, _ value: String, emphasised: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Eyebrow(label)
             Text(value)
-                .font(Typography.readout)
+                .font(emphasised ? Typography.readoutEmphasis : Typography.readout)
                 .lineLimit(1)
         }
-        .foregroundStyle(Palette.text.color())
+        .foregroundStyle(emphasised ? Palette.emphasis.color() : Palette.text.color())
     }
 
     /// Position over length, the way every transport reads it — the length on its

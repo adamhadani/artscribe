@@ -200,6 +200,35 @@ extension AcceptanceRun {
         try? data.write(to: URL(fileURLWithPath: path))
     }
 
+    /// Counts pixels close to `colour` in the bottom `fraction` of the window —
+    /// the status bar band.
+    ///
+    /// Used to prove a *rendered* colour rather than a declared one: the P1
+    /// speed emphasis and the P2 theme both have to reach actual pixels, and
+    /// reading the model back would prove neither. Sampled on a coarse grid,
+    /// which is plenty for "is there any of this colour down there".
+    @MainActor
+    static func pixelCount(near colour: NSColor, bottom fraction: Double) -> Int {
+        guard let wanted = colour.usingColorSpace(.sRGB) else { return 0 }
+        guard let window = NSApp.windows.first, let view = window.contentView,
+            let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)
+        else { return 0 }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        let firstRow = Int(Double(rep.pixelsHigh) * (1 - fraction))
+        var count = 0
+        for y in stride(from: firstRow, to: rep.pixelsHigh, by: 2) {
+            for x in stride(from: 0, to: rep.pixelsWide, by: 3) {
+                guard let pixel = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                let close =
+                    abs(pixel.redComponent - wanted.redComponent) < 0.1
+                    && abs(pixel.greenComponent - wanted.greenComponent) < 0.1
+                    && abs(pixel.blueComponent - wanted.blueComponent) < 0.1
+                if close { count += 1 }
+            }
+        }
+        return count
+    }
+
     static func settle(seconds: Double) async {
         try? await Task.sleep(for: .seconds(seconds))
     }

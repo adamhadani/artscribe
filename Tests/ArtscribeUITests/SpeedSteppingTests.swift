@@ -99,4 +99,41 @@ struct SpeedSteppingTests {
         speed.setRatio(SpeedStepping.presets[3])
         #expect(SpeedStepping.isActive(preset: 0.33, ratio: speed.ratio))
     }
+
+    // MARK: - Emphasis
+
+    /// The status bar shouts about a speed that is not 100%, so the question
+    /// "is this speed altered?" has to be exactly as tolerant as the menu's
+    /// checkmark — otherwise a ratio can be both "100%" in the readout and
+    /// emphasised as if it were not.
+    @Test("100% is not altered, anything else is")
+    func alteredSpeed() {
+        #expect(SpeedStepping.isAltered(1.0) == false)
+        #expect(SpeedStepping.isAltered(0.5) == true)
+        #expect(SpeedStepping.isAltered(1.25) == true)
+        #expect(SpeedStepping.isAltered(0.99) == true)
+    }
+
+    /// A ratio a hair off 1.0 still reads as "100%", so it must not be
+    /// emphasised: the emphasis means something only while it agrees with the
+    /// number beside it.
+    @Test("a ratio that still reads as 100% is not emphasised")
+    func alteredMatchesTheReadout() {
+        let almost = 1.0 + 0.4 / 1000
+        #expect(SpeedStepping.percentLabel(almost) == "100%")
+        #expect(SpeedStepping.isAltered(almost) == false)
+    }
+
+    /// Never degrade silently: a nonsense ratio is not "normal speed".
+    @Test("a non-finite ratio counts as altered")
+    func alteredOnNonFinite() {
+        #expect(SpeedStepping.isAltered(.nan) == true)
+    }
+
+    @Test("every preset but 100% is emphasised")
+    func alteredPresets() {
+        for preset in SpeedStepping.presets {
+            #expect(SpeedStepping.isAltered(preset) == (preset != 1.0))
+        }
+    }
 }

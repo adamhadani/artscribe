@@ -149,6 +149,34 @@ extension AcceptanceRun {
         model.fitWholeFile()
     }
 
+    /// P1: an altered speed is emphasised, and 100% is not.
+    ///
+    /// Counted in rendered pixels of the status-bar band, not read back off the
+    /// model: the whole point of the item is that the emphasis reaches the
+    /// screen. The amber appears nowhere else down there.
+    @MainActor
+    static func checkSpeedEmphasis(
+        model: ViewerModel, log: inout Logger, outputDirectory: String
+    ) async {
+        let amber = NSColor(srgbRed: 240 / 255, green: 163 / 255, blue: 94 / 255, alpha: 1)
+        model.setSpeedPreset(1.0)
+        await settle(seconds: 0.3)
+        let atNormal = pixelCount(near: amber, bottom: 0.05)
+        snapshot(to: "\(outputDirectory)/08-speed-100.png")
+
+        model.setSpeedPreset(0.5)
+        await settle(seconds: 0.3)
+        let atHalf = pixelCount(near: amber, bottom: 0.05)
+        snapshot(to: "\(outputDirectory)/08-speed-50.png")
+
+        log.note("status-bar accent pixels", "100%: \(atNormal), 50%: \(atHalf)")
+        // Sampled on a 3x2 grid over anti-aliased 11 pt text, so the count is
+        // small by construction; what matters is that it is decisively not zero.
+        log.check("the speed readout is emphasised at 50%", atHalf > 15)
+        log.check("the speed readout is plain at 100%", atNormal == 0)
+        model.setSpeedPreset(1.0)
+    }
+
     @MainActor
     static func checkZoomToSelection(model: ViewerModel, log: inout Logger) async {
         let range = model.selection.range

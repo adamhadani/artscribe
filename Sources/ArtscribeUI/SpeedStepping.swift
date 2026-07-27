@@ -50,4 +50,15 @@ public enum SpeedStepping {
         guard preset.isFinite, ratio.isFinite else { return false }
         return abs(preset - ratio) < 0.5 / grid
     }
+
+    /// Whether the speed readout should stand out, i.e. whether playback is
+    /// running at anything but normal speed.
+    ///
+    /// Deliberately the same tolerance as the menu checkmark: a ratio that still
+    /// reads "100%" must not be emphasised, or the emphasis contradicts the
+    /// number beside it and stops meaning anything. A non-finite ratio is
+    /// altered — it is certainly not normal speed, and nothing here hides it.
+    public static func isAltered(_ ratio: Double) -> Bool {
+        !isActive(preset: 1.0, ratio: ratio)
+    }
 }

@@ -43,6 +43,14 @@ enum Palette {
     /// Hairline between panels. Derived from `panel` so the chrome stays in family.
     static let rule = RGB(0x2A_2D34)
 
+    /// A readout that is deliberately not at its default value — currently only
+    /// the speed. Shares the selection's amber on purpose: amber is already this
+    /// palette's "you changed something" colour, and the two never appear in the
+    /// same place (one is a wash over the waveform, the other one word of text).
+    /// Not the accent teal, which is spoken for by the playhead and the playing
+    /// position and would make an altered speed look like a transport state.
+    static let emphasis = selection
+
     static let selectionFillOpacity: Double = 0.13
     static let selectionEdgeWidth: Double = 2
 
@@ -59,6 +67,9 @@ enum Palette {
 /// the playhead or zoom changes; only the file name is set in the prose face.
 enum Typography {
     static let readout = Font.system(size: 11, weight: .medium, design: .monospaced)
+    /// A readout that is not at its default value. Bold as well as coloured:
+    /// colour alone is not a signal everyone can read.
+    static let readoutEmphasis = Font.system(size: 11, weight: .bold, design: .monospaced)
     static let readoutSmall = Font.system(size: 10, weight: .regular, design: .monospaced)
     static let tick = Font.system(size: 9, weight: .medium, design: .monospaced)
     static let laneLabel = Font.system(size: 9, weight: .semibold, design: .monospaced)

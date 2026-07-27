@@ -89,6 +89,11 @@ struct PlaybackMenu: View {
         // `Toggle`, not `Button`: a checkmark is how macOS shows which of a set
         // of mutually exclusive values is active, and it updates live because
         // this is a `View`.
+        // The status bar bolds an altered speed; the matching emphasis here was
+        // tried and does not exist to be had. A SwiftUI menu item on macOS
+        // renders a plain title: `Text(…).fontWeight(.bold)` inside the label
+        // produced an `NSMenuItem` whose `attributedTitle` was still nil, so
+        // nothing reached the screen. The checkmark carries the state instead.
         ForEach(Array(SpeedStepping.presets.enumerated()), id: \.offset) { index, preset in
             Toggle(
                 "\(SpeedStepping.percentLabel(preset)) Speed  (\(index + 1))",
