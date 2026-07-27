@@ -60,6 +60,6 @@ let package = Package(
             name: "TimeStretchTests",
             dependencies: ["TimeStretch"],
             swiftSettings: sharedSwiftSettings
-        ),
+        )
     ]
 )

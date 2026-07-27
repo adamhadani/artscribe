@@ -2385,7 +2385,7 @@ public final class PlaybackEngine: @unchecked Sendable {
             }
 
             // 2. Otherwise feed it more source.
-            if !feedSource() { 
+            if !feedSource() {
                 playing = false
                 playingFlag.store(false, ordering: .relaxed)
                 break

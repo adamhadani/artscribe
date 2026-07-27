@@ -1,0 +1,42 @@
+# Run `make bootstrap` then `pre-commit install` after cloning.
+# These hooks mirror `make check` so CI never tells you something your
+# commit could have told you first.
+default_install_hook_types: [pre-commit]
+fail_fast: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.(flac|wav|mp3|m4a|ogg|opus)$'
+      - id: end-of-file-fixer
+        exclude: '\.(flac|wav|mp3|m4a|ogg|opus)$'
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      # Enforces the project rule that test fixtures stay small. Real audio
+      # (the reference album) must never be committed — it lives behind
+      # $ARTSCRIBE_TEST_MEDIA_DIR instead.
+      - id: check-added-large-files
+        args: [--maxkb=100]
+
+  # swift-format ships inside the Swift 6.3 toolchain — do NOT brew install it.
+  # swiftlint comes from `make bootstrap`.
+  - repo: local
+    hooks:
+      - id: swift-format
+        name: swift-format (lint)
+        entry: swift format lint --strict
+        language: system
+        types: [swift]
+
+      - id: swiftlint
+        name: swiftlint (strict)
+        entry: swiftlint lint --quiet --strict
+        language: system
+        types: [swift]
+        pass_filenames: false
