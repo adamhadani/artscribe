@@ -209,9 +209,9 @@ important detail for a tool whose core use is listening to the same four bars fi
 |---|---|---|
 | `transport.playPause` | `Space` | Play / pause |
 | `transport.returnToStart` | `Return` | To selection start, else 0 |
-| `transport.nudge.back` / `.forward` | `Z` / `X`, `←` / `→` | Nudge 0.5 s |
-| `transport.nudge.back.fine` / `.forward.fine` | `⇧Z` / `⇧X` | Nudge 50 ms |
-| `transport.nudge.back.coarse` / `.forward.coarse` | `⌥Z` / `⌥X` | Nudge 5 s |
+| `transport.nudge.back` / `.forward` | `Z` / `X`, `←` / `→` | Nudge **2 s** (configurable) |
+| `transport.nudge.back.fine` / `.forward.fine` | `⇧Z` / `⇧X` | Nudge 50 ms (configurable) |
+| `transport.nudge.back.coarse` / `.forward.coarse` | `⌥Z` / `⌥X`, `⌥←` / `⌥→` | Rewind/skip **10 s** (configurable) |
 | `loop.setIn` | `A` | Set loop in at playhead |
 | `loop.setOut` | `S` | Set loop out at playhead |
 | `loop.toggle` | `D` | Toggle looping |
@@ -229,8 +229,13 @@ important detail for a tool whose core use is listening to the same four bars fi
 | `selection.clear` | `Esc` | Clear selection |
 | `file.open` | `⌘O` | Open… |
 | `view.toggleInspector` | `⌥⌘I` | Toggle inspector |
+| `volume.up` / `.down` | `↑` / `↓` | Volume ∓5%, linear in amplitude, default 0.5 |
+| `volume.up.fine` / `.down.fine` | `⇧↑` / `⇧↓` | Volume ∓1% |
+| `volume.mute` | `M` | Mute, restoring the prior level |
+| `file.openRecent` | — | File ▸ Open Recent, 8 entries, de-duplicated by resolved path |
+| `view.theme` | — | Light / Dark / System; consolidates into Settings |
 | `help.shortcuts` | `⌘/` | Help sheet |
-| `app.settings` | `⌘,` | Settings |
+| `app.settings` | `⌘,` | Settings — in the **app menu** (Artscribe ▸ Settings…), the macOS convention since Ventura, wired automatically by SwiftUI's `Settings` scene |
 
 **Note on ⇧, which is deliberately inconsistent between the two nudge bindings.** On the
 arrow keys ⇧ *extends the selection*, following the macOS text-editing convention every Mac
