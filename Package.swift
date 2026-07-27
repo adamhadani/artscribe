@@ -26,5 +26,10 @@ let package = Package(
             dependencies: ["CRubberBand"],
             swiftSettings: sharedSwiftSettings
         ),
+        .testTarget(
+            name: "ArtscribeKitTests",
+            dependencies: ["ArtscribeKit"],
+            swiftSettings: sharedSwiftSettings
+        ),
     ]
 )
