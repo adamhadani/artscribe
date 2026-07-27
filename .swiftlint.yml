@@ -1,0 +1,39 @@
+included:
+  - Sources
+  - Tests
+excluded:
+  - .build
+
+analyzer_rules:
+  - unused_import
+
+opt_in_rules:
+  - force_unwrapping
+  - empty_count
+  - explicit_init
+  - first_where
+  - redundant_nil_coalescing
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+
+line_length:
+  warning: 100
+  error: 140
+  ignores_comments: true
+
+identifier_name:
+  # Audio code legitimately uses short names: n, c, b, lo, hi, fpp.
+  min_length: 1
+  excluded: [i, j, k, n, c, b, r, s, v, lo, hi, fpp, dst, src]
+
+function_body_length:
+  warning: 80
+  error: 140
+
+type_body_length:
+  warning: 300
+  error: 450
+
+# The render path deliberately uses unsafe pointer arithmetic.
+force_unwrapping:
+  severity: warning
