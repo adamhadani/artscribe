@@ -51,5 +51,15 @@ let package = Package(
             dependencies: ["Waveform"],
             swiftSettings: sharedSwiftSettings
         ),
+        .target(
+            name: "TimeStretch",
+            dependencies: ["ArtscribeKit", "CRubberBand"],
+            swiftSettings: sharedSwiftSettings
+        ),
+        .testTarget(
+            name: "TimeStretchTests",
+            dependencies: ["TimeStretch"],
+            swiftSettings: sharedSwiftSettings
+        ),
     ]
 )
