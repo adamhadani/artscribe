@@ -109,34 +109,129 @@ import TimeStretch
     #expect(engine.currentFrame == 128)
 }
 
+/// A stretcher handed over already carrying an out-of-range ratio must be *corrected*, not
+/// merely ignored. Sanitizing into `timeRatio` without writing back would leave the
+/// stretcher stretching at the caller's value while the position accounting ran at 1.0.
+@Test func aPreSetOutOfRangeStretcherRatioIsWrittenBack() {
+    let stretcher = IdentityStretcher()
+    stretcher.timeRatio = 100  // far outside SpeedState's range
+    let ring = CommandRing(capacity: 8)
+    let engine = PlaybackEngine(
+        audio: makeRampAudio(frames: 10_000), stretcher: stretcher, ring: ring, maxBlock: 512)
+    #expect(stretcher.timeRatio == 1.0)
+    #expect(engine.rejectedCommandCount == 1)
+}
+
+@Test func aPreSetInRangeStretcherRatioIsLeftAlone() {
+    let stretcher = IdentityStretcher()
+    stretcher.timeRatio = 2.0  // half speed, in range
+    let ring = CommandRing(capacity: 8)
+    let engine = PlaybackEngine(
+        audio: makeRampAudio(frames: 10_000), stretcher: stretcher, ring: ring, maxBlock: 512)
+    #expect(stretcher.timeRatio == 2.0)
+    #expect(engine.rejectedCommandCount == 0)
+}
+
 // MARK: - Real stretcher
+
+private let sineHz = 220.0
+private let sineAmplitude = 0.5
+
+/// The analytic maximum sample-to-sample step of the test sine: `A·2πf/rate`. Every seam
+/// bound below is expressed as a multiple of this rather than as a round number, so the
+/// margin is explicit instead of implied.
+private let analyticStep = Float(sineAmplitude * 2 * Double.pi * sineHz / 44100)  // 0.015672
 
 private func makeSineAudio(frames: Int) -> DecodedAudio {
     let storage = AudioStorage(channels: 1, capacityFrames: frames)
     for i in 0..<frames {
-        storage.pointer(0)[i] = Float(sin(2 * Double.pi * 220 * Double(i) / 44100)) * 0.5
+        storage.pointer(0)[i] =
+            Float(sin(2 * Double.pi * sineHz * Double(i) / 44100) * sineAmplitude)
     }
     return DecodedAudio(
         channels: 1, sampleRate: 44100, frameCount: FrameIndex(frames), storage: storage)
 }
 
+private func worstStep(_ out: [Float]) -> Float {
+    var worst: Float = 0
+    for i in 1..<out.count { worst = max(worst, abs(out[i] - out[i - 1])) }
+    return worst
+}
+
+private func peak(_ out: [Float]) -> Float { out.reduce(0) { max($0, abs($1)) } }
+
+private func rms(_ out: [Float]) -> Double {
+    (out.reduce(0.0) { $0 + Double($1) * Double($1) } / Double(out.count)).squareRoot()
+}
+
+/// Asserts the output really is the test sine and not silence or a fragment of it.
+///
+/// This is not padding. Measured: resetting the stretcher at the boundary of a *short*
+/// loop makes the engine re-prime so often it never emits anything at all — the output is
+/// digital silence, whose worst sample-to-sample step is exactly `0`. A step-only
+/// assertion scores that as the best possible result and passes. The floor is what
+/// actually catches that failure.
+private func expectIsTheSine(_ out: [Float], _ label: String) {
+    #expect(out.allSatisfy { $0.isFinite }, "\(label): non-finite output")
+    #expect(peak(out) > 0.45, "\(label): peak \(peak(out)) — output is not the sine")
+    #expect(rms(out) > 0.30, "\(label): rms \(rms(out)) — output is not the sine")
+}
+
+/// The single most important property in the product: looping the same passage fifty
+/// times must not tick even once.
+///
+/// The loop is **exactly 110 cycles** of 220 Hz, so a perfect engine emits an unbroken
+/// sine and any step above the sine's own is attributable to the engine alone. That is
+/// what buys the tight bound: measured worst step is **0.015690**, against an analytic
+/// step of 0.015672 — the engine contributes **0.1%**. The bound is set at 2× analytic
+/// (0.031), leaving 2× headroom while still failing a 0.05 tick that a looser threshold
+/// would wave through. `rubberBandLoopDoesNotAmplifyADiscontinuousSeam` covers the case
+/// this fixture cannot: a seam the source itself breaks.
 @Test func rubberBandLoopProducesNoDiscontinuityAtTheSeam() {
-    // A real stretcher over a smooth sine: the loop seam must not click.
     let ring = CommandRing(capacity: 16)
     let engine = PlaybackEngine(
         audio: makeSineAudio(frames: 44100),
         stretcher: RubberBandStretcher(engine: .studio),
         ring: ring, maxBlock: 512)
-    ring.push(.setLoop(FrameRange(start: 0, count: 22050), true))
+    ring.push(.setLoop(FrameRange(start: 0, count: 22050), true))  // 110 whole cycles
     ring.push(.setPlaying(true))
 
     let out = render(engine, frames: 88200)
-    #expect(out.allSatisfy { $0.isFinite })
+    expectIsTheSine(out, "seam")
     #expect(engine.renderStallCount == 0)
-    // No sample-to-sample jump larger than a fifth of full scale.
-    var worst: Float = 0
-    for i in 1..<out.count { worst = max(worst, abs(out[i] - out[i - 1])) }
-    #expect(worst < 0.2, "loop seam discontinuity of \(worst)")
+    let worst = worstStep(out)
+    #expect(worst < 2 * analyticStep, "loop seam discontinuity of \(worst)")
+}
+
+/// A loop whose length is *not* a whole number of cycles: the source seam is genuinely
+/// broken, as it is for any real musical passage, so the stretcher has real work to do
+/// and cannot be flattered by a phase-aligned fixture.
+///
+/// The engine cannot remove the source's own discontinuity, so the assertion is that it
+/// does not *amplify* it. Measured: source seam step 0.14056, output worst step 0.14011 —
+/// the engine reproduces it slightly smoothed (0.997×), adding nothing.
+@Test func rubberBandLoopDoesNotAmplifyADiscontinuousSeam() {
+    let audio = makeSineAudio(frames: 44100)
+    let loopLength = 4001  // 19.96 cycles — deliberately not a whole number
+    let sourceSeamStep = abs(audio.channel(0)[0] - audio.channel(0)[loopLength - 1])
+    // Guards the fixture against silently degenerating into the phase-aligned case above
+    // if anyone edits `loopLength` or the frequency.
+    #expect(sourceSeamStep > 5 * analyticStep, "fixture seam is not discontinuous")
+
+    let ring = CommandRing(capacity: 16)
+    let engine = PlaybackEngine(
+        audio: audio, stretcher: RubberBandStretcher(engine: .studio),
+        ring: ring, maxBlock: 512)
+    ring.push(.setLoop(FrameRange(start: 0, count: FrameIndex(loopLength)), true))
+    ring.push(.setPlaying(true))
+
+    let out = render(engine, frames: 88200)
+    expectIsTheSine(out, "discontinuous seam")
+    #expect(engine.renderStallCount == 0)
+    let worst = worstStep(out)
+    #expect(
+        worst < sourceSeamStep * 1.1,
+        "engine amplified the seam: \(worst) vs source \(sourceSeamStep)")
 }
 
 /// With a real stretcher's latency the reported position must stay behind the feed

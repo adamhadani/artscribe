@@ -6,15 +6,13 @@ import TimeStretch
 /// Pulls source frames through a `TimeStretcher` and writes rendered output.
 ///
 /// `render` runs on the CoreAudio render thread: no allocation, no locks, no ARC, no
-/// Foundation collections. Every reference type the render path would otherwise touch
+/// Foundation collections. Every reference type it would otherwise touch
 /// (`DecodedAudio.storage`, the scratch `AudioStorage`s) has its channel pointers hoisted
-/// into flat C-style tables at `init` time, so `render` sees nothing but pointers,
-/// `Int64`s and `Double`s.
+/// into flat C-style tables at `init` time, so `render` sees only pointers and scalars.
 ///
 /// All mutable playback state is owned by the render thread. The main actor communicates
 /// in one direction through `CommandRing` and reads back through atomics it polls.
 public final class PlaybackEngine: @unchecked Sendable {
-
     // MARK: Immutable configuration
 
     /// Held for the lifetime of the channel pointers in `sourceChannels`. **Never read on
@@ -92,7 +90,16 @@ public final class PlaybackEngine: @unchecked Sendable {
         stretcher.configure(
             sampleRate: audio.sampleRate, channels: audio.channels, maxBlock: maxBlock)
         primingRemaining = stretcher.startDelay
-        timeRatio = Self.sanitize(stretcher.timeRatio) ?? 1.0
+        // Write the sanitized value **back**: otherwise the stretcher would run at the
+        // caller's out-of-range ratio while `pendingOutput` accounted at 1.0, drifting the
+        // position by exactly that factor — silently, which is what `sanitize` prevents.
+        if let sane = Self.sanitize(stretcher.timeRatio) {
+            timeRatio = sane
+        } else {
+            timeRatio = 1.0
+            rejectedCounter.wrappingAdd(1, ordering: .relaxed)
+        }
+        stretcher.timeRatio = timeRatio
     }
 
     deinit {
@@ -117,20 +124,40 @@ public final class PlaybackEngine: @unchecked Sendable {
     public var isPlaying: Bool { playingFlag.load(ordering: .relaxed) }
 
     /// Number of render blocks that could not be filled because the stretcher stopped
-    /// making progress. The render thread cannot throw, log, or block, so a monotonic
-    /// counter for the UI to poll is how "never degrade silently" (spec §8) is honoured
-    /// here: the block is silence-filled, but the silence is never unaccounted for.
+    /// making progress. The render thread cannot throw, log, or block, so a counter for
+    /// the UI to poll is how "never degrade silently" (spec §8) is honoured here: the
+    /// block is silence-filled, but the silence is never unaccounted for.
+    ///
+    /// **A stall does not stop playback**, deliberately: a transient one should recover on
+    /// the next block rather than dumping the user out of transport. The consequence is
+    /// that a *permanent* stall presents as "playing, playhead frozen, silence, forever" —
+    /// `isPlaying` stays true and `currentFrame` stops advancing. Whatever surfaces this
+    /// counter is therefore reporting a condition the engine will not clear by itself, and
+    /// a rising count during playback is the only signal the user will get.
     public var renderStallCount: UInt64 { stallCounter.load(ordering: .relaxed) }
 
-    /// Number of commands the render thread refused to apply verbatim — today only
-    /// out-of-range or non-finite time ratios. `SpeedState` is the real gate; this counter
-    /// exists so a gate failure surfaces instead of quietly changing the speed.
+    /// Number of time ratios refused rather than applied — non-finite, or outside
+    /// `SpeedState`'s range expressed as a time ratio. Counts both `setTimeRatio` commands
+    /// and a ratio the stretcher was already carrying at `init`.
+    ///
+    /// `SpeedState` is the real gate. This counter exists so that a gate failure surfaces
+    /// as a visible anomaly instead of quietly playing at the wrong speed.
     public var rejectedCommandCount: UInt64 { rejectedCounter.load(ordering: .relaxed) }
 
     // MARK: - Render thread
 
     /// Render thread entry point. Returns frames written; always fills `frames`, with
     /// silence wherever there is nothing to play.
+    ///
+    /// - Parameters:
+    ///   - output: A table of per-channel write pointers. **Must point to at least
+    ///     `audio.channels` entries** — every entry in `0..<audio.channels` is read. This
+    ///     is unchecked: the render thread cannot afford a bounds check and has no way to
+    ///     report a violation, so a shorter table reads out of bounds. Individual entries
+    ///     may be `nil`; that channel is skipped and its output discarded, which keeps the
+    ///     other channels' frame counts correct.
+    ///     Each non-`nil` entry must have room for `frames` values.
+    ///   - frames: Frames to produce. Zero is legal and is a no-op returning 0.
     public func render(
         into output: UnsafeMutablePointer<UnsafeMutablePointer<Float>?>, frames: Int
     ) -> Int {
@@ -175,8 +202,7 @@ public final class PlaybackEngine: @unchecked Sendable {
             if ready > 0 {
                 if primingRemaining > 0 {
                     // Discard start-delay padding into scratch. `got` is subtracted
-                    // honestly: a zero return is a stalled stretcher, not an excuse to
-                    // pretend one frame of priming went away.
+                    // honestly: a zero return is a stall, not an excuse to fake progress.
                     let want = min(min(ready, primingRemaining), maxBlock)
                     let got = stretcher.retrieve(UnsafePointer(scratchChannels), frames: want)
                     if got <= 0 {
@@ -331,21 +357,20 @@ public final class PlaybackEngine: @unchecked Sendable {
     /// The audible source position (spec §5): where the listener is, not where the feed
     /// cursor is.
     ///
-    /// `readCursor` runs ahead of the sound by whatever the stretcher is still holding.
-    /// `pendingOutput` tracks exactly that backlog in *output* frames — incremented by
+    /// `readCursor` runs ahead of the sound by whatever the stretcher still holds.
+    /// `pendingOutput` tracks that backlog in *output* frames — incremented by
     /// `producedFrames × timeRatio` on every feed, decremented by every frame retrieved —
-    /// so dividing it by `timeRatio` converts it back to source frames and rewinding the
+    /// so dividing by `timeRatio` converts it back to source frames, and rewinding the
     /// cursor by that much lands on the next frame to be heard. Start-delay priming is
-    /// excluded by construction: those frames are discarded without touching
-    /// `pendingOutput`, because they correspond to no source at all.
+    /// excluded by construction: it is discarded without touching `pendingOutput`, because
+    /// it corresponds to no source at all.
     ///
-    /// Exact whenever `timeRatio` is constant. A ratio change makes the in-flight backlog
-    /// briefly mis-scaled (it was produced at the old ratio), an error bounded by one
-    /// stretcher backlog that drains within a block or two.
+    /// Exact whenever `timeRatio` is constant. A ratio change leaves the in-flight backlog
+    /// briefly mis-scaled (produced at the old ratio), an error bounded by one backlog that
+    /// drains within a block or two.
     ///
-    /// This is the position at the end of the block just rendered. The additional offset
-    /// between that block and the DAC belongs to the output layer, which knows the device
-    /// buffer size; this engine does not.
+    /// This is the position at the end of the block just rendered; the further offset to
+    /// the DAC belongs to the output layer, which knows the device buffer size.
     private func audiblePosition() -> FrameIndex {
         guard pendingOutput.isFinite, pendingOutput > 0, timeRatio > 0 else {
             return clampToFile(readCursor)
