@@ -3,6 +3,14 @@ import CRubberBand
 
 /// Wraps the Rubber Band C API behind `TimeStretcher`. R3 "Finer" (`.studio`) is the
 /// quality core of the product; R2 "Faster" (`.fast`) trades quality for headroom.
+///
+/// That trade-off is measured, not assumed: `StretchQualityTests.halfSpeedPreservesPitch`
+/// holds `.studio` to within a couple of cents of true pitch and `.fast` to within ~30
+/// cents, because R2's phase vocoder genuinely drifts pitch by a frequency- and
+/// ratio-dependent amount (measured up to ~26 cents) that R3 does not exhibit. See that
+/// test's doc comment for the full measured table. This is intentionally asymmetric —
+/// widening `.studio`'s bound to match would hide a real regression in the engine this
+/// whole product exists to showcase.
 public final class RubberBandStretcher: TimeStretcher {
     private var state: RubberBandState?
     private let engine: StretchEngine
@@ -24,6 +32,10 @@ public final class RubberBandStretcher: TimeStretcher {
             : RubberBandOptionEngineFaster.rawValue
         let opts = RubberBandOptions(RubberBandOptionProcessRealTime.rawValue | engineFlag)
         let newState = rubberband_new(UInt32(sampleRate), UInt32(channels), opts, pendingRatio, 1.0)
+        // Not expected to fail under normal parameters (there's no documented
+        // failure mode for rubberband_new), but proceeding silently on a null
+        // state would contradict "never degrade silently" — fail loudly instead.
+        precondition(newState != nil, "rubberband_new returned a null state")
         state = newState
         // Pre-size so process()/retrieve() never allocate on the render thread.
         rubberband_set_max_process_size(newState, UInt32(maxBlock))
@@ -37,7 +49,9 @@ public final class RubberBandStretcher: TimeStretcher {
         }
     }
 
-    /// Output frames of priming to discard after configure/reset. 2048 for R3 at 44.1 kHz.
+    /// Output frames of priming to discard after configure/reset. Measured at 44.1 kHz in
+    /// real-time mode: 2048 for `.studio` (R3), 1024 for `.fast` (R2). Both are non-zero and
+    /// both must be compensated the same way; only the magnitude differs between engines.
     public var startDelay: Int {
         guard let state else { return 0 }
         return Int(rubberband_get_start_delay(state))
