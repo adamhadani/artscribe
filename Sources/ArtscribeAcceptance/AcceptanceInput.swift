@@ -4,40 +4,57 @@ import Foundation
 /// Event synthesis, window capture and reporting for `AcceptanceRun`.
 extension AcceptanceRun {
 
-    enum Key {
-        case e, r, z, x, escape, zero, nine
+    /// One synthesised keystroke.
+    ///
+    /// `characters` is what the keyboard would actually produce with the
+    /// modifiers applied — including the dead-key composition for `⌥E`, which is
+    /// the whole reason the window's handler reads `KeyPress.key` rather than
+    /// `KeyPress.characters`. Getting that wrong here would test a keyboard
+    /// nobody has.
+    struct Key {
+        let code: UInt16
+        let characters: String
+        let charactersIgnoringModifiers: String
+        let modifiers: NSEvent.ModifierFlags
 
-        var code: UInt16 {
-            switch self {
-            case .e: return 14
-            case .r: return 15
-            case .z: return 6
-            case .x: return 7
-            case .escape: return 53
-            case .zero: return 29
-            case .nine: return 25
-            }
+        init(
+            _ code: UInt16, _ characters: String, ignoring: String? = nil,
+            modifiers: NSEvent.ModifierFlags = []
+        ) {
+            self.code = code
+            self.characters = characters
+            self.charactersIgnoringModifiers = ignoring ?? characters
+            self.modifiers = modifiers
         }
 
-        var characters: String {
-            switch self {
-            case .e: return "e"
-            case .r: return "r"
-            case .z: return "z"
-            case .x: return "x"
-            case .escape: return "\u{1B}"
-            case .zero: return "0"
-            case .nine: return "9"
-            }
-        }
+        static let e = Key(14, "e")
+        static let r = Key(15, "r")
+        static let z = Key(6, "z")
+        static let x = Key(7, "x")
+        static let escape = Key(53, "\u{1B}")
+        /// `⌘0` and `⌘9` are menu key equivalents; the rest are plain.
+        static let zero = Key(29, "0", modifiers: .command)
+        static let nine = Key(25, "9", modifiers: .command)
 
-        /// `Cmd-0` and `Cmd-9` are menu key equivalents; the rest are plain.
-        var modifiers: NSEvent.ModifierFlags {
-            switch self {
-            case .zero, .nine: return .command
-            default: return []
-            }
-        }
+        static let space = Key(49, " ")
+        static let enter = Key(36, "\r")
+        static let q = Key(12, "q")
+        static let w = Key(13, "w")
+        static let a = Key(0, "a")
+        static let s = Key(1, "s")
+        static let d = Key(2, "d")
+        static let f = Key(3, "f")
+        static let g = Key(5, "g")
+        static let one = Key(18, "1")
+        static let two = Key(19, "2")
+        static let three = Key(20, "3")
+        static let four = Key(21, "4")
+
+        static let shiftW = Key(13, "W", modifiers: .shift)
+        static let shiftQ = Key(12, "Q", modifiers: .shift)
+        /// On a US layout ⌥E is the acute-accent dead key, so `characters` is the
+        /// combining accent and only `charactersIgnoringModifiers` says "e".
+        static let optionE = Key(14, "\u{301}", ignoring: "e", modifiers: .option)
     }
 
     @MainActor
@@ -53,7 +70,7 @@ extension AcceptanceRun {
                     windowNumber: window.windowNumber,
                     context: nil,
                     characters: key.characters,
-                    charactersIgnoringModifiers: key.characters,
+                    charactersIgnoringModifiers: key.charactersIgnoringModifiers,
                     isARepeat: false,
                     keyCode: key.code)
             else { continue }

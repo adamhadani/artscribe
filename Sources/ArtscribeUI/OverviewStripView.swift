@@ -16,6 +16,8 @@ struct OverviewStripView: View {
         let viewport: Viewport
         let totalFrames: FrameIndex
         let selectionRange: FrameRange
+        let loop: LoopRegion
+        let playhead: FrameIndex
     }
 
     var body: some View {
@@ -27,7 +29,9 @@ struct OverviewStripView: View {
             hasTrack: model.hasTrack,
             viewport: model.viewport,
             totalFrames: model.totalFrames,
-            selectionRange: model.selection.range)
+            selectionRange: model.selection.range,
+            loop: model.loop,
+            playhead: model.playhead)
 
         ZStack(alignment: .topLeading) {
             Palette.panel.color()
@@ -88,6 +92,33 @@ struct OverviewStripView: View {
 
         drawSelection(
             in: &context, size: size, total: state.totalFrames, range: state.selectionRange)
+        drawLoop(in: &context, size: size, total: state.totalFrames, loop: state.loop)
+        drawPlayhead(in: &context, size: size, total: state.totalFrames, frame: state.playhead)
+    }
+
+    /// The loop, so that a region set while zoomed in is still findable after you
+    /// zoom back out to the whole file.
+    private func drawLoop(
+        in context: inout GraphicsContext, size: CGSize, total: FrameIndex, loop: LoopRegion
+    ) {
+        guard !loop.range.isEmpty else { return }
+        let left = PixelMapping.overviewPixel(
+            forFrame: loop.range.start, totalFrames: total, width: size.width)
+        let right = PixelMapping.overviewPixel(
+            forFrame: loop.range.end, totalFrames: total, width: size.width)
+        let opacity = loop.isEnabled ? 1.0 : Palette.loopDisabledOpacity
+        context.fill(
+            Path(CGRect(x: left, y: 0, width: max(1, right - left), height: 3)),
+            with: .color(Palette.loop.color(opacity: opacity)))
+    }
+
+    private func drawPlayhead(
+        in context: inout GraphicsContext, size: CGSize, total: FrameIndex, frame: FrameIndex
+    ) {
+        let x = PixelMapping.overviewPixel(forFrame: frame, totalFrames: total, width: size.width)
+        context.fill(
+            Path(CGRect(x: x - 0.5, y: 0, width: 1, height: size.height)),
+            with: .color(Palette.accent.color()))
     }
 
     private func drawSelection(

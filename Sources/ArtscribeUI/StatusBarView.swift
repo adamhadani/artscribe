@@ -1,22 +1,29 @@
 import ArtscribeKit
 import SwiftUI
 
-/// The bottom readout. Every value is monospaced and every field keeps its slot,
-/// so nothing shifts sideways while you zoom.
+/// The bottom readout, which doubles as the transport bar (spec §8: degraded
+/// state is indicated here). Every value is monospaced and every field keeps its
+/// slot, so nothing shifts sideways while you zoom or while the playhead runs.
 struct StatusBarView: View {
     let model: ViewerModel
 
     var body: some View {
         // Fixed column widths, not intrinsic ones: the zoom readout swings from
         // "19822 f/px" to "1.28 f/px" as you zoom, and a shifting column drags
-        // every field to its right along with it.
-        HStack(alignment: .firstTextBaseline, spacing: 22) {
-            field("FORMAT", format).frame(width: 130, alignment: .leading)
-            field("LENGTH", length).frame(width: 82, alignment: .leading)
-            field("ZOOM", zoom).frame(width: 190, alignment: .leading)
-            field("SELECTION", selectionText)
-            Spacer(minLength: 12)
-            if let seconds = model.lastLoadSeconds {
+        // every field to its right along with it. The position readout is the
+        // worst offender of all, changing sixty times a second.
+        HStack(alignment: .firstTextBaseline, spacing: 18) {
+            transport.frame(width: 172, alignment: .leading)
+            field("SPEED", speedText).frame(width: 152, alignment: .leading)
+            field("LOOP", loopText).frame(width: 166, alignment: .leading)
+            field("SELECTION", selectionText).frame(width: 158, alignment: .leading)
+            field("ZOOM", zoom).frame(width: 148, alignment: .leading)
+            field("FORMAT", format).frame(width: 112, alignment: .leading)
+            Spacer(minLength: 8)
+            if let warning {
+                field("DEGRADED", warning)
+                    .foregroundStyle(Palette.danger.color())
+            } else if let seconds = model.lastLoadSeconds {
                 field("LOADED IN", String(format: "%.2f s", seconds))
             }
         }
@@ -29,13 +36,56 @@ struct StatusBarView: View {
         }
     }
 
+    /// Position and play state together, because they are read together: the
+    /// triangle says whether the number is moving.
+    private var transport: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Eyebrow(model.isPlaying ? "▶ PLAYING" : "■ POSITION")
+            Text(positionText)
+                .font(Typography.readout)
+                .monospacedDigit()
+                .foregroundStyle(
+                    model.isPlaying ? Palette.accent.color() : Palette.text.color())
+        }
+    }
+
     private func field(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Eyebrow(label)
             Text(value)
                 .font(Typography.readout)
-                .foregroundStyle(Palette.text.color())
+                .lineLimit(1)
         }
+        .foregroundStyle(Palette.text.color())
+    }
+
+    /// Position over length, the way every transport reads it — the length on its
+    /// own (which is what this field used to show) is the less useful half.
+    private var positionText: String {
+        guard let audio = model.audio else { return "—" }
+        let position = TimeCode.precise(frames: model.playhead, sampleRate: audio.sampleRate)
+        return "\(position) / \(TimeCode.coarse(seconds: audio.duration))"
+    }
+
+    /// Speed and engine, and the fact that the graph is resampling if it is —
+    /// not a failure, but the user is entitled to know it is happening.
+    private var speedText: String {
+        var text = "\(SpeedStepping.percentLabel(model.speed.ratio)) · \(engineLabel)"
+        if model.isResampling { text += " · SRC" }
+        return text
+    }
+
+    private var engineLabel: String {
+        model.speed.engine == .studio ? "studio" : "fast"
+    }
+
+    private var loopText: String {
+        let range = model.loop.range
+        guard model.hasTrack, !range.isEmpty else { return "none" }
+        let span = TimeCode.precise(
+            seconds: TimeCode.seconds(frames: range.count, sampleRate: model.sampleRate))
+        let start = TimeCode.coarse(frames: range.start, sampleRate: model.sampleRate)
+        return "\(model.loop.isEnabled ? "on" : "off") · \(span) @ \(start)"
     }
 
     private var format: String {
@@ -43,11 +93,6 @@ struct StatusBarView: View {
         let rate = (model.sampleRate / 1000).rounded(.toNearestOrEven)
         let layout = model.channels == 2 ? "stereo" : "\(model.channels) ch"
         return "\(Int(rate)) kHz · \(layout)"
-    }
-
-    private var length: String {
-        guard let audio = model.audio else { return "—" }
-        return TimeCode.precise(seconds: audio.duration)
     }
 
     private var zoom: String {
@@ -62,10 +107,13 @@ struct StatusBarView: View {
         let range = model.selection.range
         guard model.hasTrack, !range.isEmpty else { return "none" }
         let rate = model.sampleRate
-        let start = TimeCode.precise(frames: range.start, sampleRate: rate)
-        let end = TimeCode.precise(frames: range.end, sampleRate: rate)
+        let start = TimeCode.coarse(frames: range.start, sampleRate: rate)
         let span = TimeCode.precise(
             seconds: TimeCode.seconds(frames: range.count, sampleRate: rate))
-        return "\(start)–\(end)  (\(span))"
+        return "\(span) @ \(start)"
     }
+
+    /// The render-thread counters. Stays on screen once it has appeared: these
+    /// are monotonic, and a stall that has happened does not un-happen.
+    private var warning: String? { model.degradation.summary }
 }

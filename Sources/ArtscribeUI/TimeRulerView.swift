@@ -18,6 +18,8 @@ struct TimeRulerView: View {
         let viewport = model.viewport
         let sampleRate = model.sampleRate
         let selectionRange = model.selection.range
+        let loop = model.loop
+        let playhead = model.playhead
 
         Canvas(rendersAsynchronously: false) { context, size in
             context.fill(
@@ -49,10 +51,41 @@ struct TimeRulerView: View {
                 }
             }
 
+            drawLoopMarkers(in: &context, size: size, loop: loop, viewport: viewport)
             drawSelectionMarkers(
                 in: &context, size: size, range: selectionRange, viewport: viewport)
+            drawPlayhead(in: &context, size: size, frame: playhead, viewport: viewport)
         }
         .frame(height: 24)
+    }
+
+    /// The loop shown as a bar spanning the region, so the in and out points stay
+    /// findable when the lanes are busy — the same job the selection markers do.
+    private func drawLoopMarkers(
+        in context: inout GraphicsContext, size: CGSize, loop: LoopRegion, viewport: Viewport
+    ) {
+        guard !loop.range.isEmpty else { return }
+        let startX = viewport.pixel(forFrame: loop.range.start)
+        let endX = viewport.pixel(forFrame: loop.range.end)
+        guard endX > 0, startX < size.width else { return }
+        let opacity = loop.isEnabled ? 1.0 : Palette.loopDisabledOpacity
+        let left = max(0, startX)
+        let width = max(1, min(size.width, endX) - left)
+        context.fill(
+            Path(CGRect(x: left, y: 0, width: width, height: 3)),
+            with: .color(Palette.loop.color(opacity: opacity)))
+    }
+
+    /// The playhead marker. Drawn last so it is never hidden under a loop bar or
+    /// a selection post.
+    private func drawPlayhead(
+        in context: inout GraphicsContext, size: CGSize, frame: FrameIndex, viewport: Viewport
+    ) {
+        let x = viewport.pixel(forFrame: frame)
+        guard x >= 0, x <= size.width else { return }
+        context.fill(
+            Path(CGRect(x: x - 1, y: 0, width: 2, height: size.height)),
+            with: .color(Palette.accent.color()))
     }
 
     /// The selection edges repeat on the ruler so the in/out points stay findable

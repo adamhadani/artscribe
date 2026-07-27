@@ -56,6 +56,10 @@ enum AcceptanceRun {
         await settle(seconds: 0.2)
         snapshot(to: "\(outputDirectory)/04-zoom-to-selection.png")
 
+        await checkPlayback(model: model, log: &log, outputDirectory: outputDirectory)
+        await settle(seconds: 0.2)
+        snapshot(to: "\(outputDirectory)/07-playback.png")
+
         await checkResize(model: model, log: &log)
         await settle(seconds: 0.3)
         snapshot(to: "\(outputDirectory)/05-resized.png")
@@ -187,18 +191,26 @@ enum AcceptanceRun {
     private static func checkSelection(model: ViewerModel, log: inout Logger) async {
         model.fitWholeFile()
         let expected = PixelMapping.range(fromPixel: 200, toPixel: 520, in: model.viewport)
-        let viaPointer = NSApp.keyWindow != nil
-        if viaPointer {
-            await mouseDrag(fromX: 200, toX: 520)
-        } else {
-            log.note(
-                "pointer events",
-                "unavailable: the screen is locked, so no window can become key")
+        // Try real pointer events first. They reach SwiftUI's gesture machinery
+        // only sometimes — Task 10 established that a window that is not key
+        // refuses them outright, and that hit-testing the hosting view and
+        // calling `mouseDown(with:)` does not always reach the `DragGesture`
+        // either. Rather than reporting that as a product failure, the run falls
+        // back to the entry points the gesture calls and says which path it took.
+        if NSApp.keyWindow != nil { await mouseDrag(fromX: 200, toX: 520) }
+        var viaPointer = !model.selection.range.isEmpty
+        if !viaPointer {
             model.dragChanged(startPixel: 200, currentPixel: 200, extending: false)
             model.dragChanged(startPixel: 200, currentPixel: 520, extending: false)
             model.dragEnded(
                 startPixel: 200, endPixel: 520, now: ProcessInfo.processInfo.systemUptime)
+            viaPointer = false
         }
+        log.note(
+            "drag path",
+            viaPointer
+                ? "real pointer events"
+                : "model entry points (synthetic pointer events did not reach the gesture)")
         let range = model.selection.range
         log.check(
             viaPointer ? "pointer drag selects a range" : "drag selects a range (via model)",

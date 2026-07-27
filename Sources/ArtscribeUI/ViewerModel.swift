@@ -3,6 +3,7 @@ import AudioDecode
 import CoreGraphics
 import Foundation
 import Observation
+import Playback
 import Waveform
 
 /// Everything the viewer window shows, and every action it can perform.
@@ -60,9 +61,44 @@ public final class ViewerModel {
     /// view layer cannot move the view without going past `refresh()`.
     public internal(set) var viewport = Viewport(totalFrames: 0, widthPixels: 1)
     public internal(set) var selection = Selection()
-    /// Stand-in for the playhead until Task 8 gives us a real one. Zoom anchors
-    /// here, so the frame under the cursor stays put as you zoom.
+    /// The audible position. Written by `seek(to:)` for a user action and by the
+    /// display-link poll of `PlaybackEngine.currentFrame` during playback — never
+    /// pushed from the audio thread. Zoom anchors here, so the frame under the
+    /// cursor stays put as you zoom.
     public internal(set) var playhead: FrameIndex = 0
+
+    // MARK: - Playback state
+    //
+    // See `ViewerModel+Playback` for the actions that maintain these. The stored
+    // properties live here because Swift has no stored properties in extensions.
+
+    public internal(set) var speed = SpeedState()
+    public internal(set) var loop = LoopRegion()
+    /// Spec §8 in the transport: an output that could not be opened, a route
+    /// change, a stall, or a rejected command. Shown as an inline banner, never a
+    /// modal, and never cleared by anything but the user.
+    public internal(set) var playbackNotice: String?
+    /// The render-thread counters, polled alongside the playhead.
+    public internal(set) var degradation = DegradationCounts()
+
+    /// What the *user* asked for, not `PlaybackEngine.isPlaying` — see
+    /// `TransportLatch` for why reading the engine directly is a trap.
+    public var isPlaying: Bool { transport.isPlaying }
+    /// False when there is a track but no working audio graph, which is what the
+    /// menu greys out on.
+    public var canPlay: Bool { session != nil }
+    /// True when the graph is resampling between the file and the device. Not a
+    /// failure, but the user is entitled to know (spec §8).
+    public var isResampling: Bool { session?.output.needsSampleRateConversion() ?? false }
+
+    var transport = TransportLatch()
+    var session: PlaybackSession?
+    /// Set when the engine stopped by itself at end of file. Distinguishes "the
+    /// file ran out" from "the user pressed pause", which is what keeps the play
+    /// button from flickering when play is pressed at the end.
+    var reachedEnd = false
+    @ObservationIgnored var devices: OutputDeviceController?
+    @ObservationIgnored let clock = PlayheadClock()
 
     /// Written only by `refresh()` in `ViewerModel+Rendering`, which is why the
     /// setter is module-internal rather than private.
@@ -173,17 +209,24 @@ public final class ViewerModel {
 
     private func adopt(_ loaded: LoadedTrack, url: URL, startedAt: Date, token: Int) {
         guard token == loadToken else { return }
+        teardownSession()
         audio = loaded.audio
         pyramid = loaded.pyramid
         fileName = url.lastPathComponent
         generation += 1
         selection.clear()
+        // Speed and engine deliberately survive a load — they are a working
+        // preference, not a property of the file — but the loop cannot: its
+        // frames mean nothing in a different recording.
+        loop = LoopRegion()
         playhead = 0
+        reachedEnd = false
         isLoading = false
         progress = 1
         loadPhase = nil
         viewport = Viewport(totalFrames: loaded.audio.frameCount, widthPixels: lanePointWidth)
         refresh()
+        openSession(for: loaded.audio)
         // Measured through to the rasterised bitmap, not just the decode, so the
         // readout answers "how long until I saw the waveform" (spec §1.2).
         lastLoadSeconds = Date().timeIntervalSince(startedAt)
@@ -239,7 +282,9 @@ public final class ViewerModel {
         fileName = "test-track"
         generation += 1
         selection.clear()
+        loop = LoopRegion()
         playhead = 0
+        reachedEnd = false
         viewport = Viewport(totalFrames: audio.frameCount, widthPixels: widthPixels)
     }
 }

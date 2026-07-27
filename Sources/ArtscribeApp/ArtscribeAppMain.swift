@@ -28,12 +28,16 @@ struct ArtscribeAppMain: App {
         .defaultSize(width: 1280, height: 720)
         .commands {
             ViewerCommands(model: model)
-            PlaybackCommands(devices: devices)
+            PlaybackCommands(model: model, devices: devices)
         }
     }
 
     @MainActor
     private func start() {
+        // The model routes audio through the shared device controller, so a
+        // device chosen before any track is loaded still applies to the first
+        // one that is.
+        model.attach(devices: devices)
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
     }

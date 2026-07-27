@@ -22,6 +22,8 @@ struct WaveformLanesView: View {
         let viewport: Viewport
         let hasTrack: Bool
         let playhead: FrameIndex
+        let loop: LoopRegion
+        let isPlaying: Bool
     }
 
     var body: some View {
@@ -38,7 +40,9 @@ struct WaveformLanesView: View {
             selectionRange: model.selection.range,
             viewport: model.viewport,
             hasTrack: model.hasTrack,
-            playhead: model.playhead)
+            playhead: model.playhead,
+            loop: model.loop,
+            isPlaying: model.isPlaying)
 
         ZStack(alignment: .topLeading) {
             Palette.panel.color()
@@ -87,6 +91,7 @@ struct WaveformLanesView: View {
         drawChannelRules(in: &context, size: size, channels: state.channels)
         drawSelection(
             in: &context, size: size, range: state.selectionRange, viewport: state.viewport)
+        drawLoop(in: &context, size: size, state: state)
         drawPlayhead(in: &context, size: size, state: state)
         drawChannelLabels(in: &context, size: size, channels: state.channels)
     }
@@ -124,16 +129,53 @@ struct WaveformLanesView: View {
         }
     }
 
-    /// The zoom anchor. Drawn so it is obvious what `E`/`R` pivot around.
+    /// The loop region: bars along the top and bottom edges plus solid in/out
+    /// posts. Deliberately a different *shape* as well as a different colour from
+    /// the selection's full-height wash, because the two are shown together and
+    /// mean different things. A region that exists but is switched off is drawn
+    /// faintly rather than hidden — having set it is worth remembering.
+    private func drawLoop(
+        in context: inout GraphicsContext, size: CGSize, state: OverlayState
+    ) {
+        let range = state.loop.range
+        guard state.hasTrack, !range.isEmpty else { return }
+        let startX = state.viewport.pixel(forFrame: range.start)
+        let endX = state.viewport.pixel(forFrame: range.end)
+        guard endX > 0, startX < size.width else { return }
+
+        let opacity = state.loop.isEnabled ? 1.0 : Palette.loopDisabledOpacity
+        let colour = Palette.loop.color(opacity: opacity)
+        let bar = Palette.loopBarHeight
+        let left = max(0, startX)
+        let width = max(0, min(size.width, endX) - left)
+        for y in [0.0, size.height - bar] {
+            context.fill(
+                Path(CGRect(x: left, y: y, width: width, height: bar)), with: .color(colour))
+        }
+        if state.loop.isEnabled {
+            context.fill(
+                Path(CGRect(x: left, y: 0, width: width, height: size.height)),
+                with: .color(Palette.loop.color(opacity: 0.07)))
+        }
+        for x in [startX, endX] where x >= -2 && x <= size.width + 2 {
+            context.fill(
+                Path(CGRect(x: x - 1, y: 0, width: 2, height: size.height)), with: .color(colour))
+        }
+    }
+
+    /// The playhead, and the zoom anchor. Always drawn once a track is loaded —
+    /// before playback existed it was hidden behind a selection, which is exactly
+    /// backwards now that it is the thing you are listening to.
     private func drawPlayhead(
         in context: inout GraphicsContext, size: CGSize, state: OverlayState
     ) {
-        guard state.hasTrack, state.selectionRange.isEmpty else { return }
+        guard state.hasTrack else { return }
         let x = state.viewport.pixel(forFrame: state.playhead)
-        guard x >= 0, x <= size.width else { return }
+        guard x >= -1, x <= size.width + 1 else { return }
+        let width = state.isPlaying ? 2.0 : 1.0
         context.fill(
-            Path(CGRect(x: x - 0.5, y: 0, width: 1, height: size.height)),
-            with: .color(Palette.accent.color(opacity: 0.9)))
+            Path(CGRect(x: x - width / 2, y: 0, width: width, height: size.height)),
+            with: .color(Palette.accent.color(opacity: state.isPlaying ? 1.0 : 0.85)))
     }
 
     private func drawChannelLabels(

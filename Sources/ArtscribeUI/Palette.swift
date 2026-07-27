@@ -35,12 +35,24 @@ enum Palette {
     static let text = RGB(0xC9_CED6)
     static let dimmed = RGB(0x6F_7783)
     static let danger = RGB(0xE0_6C63)
+    /// The loop region. Deliberately neither the selection amber nor the accent
+    /// teal: the loop and the selection are shown at the same time and mean
+    /// different things, so they must not be told apart by brightness alone.
+    static let loop = RGB(0x8C_7BE6)
 
     /// Hairline between panels. Derived from `panel` so the chrome stays in family.
     static let rule = RGB(0x2A_2D34)
 
     static let selectionFillOpacity: Double = 0.13
     static let selectionEdgeWidth: Double = 2
+
+    /// Height of the bar drawn along the top and bottom of the lanes to mark the
+    /// loop region. A bar, not a full-height wash: the selection already owns
+    /// the full height, and two overlapping washes are unreadable.
+    static let loopBarHeight: Double = 4
+    /// A loop region that exists but is switched off is still shown, because
+    /// having set it is worth remembering — just visibly inert.
+    static let loopDisabledOpacity: Double = 0.3
 }
 
 /// Type roles. Every number in this app is monospaced so digits do not jitter as

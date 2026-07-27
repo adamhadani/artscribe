@@ -88,7 +88,10 @@ extension ViewerModel {
             } else {
                 let frame = PixelMapping.frame(atPixel: startPixel, in: viewport)
                 selection.begin(at: frame)
-                playhead = frame
+                // `seek`, not a bare assignment: with playback wired, moving the
+                // playhead without telling the engine would have the next display
+                // poll snap it straight back.
+                seek(to: frame)
             }
         }
         selection.extend(to: PixelMapping.frame(atPixel: currentPixel, in: viewport))
@@ -114,7 +117,7 @@ extension ViewerModel {
             return
         }
         lastClick = (endPixel, now)
-        playhead = PixelMapping.frame(atPixel: endPixel, in: viewport)
+        seek(to: PixelMapping.frame(atPixel: endPixel, in: viewport))
         selection.clear()
     }
 

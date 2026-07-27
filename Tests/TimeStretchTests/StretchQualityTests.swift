@@ -225,6 +225,50 @@ func halfSpeedPreservesPitch(engine: StretchEngine, freq: Double) {
     #expect(abs(cents) < tolerance, "pitch drifted \(cents) cents (measured \(measured) Hz)")
 }
 
+/// The other end of `SpeedState`'s range. `halfSpeedPreservesPitch` covers 50%,
+/// which the acceptance checklist names explicitly; **200% had no coverage at
+/// all**, so a pitch regression at the top of the range could only have been
+/// caught by ear.
+///
+/// Measured the same way (Hann-windowed FFT peak, quadratically interpolated;
+/// start delay + 8192 frames discarded; 8 s input per point) at ratio 0.5:
+///
+/// - `.studio` holds pitch to a small fraction of a cent at every point tested,
+///   exactly as it does at ratio 2.0. The product's quality claim is intact.
+/// - `.fast` is **much worse here than at half speed**. A 200–900 Hz sweep in
+///   20 Hz steps found: 220 Hz −108.5 c, 200 Hz −93.8 c, 340 Hz +72.8 c,
+///   300 Hz +58.3 c, 360 Hz −51.5 c, and under 15 c above about 500 Hz. The
+///   worst case is more than a semitone, against ~26 cents at ratio 2.0. Trimming
+///   the final flush from the measurement changes nothing, so it is not a tail
+///   artefact — it is R2's phase vocoder, whose drift is both frequency- and
+///   ratio-dependent, being pushed harder by compression than by expansion.
+///
+/// The `.fast` bound below is therefore a **regression fence around a measured
+/// defect, not a quality claim**: it is set from that sweep's worst case plus
+/// margin, and a bound of ±120 cents should not be read as "a semitone of drift
+/// is acceptable". `.studio` is the default and is the engine any pitch-critical
+/// listening should use above 100% speed.
+@Test(
+    arguments: [StretchEngine.studio, StretchEngine.fast],
+    [220.0, 330.0, 440.0, 660.0, 880.0]
+)
+func doubleSpeedPreservesPitch(engine: StretchEngine, freq: Double) {
+    let rate = 44100.0
+    let input = sine(freq: freq, seconds: 8, sampleRate: rate)
+    let s = RubberBandStretcher(engine: engine)
+    s.timeRatio = 0.5  // double speed => half as long
+    var out = runStretcher(s, input: input, sampleRate: rate)
+
+    let skip = Swift.min(out.count, s.startDelay + 8192)
+    out.removeFirst(skip)
+    #expect(out.count > Int(rate * 2))
+
+    let measured = estimateFrequencyFFT(out, sampleRate: rate)
+    let cents = 1200 * log2(measured / freq)
+    let tolerance = engine == .studio ? 2.0 : 120.0
+    #expect(abs(cents) < tolerance, "pitch drifted \(cents) cents (measured \(measured) Hz)")
+}
+
 @Test func halfSpeedRoughlyDoublesLength() {
     let rate = 44100.0
     let input = sine(freq: 440, seconds: 4, sampleRate: rate)

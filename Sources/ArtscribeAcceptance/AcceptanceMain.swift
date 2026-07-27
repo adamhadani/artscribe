@@ -1,5 +1,6 @@
 import AppKit
 import ArtscribeUI
+import Playback
 import SwiftUI
 
 /// A standalone acceptance-harness executable.
@@ -18,6 +19,7 @@ import SwiftUI
 @main
 struct AcceptanceMain: App {
     @State private var model = ViewerModel()
+    @State private var devices = OutputDeviceController(source: CoreAudioDeviceSource())
 
     init() {
         // Same reasoning as `ArtscribeAppMain`: an unbundled SwiftPM executable
@@ -33,11 +35,15 @@ struct AcceptanceMain: App {
                 .task { await start() }
         }
         .defaultSize(width: 1280, height: 720)
-        .commands { ViewerCommands(model: model) }
+        .commands {
+            ViewerCommands(model: model)
+            PlaybackCommands(model: model, devices: devices)
+        }
     }
 
     @MainActor
     private func start() async {
+        model.attach(devices: devices)
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
         await AcceptanceRun.runIfRequested(model: model)
