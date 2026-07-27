@@ -5,6 +5,7 @@
   "respectsExistingLineBreaks": true,
   "lineBreakBeforeEachArgument": false,
   "indentConditionalCompilationBlocks": false,
+  "multiElementCollectionTrailingCommas": false,
   "rules": {
     "AlwaysUseLowerCamelCase": true,
     "NeverUseImplicitlyUnwrappedOptionals": true,

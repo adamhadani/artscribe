@@ -21,6 +21,11 @@ let package = Package(
             providers: [.brew(["rubberband"])]
         ),
         .target(name: "ArtscribeKit", swiftSettings: sharedSwiftSettings),
+        .target(
+            name: "AudioDecode",
+            dependencies: ["ArtscribeKit"],
+            swiftSettings: sharedSwiftSettings
+        ),
         .testTarget(
             name: "CRubberBandTests",
             dependencies: ["CRubberBand"],
@@ -29,6 +34,11 @@ let package = Package(
         .testTarget(
             name: "ArtscribeKitTests",
             dependencies: ["ArtscribeKit"],
+            swiftSettings: sharedSwiftSettings
+        ),
+        .testTarget(
+            name: "AudioDecodeTests",
+            dependencies: ["AudioDecode"],
             swiftSettings: sharedSwiftSettings
         ),
     ]
