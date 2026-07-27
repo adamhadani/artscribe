@@ -44,6 +44,10 @@ enum TrackpadAction: Equatable, Sendable {
     ///   - hasPreciseScrollingDeltas: false for a physical wheel.
     ///   - commandHeld: zooms regardless of device.
     ///   - shiftHeld: pans regardless of device. `⌘` wins if both are held.
+    ///   - isMomentum: the coasting tail macOS keeps sending after the fingers
+    ///     have left the trackpad. It still pans — that is what momentum is for —
+    ///     but it must not zoom: the fingers are gone, and a zoom that keeps
+    ///     accelerating after you let go overshoots every time.
     ///   - anchor: pointer position in window coordinates.
     ///
     /// The deltas are used exactly as macOS delivered them. The natural-scrolling
@@ -57,10 +61,12 @@ enum TrackpadAction: Equatable, Sendable {
         hasPreciseScrollingDeltas: Bool,
         commandHeld: Bool,
         shiftHeld: Bool,
+        isMomentum: Bool = false,
         at anchor: CGPoint?
     ) {
         guard scrollingDeltaX.isFinite, scrollingDeltaY.isFinite else { return nil }
         let zooms = commandHeld || (!hasPreciseScrollingDeltas && !shiftHeld)
+        if zooms, isMomentum { return nil }
         // Zoom is a vertical gesture. A tilt wheel or a shift-swapped axis
         // reports horizontally, and that stays a pan.
         if zooms, scrollingDeltaY != 0 {
@@ -94,6 +100,7 @@ enum TrackpadAction: Equatable, Sendable {
                 hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas,
                 commandHeld: event.modifierFlags.contains(.command),
                 shiftHeld: event.modifierFlags.contains(.shift),
+                isMomentum: !event.momentumPhase.isEmpty,
                 at: anchor)
         case .magnify:
             self.init(magnification: event.magnification, at: anchor)

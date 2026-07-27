@@ -55,10 +55,12 @@ public enum ThemePreference: String, Equatable, Sendable, CaseIterable, Identifi
 @MainActor
 @Observable
 public final class ThemeController {
-    /// The dark theme is the default the app was designed around, but a first
-    /// launch with no stored preference follows the system — a user in light
-    /// mode should not be handed a dark window without asking.
-    public static let fallback: ThemePreference = .system
+    /// Dark, not System, with nothing stored yet: it is the look the app was
+    /// designed around, and it is what the window did before this preference
+    /// existed. Following the system by default would silently change the app
+    /// for anyone whose Mac is in light mode, which is not a change to make on
+    /// their behalf — `System` is one menu item away for anyone who wants it.
+    public static let fallback: ThemePreference = .dark
 
     private static let defaultsKey = "theme"
 

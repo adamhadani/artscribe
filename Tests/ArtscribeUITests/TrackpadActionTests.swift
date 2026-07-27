@@ -10,11 +10,11 @@ struct TrackpadActionTests {
     /// A two-finger trackpad swipe: macOS reports precise (point) deltas.
     private func swipe(
         x: Double = 0, y: Double = 0, command: Bool = false, shift: Bool = false,
-        at anchor: CGPoint? = nil
+        momentum: Bool = false, at anchor: CGPoint? = nil
     ) -> TrackpadAction? {
         TrackpadAction(
             scrollingDeltaX: x, scrollingDeltaY: y, hasPreciseScrollingDeltas: true,
-            commandHeld: command, shiftHeld: shift, at: anchor)
+            commandHeld: command, shiftHeld: shift, isMomentum: momentum, at: anchor)
     }
 
     /// A physical mouse wheel: coarse line deltas, `hasPreciseScrollingDeltas`
@@ -136,6 +136,13 @@ struct TrackpadActionTests {
         #expect(wheel(y: 9, shift: true) == .pan(points: 9))
         #expect(swipe(y: 9, shift: true) == .pan(points: 9))
         #expect(wheel(x: 9, shift: true) == .pan(points: -9))
+    }
+
+    /// The coasting tail after the fingers leave the trackpad.
+    @Test("momentum keeps panning but never zooms")
+    func momentum() {
+        #expect(swipe(y: 9, momentum: true) == .pan(points: 9))
+        #expect(swipe(y: 30, command: true, momentum: true) == nil)
     }
 
     @Test("Command beats Shift when both are held")
