@@ -213,7 +213,12 @@ the configuration is not being picked up — check that `.swift-format` and
 - [ ] **Step 7: Verify the clean tree passes every gate**
 
 Run: `make check`
-Expected: format-check, lint, and test all pass (zero tests is fine at this point).
+Expected: `format-check` and `lint` pass. **`test` will fail with `error: no tests
+found; create a target in the 'Tests' directory`** — SwiftPM treats a package with no
+test target as an error, not an empty pass. This is expected and transient: Task 1 adds
+`CRubberBandTests` and the gate goes green from there on. Do not add a placeholder test
+target to paper over it, and do not weaken `make test` to tolerate missing tests — that
+would mask real failures for the rest of the project.
 
 - [ ] **Step 8: Create the CI workflow**
 
