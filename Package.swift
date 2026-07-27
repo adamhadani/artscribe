@@ -14,6 +14,17 @@ let package = Package(
         .library(name: "ArtscribeKit", targets: ["ArtscribeKit"])
     ],
     targets: [
-        .target(name: "ArtscribeKit", swiftSettings: sharedSwiftSettings)
+        .systemLibrary(
+            name: "CRubberBand",
+            path: "Sources/CRubberBand",
+            pkgConfig: "rubberband",
+            providers: [.brew(["rubberband"])]
+        ),
+        .target(name: "ArtscribeKit", swiftSettings: sharedSwiftSettings),
+        .testTarget(
+            name: "CRubberBandTests",
+            dependencies: ["CRubberBand"],
+            swiftSettings: sharedSwiftSettings
+        ),
     ]
 )
