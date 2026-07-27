@@ -29,6 +29,7 @@ extension ViewerModel {
         let height = Int((laneSize.height * scale).rounded())
         let key = WaveformRenderer.Key(
             generation: generation,
+            appearance: appearance,
             startFrame: viewport.startFrame,
             framesPerPixel: viewport.framesPerPixel,
             visibleFrames: viewport.visibleFrames,
@@ -37,11 +38,7 @@ extension ViewerModel {
         guard key != renderedKey else { return }
         renderedKey = key
         waveformImage = WaveformRenderer.render(
-            audio: audio,
-            pyramid: pyramid,
-            range: FrameRange(start: viewport.startFrame, count: viewport.visibleFrames),
-            pixelWidth: width,
-            pixelHeight: height)
+            audio: audio, pyramid: pyramid, palette: palette, key: key)
     }
 
     private func refreshOverview(audio: DecodedAudio, pyramid: PeakPyramid) {
@@ -49,9 +46,10 @@ extension ViewerModel {
         let height = Int((overviewSize.height * scale).rounded())
         // The overview is at constant scale, so its key deliberately omits the
         // viewport: it survives every zoom and pan and is redrawn only when the
-        // file, the strip size or the display scale changes.
+        // file, the theme, the strip size or the display scale changes.
         let key = WaveformRenderer.Key(
             generation: generation,
+            appearance: appearance,
             startFrame: 0,
             framesPerPixel: 0,
             visibleFrames: totalFrames,
@@ -60,10 +58,6 @@ extension ViewerModel {
         guard key != overviewKey else { return }
         overviewKey = key
         overviewImage = WaveformRenderer.render(
-            audio: audio,
-            pyramid: pyramid,
-            range: FrameRange(start: 0, count: totalFrames),
-            pixelWidth: width,
-            pixelHeight: height)
+            audio: audio, pyramid: pyramid, palette: palette, key: key)
     }
 }

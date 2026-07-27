@@ -10,6 +10,7 @@ import SwiftUI
 /// handful of rectangles.
 struct WaveformLanesView: View {
     let model: ViewerModel
+    @Environment(\.palette) private var palette
     @Environment(\.displayScale) private var displayScale
 
     /// Everything the overlay draw needs, read once at body level and handed
@@ -45,7 +46,7 @@ struct WaveformLanesView: View {
             isPlaying: model.isPlaying)
 
         ZStack(alignment: .topLeading) {
-            Palette.panel.color()
+            palette.panel.color()
 
             if let image = model.waveformImage {
                 // The bitmap is produced at `displayScale`, so this maps one
@@ -106,7 +107,7 @@ struct WaveformLanesView: View {
             let y = laneHeight * Double(lane)
             context.fill(
                 Path(CGRect(x: 0, y: y, width: size.width, height: 1)),
-                with: .color(Palette.background.color(opacity: 0.8)))
+                with: .color(palette.laneRule.color(opacity: 0.8)))
         }
     }
 
@@ -122,13 +123,13 @@ struct WaveformLanesView: View {
         let right = min(size.width, endX)
         context.fill(
             Path(CGRect(x: left, y: 0, width: max(0, right - left), height: size.height)),
-            with: .color(Palette.selection.color(opacity: Palette.selectionFillOpacity)))
+            with: .color(palette.selection.color(opacity: palette.selectionFillOpacity)))
 
         let edge = Palette.selectionEdgeWidth
         for x in [startX, endX] where x >= -edge && x <= size.width + edge {
             context.fill(
                 Path(CGRect(x: x - edge / 2, y: 0, width: edge, height: size.height)),
-                with: .color(Palette.selection.color()))
+                with: .color(palette.selection.color()))
         }
     }
 
@@ -147,7 +148,7 @@ struct WaveformLanesView: View {
         guard endX > 0, startX < size.width else { return }
 
         let opacity = state.loop.isEnabled ? 1.0 : Palette.loopDisabledOpacity
-        let colour = Palette.loop.color(opacity: opacity)
+        let colour = palette.loop.color(opacity: opacity)
         let bar = Palette.loopBarHeight
         let left = max(0, startX)
         let width = max(0, min(size.width, endX) - left)
@@ -158,7 +159,7 @@ struct WaveformLanesView: View {
         if state.loop.isEnabled {
             context.fill(
                 Path(CGRect(x: left, y: 0, width: width, height: size.height)),
-                with: .color(Palette.loop.color(opacity: 0.07)))
+                with: .color(palette.loop.color(opacity: 0.07)))
         }
         for x in [startX, endX] where x >= -2 && x <= size.width + 2 {
             context.fill(
@@ -178,7 +179,7 @@ struct WaveformLanesView: View {
         let width = state.isPlaying ? 2.0 : 1.0
         context.fill(
             Path(CGRect(x: x - width / 2, y: 0, width: width, height: size.height)),
-            with: .color(Palette.accent.color(opacity: state.isPlaying ? 1.0 : 0.85)))
+            with: .color(palette.accent.color(opacity: state.isPlaying ? 1.0 : 0.85)))
     }
 
     private func drawChannelLabels(
@@ -189,7 +190,7 @@ struct WaveformLanesView: View {
         for lane in 0..<channels {
             let text = Text(Self.channelLabel(lane, of: channels))
                 .font(Typography.laneLabel)
-                .foregroundStyle(Palette.dimmed.color())
+                .foregroundStyle(palette.dimmed.color())
             context.draw(
                 text, at: CGPoint(x: 8, y: laneHeight * Double(lane) + 10), anchor: .leading)
         }

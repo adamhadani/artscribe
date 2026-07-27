@@ -10,10 +10,18 @@ public struct DocumentView: View {
     private let model: ViewerModel
     @FocusState private var hasKeyboardFocus: Bool
     @State private var trackpad = TrackpadMonitor()
+    /// The *resolved* scheme, after the window has applied the theme
+    /// preference. Reading it here rather than the preference itself is what
+    /// makes `System` follow macOS with no notification plumbing: SwiftUI
+    /// republishes this environment value when the system appearance changes,
+    /// and `preferredColorScheme` overrides it when the user has chosen.
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(model: ViewerModel) {
         self.model = model
     }
+
+    private var appearance: Appearance { colorScheme == .dark ? .dark : .light }
 
     public var body: some View {
         VStack(spacing: 0) {
@@ -50,7 +58,16 @@ public struct DocumentView: View {
 
             StatusBarView(model: model)
         }
-        .background(Palette.background.color())
+        .background(Palette.of(appearance).background.color())
+        // One place sets the palette, so no view can draw half of one theme.
+        .environment(\.palette, Palette.of(appearance))
+        // And one place tells the model, because the cached waveform bitmap has
+        // its colours baked in: without this the lanes keep the old theme's
+        // pixels until the viewport happens to move. `initial: true` covers the
+        // launch case, where the window may already be in light mode.
+        .onChange(of: appearance, initial: true) { _, appearance in
+            model.setAppearance(appearance)
+        }
         .focusable()
         .focusEffectDisabled()
         .focused($hasKeyboardFocus)
@@ -171,16 +188,18 @@ public struct DocumentView: View {
 /// What the window says before anything is loaded. An empty screen is an
 /// invitation to act, so it names both ways in.
 struct EmptyStateView: View {
+    @Environment(\.palette) private var palette
+
     var body: some View {
         VStack(spacing: 10) {
             Text("Drop an audio file here")
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Palette.text.color())
+                .foregroundStyle(palette.text.color())
             Text("or press ⌘O to choose one")
                 .font(Typography.readout)
-                .foregroundStyle(Palette.dimmed.color())
+                .foregroundStyle(palette.dimmed.color())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Palette.panel.color())
+        .background(palette.panel.color())
     }
 }

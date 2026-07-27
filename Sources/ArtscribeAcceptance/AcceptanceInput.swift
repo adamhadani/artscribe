@@ -1,4 +1,5 @@
 import AppKit
+import ArtscribeUI
 import Foundation
 
 /// Event synthesis, window capture and reporting for `AcceptanceRun`.
@@ -200,24 +201,33 @@ extension AcceptanceRun {
         try? data.write(to: URL(fileURLWithPath: path))
     }
 
-    /// Counts pixels close to `colour` in the bottom `fraction` of the window —
-    /// the status bar band.
+    /// Counts pixels close to `colour` inside `rect`, given in window content
+    /// coordinates with a top-left origin — the same space `ViewerModel`
+    /// reports its lane frames in.
     ///
     /// Used to prove a *rendered* colour rather than a declared one: the P1
     /// speed emphasis and the P2 theme both have to reach actual pixels, and
     /// reading the model back would prove neither. Sampled on a coarse grid,
-    /// which is plenty for "is there any of this colour down there".
+    /// which is plenty for "how much of this colour is in there".
     @MainActor
-    static func pixelCount(near colour: NSColor, bottom fraction: Double) -> Int {
-        guard let wanted = colour.usingColorSpace(.sRGB) else { return 0 }
-        guard let window = NSApp.windows.first, let view = window.contentView,
+    static func pixelCount(near colour: NSColor, in rect: CGRect) -> Int {
+        guard let wanted = colour.usingColorSpace(.sRGB),
+            let window = NSApp.windows.first, let view = window.contentView,
+            view.bounds.height > 0,
             let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)
         else { return 0 }
         view.cacheDisplay(in: view.bounds, to: rep)
-        let firstRow = Int(Double(rep.pixelsHigh) * (1 - fraction))
+        // The backing store is at the display scale, and `rect` is in points.
+        let scale = Double(rep.pixelsHigh) / view.bounds.height
+        let top = Swift.max(0, Int(rect.minY * scale))
+        let bottom = Swift.min(rep.pixelsHigh, Int(rect.maxY * scale))
+        let left = Swift.max(0, Int(rect.minX * scale))
+        let right = Swift.min(rep.pixelsWide, Int(rect.maxX * scale))
+        guard top < bottom, left < right else { return 0 }
+
         var count = 0
-        for y in stride(from: firstRow, to: rep.pixelsHigh, by: 2) {
-            for x in stride(from: 0, to: rep.pixelsWide, by: 3) {
+        for y in stride(from: top, to: bottom, by: 2) {
+            for x in stride(from: left, to: right, by: 3) {
                 guard let pixel = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
                 let close =
                     abs(pixel.redComponent - wanted.redComponent) < 0.1
@@ -227,6 +237,43 @@ extension AcceptanceRun {
             }
         }
         return count
+    }
+
+    /// Counts pixels of exactly `colour` in one of the renderer's bitmaps.
+    ///
+    /// Exact, not near: the renderer writes opaque words straight into an sRGB
+    /// bitmap, so the value that went in is the value that comes out — no
+    /// display profile in the way, unlike a screen capture.
+    static func bitmapCount(_ colour: RGB, in image: CGImage?) -> Int {
+        guard let image, let data = image.dataProvider?.data as Data? else { return 0 }
+        func byte(_ value: Double) -> UInt8 { UInt8((value * 255).rounded()) }
+        let want = (byte(colour.red), byte(colour.green), byte(colour.blue))
+        var found = 0
+        let stride = image.bytesPerRow
+        data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            for row in 0..<image.height {
+                for column in 0..<image.width {
+                    // premultipliedFirst + byteOrder32Little is BGRA in memory.
+                    let base = row * stride + column * 4
+                    if (raw[base + 2], raw[base + 1], raw[base]) == want { found += 1 }
+                }
+            }
+        }
+        return found
+    }
+
+    /// A palette colour as an `NSColor`, for the pixel counts above.
+    static func colour(_ rgb: RGB) -> NSColor {
+        NSColor(srgbRed: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
+    }
+
+    /// The status-bar band, in the same coordinates as the lane frames.
+    @MainActor
+    static func statusBarRect() -> CGRect {
+        guard let window = NSApp.windows.first, let view = window.contentView else { return .zero }
+        let height = 40.0
+        return CGRect(
+            x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
     }
 
     static func settle(seconds: Double) async {

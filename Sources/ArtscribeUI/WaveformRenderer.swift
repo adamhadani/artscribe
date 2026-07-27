@@ -19,10 +19,18 @@ import Waveform
 /// — the 2040x116 overview strip was as slow as the full-height lanes. A
 /// waveform column is an axis-aligned run of identical pixels, so there is
 /// nothing here for a rasteriser to do that a loop cannot do faster.
+///
+/// The colours being baked into the bitmap is exactly why `Key` carries the
+/// `Appearance`: a theme switch that did not change the key would leave dark
+/// waveform pixels sitting on a light background until something else happened
+/// to move the viewport.
 enum WaveformRenderer {
 
     struct Key: Equatable {
         var generation: Int
+        /// Baked into the pixels, so it belongs in the cache key. See the type's
+        /// doc comment.
+        var appearance: Appearance
         var startFrame: FrameIndex
         var framesPerPixel: Double
         var visibleFrames: FrameIndex
@@ -39,10 +47,15 @@ enum WaveformRenderer {
         var max: Float
     }
 
-    /// Draws `range` as one stacked lane per channel.
+    /// Draws one stacked lane per channel, for exactly the `key` the result will
+    /// be cached under.
     ///
-    /// `pixelWidth`/`pixelHeight` are backing-store pixels, so peaks are computed
-    /// at full Retina resolution and the image maps 1:1 onto the display.
+    /// Taking the key rather than a loose range and size is what makes it
+    /// impossible to cache a bitmap under a key that does not describe it — the
+    /// failure mode this cache is most exposed to.
+    ///
+    /// `key.pixelWidth`/`pixelHeight` are backing-store pixels, so peaks are
+    /// computed at full Retina resolution and the image maps 1:1 onto the display.
     ///
     /// Below the pyramid's base bucket the columns come from `audio` directly:
     /// the pyramid cannot resolve finer than 256 frames, so zooming past that
@@ -51,10 +64,12 @@ enum WaveformRenderer {
     static func render(
         audio: DecodedAudio,
         pyramid: PeakPyramid,
-        range: FrameRange,
-        pixelWidth: Int,
-        pixelHeight: Int
+        palette: Palette,
+        key: Key
     ) -> CGImage? {
+        let pixelWidth = key.pixelWidth
+        let pixelHeight = key.pixelHeight
+        let range = FrameRange(start: key.startFrame, count: key.visibleFrames)
         guard pixelWidth > 0, pixelHeight > 0, pyramid.channels > 0 else { return nil }
         guard
             let space = CGColorSpace(name: CGColorSpace.sRGB),
@@ -74,7 +89,7 @@ enum WaveformRenderer {
         // than assuming it equals `pixelWidth`.
         let stride = context.bytesPerRow / 4
         let pixels = base.bindMemory(to: UInt32.self, capacity: stride * pixelHeight)
-        let colour = packed(Palette.waveform)
+        let colour = packed(palette.waveform)
         let laneHeight = Double(pixelHeight) / Double(pyramid.channels)
         let half = Swift.max(1, laneHeight / 2 - laneInset)
 

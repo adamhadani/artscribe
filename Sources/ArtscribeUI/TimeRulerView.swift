@@ -5,6 +5,7 @@ import SwiftUI
 /// pure and tested; this view only paints what it is given.
 struct TimeRulerView: View {
     let model: ViewerModel
+    @Environment(\.palette) private var palette
 
     private static let majorTickHeight: Double = 9
     private static let minorTickHeight: Double = 4
@@ -24,10 +25,10 @@ struct TimeRulerView: View {
         Canvas(rendersAsynchronously: false) { context, size in
             context.fill(
                 Path(CGRect(origin: .zero, size: size)),
-                with: .color(Palette.background.color()))
+                with: .color(palette.background.color()))
             context.fill(
                 Path(CGRect(x: 0, y: size.height - 1, width: size.width, height: 1)),
-                with: .color(Palette.rule.color()))
+                with: .color(palette.rule.color()))
             guard hasTrack else { return }
 
             for tick in RulerTicks.ticks(viewport: viewport, sampleRate: sampleRate) {
@@ -38,14 +39,14 @@ struct TimeRulerView: View {
                     Path(CGRect(x: x, y: size.height - height - 1, width: 1, height: height)),
                     with: .color(
                         tick.isMajor
-                            ? Palette.dimmed.color()
-                            : Palette.dimmed.color(opacity: 0.45)))
+                            ? palette.dimmed.color()
+                            : palette.dimmed.color(opacity: 0.45)))
 
                 if let label = tick.label, x + 44 < size.width {
                     context.draw(
                         Text(label)
                             .font(Typography.tick)
-                            .foregroundStyle(Palette.dimmed.color()),
+                            .foregroundStyle(palette.dimmed.color()),
                         at: CGPoint(x: x + 4, y: 8),
                         anchor: .leading)
                 }
@@ -73,7 +74,7 @@ struct TimeRulerView: View {
         let width = max(1, min(size.width, endX) - left)
         context.fill(
             Path(CGRect(x: left, y: 0, width: width, height: 3)),
-            with: .color(Palette.loop.color(opacity: opacity)))
+            with: .color(palette.loop.color(opacity: opacity)))
     }
 
     /// The playhead marker. Drawn last so it is never hidden under a loop bar or
@@ -85,7 +86,7 @@ struct TimeRulerView: View {
         guard x >= 0, x <= size.width else { return }
         context.fill(
             Path(CGRect(x: x - 1, y: 0, width: 2, height: size.height)),
-            with: .color(Palette.accent.color()))
+            with: .color(palette.accent.color()))
     }
 
     /// The selection edges repeat on the ruler so the in/out points stay findable
@@ -99,7 +100,7 @@ struct TimeRulerView: View {
             guard x >= 0, x <= size.width else { continue }
             context.fill(
                 Path(CGRect(x: x - 1, y: size.height - 5, width: 2, height: 5)),
-                with: .color(Palette.selection.color()))
+                with: .color(palette.selection.color()))
         }
     }
 }

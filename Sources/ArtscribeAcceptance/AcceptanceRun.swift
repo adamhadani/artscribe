@@ -15,7 +15,7 @@ import Foundation
 enum AcceptanceRun {
 
     @MainActor
-    static func runIfRequested(model: ViewerModel) async {
+    static func runIfRequested(model: ViewerModel, theme: ThemeController) async {
         let args = CommandLine.arguments
         guard let audioPath = value(after: "--acceptance", in: args) else { return }
         let audio = URL(fileURLWithPath: audioPath)
@@ -50,6 +50,8 @@ enum AcceptanceRun {
         await checkTrackpad(model: model, log: &log)
         await checkScrollZoom(model: model, log: &log)
         await checkSpeedEmphasis(model: model, log: &log, outputDirectory: outputDirectory)
+        await checkFileAndViewMenus(model: model, log: &log)
+        await checkTheme(model: model, theme: theme, log: &log, outputDirectory: outputDirectory)
         await checkSelection(model: model, log: &log)
         await settle(seconds: 0.2)
         snapshot(to: "\(outputDirectory)/03-selection.png")

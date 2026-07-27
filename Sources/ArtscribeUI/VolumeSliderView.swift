@@ -11,6 +11,7 @@ import SwiftUI
 /// focusable, so the keyboard path stays the single one it claims to be.
 struct VolumeSliderView: View {
     let model: ViewerModel
+    @Environment(\.palette) private var palette
 
     private static let trackWidth: Double = 92
     private static let trackHeight: Double = 4
@@ -26,7 +27,7 @@ struct VolumeSliderView: View {
                     .font(Typography.readout)
                     .monospacedDigit()
                     .foregroundStyle(
-                        volume.isMuted ? Palette.dimmed.color() : Palette.text.color())
+                        volume.isMuted ? palette.dimmed.color() : palette.text.color())
             }
         }
     }
@@ -34,10 +35,10 @@ struct VolumeSliderView: View {
     /// Filled portion plus knob. A click anywhere jumps there, and a drag
     /// follows, which is what `minimumDistance: 0` buys.
     private func track(_ volume: VolumeState) -> some View {
-        let fill = volume.isMuted ? Palette.dimmed.color() : Palette.accent.color()
+        let fill = volume.isMuted ? palette.dimmed.color() : palette.accent.color()
         return ZStack(alignment: .leading) {
             Capsule()
-                .fill(Palette.background.color())
+                .fill(palette.background.color())
                 .frame(width: Self.trackWidth, height: Self.trackHeight)
             Capsule()
                 .fill(fill)

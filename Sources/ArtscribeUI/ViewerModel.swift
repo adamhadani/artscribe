@@ -107,12 +107,38 @@ public final class ViewerModel {
     /// When the output device's sample rate was last queried; see `tickPlayback`.
     @ObservationIgnored var lastRateCheck: Double = 0
     @ObservationIgnored var devices: OutputDeviceController?
+    /// The Open Recent list, if the app shell attached one. Recorded here rather
+    /// than at the three call sites that can open a file (menu, drop, the recent
+    /// list itself), so a new way in cannot forget to.
+    @ObservationIgnored var recents: RecentFiles?
     @ObservationIgnored let clock = PlayheadClock()
 
     /// Written only by `refresh()` in `ViewerModel+Rendering`, which is why the
     /// setter is module-internal rather than private.
     public internal(set) var waveformImage: CGImage?
     public internal(set) var overviewImage: CGImage?
+
+    /// Which look the cached bitmaps were rasterised in.
+    ///
+    /// The model has to know the theme even though it draws nothing itself:
+    /// `WaveformRenderer` writes colours straight into the bitmap, so a theme
+    /// change has to invalidate the cache and re-render, and the cache key is
+    /// here. The view layer pushes this in from the environment's colour scheme
+    /// (`DocumentView`), which is also what makes `system` follow macOS.
+    public private(set) var appearance: Appearance = .dark
+
+    /// The colours the cached bitmaps are drawn with. The views take theirs from
+    /// the environment; this is the same value, for the rasteriser.
+    var palette: Palette { Palette.of(appearance) }
+
+    /// Switching theme touches nothing but the pixels: position, selection,
+    /// loop, zoom and the audio graph are all untouched, so playback carries on
+    /// across it.
+    public func setAppearance(_ appearance: Appearance) {
+        guard appearance != self.appearance else { return }
+        self.appearance = appearance
+        refresh()
+    }
 
     public var sampleRate: Double { audio?.sampleRate ?? 0 }
     public var channels: Int { audio?.channels ?? 0 }
@@ -240,6 +266,9 @@ public final class ViewerModel {
         progress = 1
         loadPhase = nil
         viewport = Viewport(totalFrames: loaded.audio.frameCount, widthPixels: lanePointWidth)
+        // Only on success: a file that could not be decoded is not somewhere you
+        // want to be offered a shortcut back to.
+        recents?.note(url)
         refresh()
         openSession(for: loaded.audio)
         // Measured through to the rasterised bitmap, not just the decode, so the
@@ -263,6 +292,11 @@ public final class ViewerModel {
     }
 
     // MARK: - Geometry
+
+    /// Gives the model somewhere to record successfully opened files.
+    public func attach(recents: RecentFiles) {
+        self.recents = recents
+    }
 
     public func setLaneSize(_ size: CGSize, scale: CGFloat) {
         guard size.width > 0, size.height > 0 else { return }

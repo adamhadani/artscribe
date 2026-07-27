@@ -6,6 +6,7 @@ import SwiftUI
 /// Dragging anywhere on the strip moves the window there.
 struct OverviewStripView: View {
     let model: ViewerModel
+    @Environment(\.palette) private var palette
     @Environment(\.displayScale) private var displayScale
     @State private var overviewWidth: Double = 1
 
@@ -34,7 +35,7 @@ struct OverviewStripView: View {
             playhead: model.playhead)
 
         ZStack(alignment: .topLeading) {
-            Palette.panel.color()
+            palette.panel.color()
 
             if let image = model.overviewImage {
                 Image(decorative: image, scale: displayScale)
@@ -77,7 +78,7 @@ struct OverviewStripView: View {
         // A fully zoomed-out window would otherwise vanish into a hairline.
         let windowWidth = max(2.0, right - left)
 
-        let veil = Palette.background.color(opacity: 0.62)
+        let veil = palette.background.color(opacity: palette.veilOpacity)
         context.fill(Path(CGRect(x: 0, y: 0, width: left, height: size.height)), with: .color(veil))
         context.fill(
             Path(
@@ -88,7 +89,7 @@ struct OverviewStripView: View {
 
         context.stroke(
             Path(CGRect(x: left, y: 0.5, width: windowWidth, height: size.height - 1)),
-            with: .color(Palette.accent.color(opacity: 0.9)),
+            with: .color(palette.accent.color(opacity: 0.9)),
             lineWidth: 1)
 
         drawSelection(
@@ -110,7 +111,7 @@ struct OverviewStripView: View {
         let opacity = loop.isEnabled ? 1.0 : Palette.loopDisabledOpacity
         context.fill(
             Path(CGRect(x: left, y: 0, width: max(1, right - left), height: 3)),
-            with: .color(Palette.loop.color(opacity: opacity)))
+            with: .color(palette.loop.color(opacity: opacity)))
     }
 
     private func drawPlayhead(
@@ -119,7 +120,7 @@ struct OverviewStripView: View {
         let x = PixelMapping.overviewPixel(forFrame: frame, totalFrames: total, width: size.width)
         context.fill(
             Path(CGRect(x: x - 0.5, y: 0, width: 1, height: size.height)),
-            with: .color(Palette.accent.color()))
+            with: .color(palette.accent.color()))
     }
 
     private func drawSelection(
@@ -132,6 +133,6 @@ struct OverviewStripView: View {
             forFrame: range.end, totalFrames: total, width: size.width)
         context.fill(
             Path(CGRect(x: left, y: 0, width: max(1, right - left), height: size.height)),
-            with: .color(Palette.selection.color(opacity: 0.22)))
+            with: .color(palette.selection.color(opacity: 0.22)))
     }
 }

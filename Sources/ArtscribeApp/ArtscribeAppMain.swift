@@ -10,6 +10,13 @@ struct ArtscribeAppMain: App {
     /// track is loaded and outlives every `AudioOutput`, which is why the
     /// selection lives here rather than inside the audio graph.
     @State private var devices = OutputDeviceController(source: CoreAudioDeviceSource())
+    /// The Open Recent list. Application state, like the two above: it outlives
+    /// every loaded track.
+    @State private var recents = RecentFiles()
+    /// Light / Dark / System, persisted. Owned here because it is a property of
+    /// the application rather than of the loaded track — and so the Settings
+    /// window (Task 14) can bind to the same object the View menu does.
+    @State private var theme = ThemeController()
 
     init() {
         // A SwiftPM executable is not an app bundle, so AppKit starts it as an
@@ -20,14 +27,13 @@ struct ArtscribeAppMain: App {
 
     var body: some Scene {
         Window("Artscribe", id: "viewer") {
-            DocumentView(model: model)
+            ViewerWindow(model: model, theme: theme)
                 .frame(minWidth: 720, minHeight: 420)
-                .preferredColorScheme(.dark)
                 .task { start() }
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
-            ViewerCommands(model: model)
+            ViewerCommands(model: model, theme: theme, recents: recents)
             PlaybackCommands(model: model, devices: devices)
         }
     }
@@ -38,6 +44,7 @@ struct ArtscribeAppMain: App {
         // device chosen before any track is loaded still applies to the first
         // one that is.
         model.attach(devices: devices)
+        model.attach(recents: recents)
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
     }

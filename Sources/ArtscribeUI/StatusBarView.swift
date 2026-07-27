@@ -6,6 +6,7 @@ import SwiftUI
 /// slot, so nothing shifts sideways while you zoom or while the playhead runs.
 struct StatusBarView: View {
     let model: ViewerModel
+    @Environment(\.palette) private var palette
 
     var body: some View {
         // Fixed column widths, not intrinsic ones: the zoom readout swings from
@@ -29,7 +30,7 @@ struct StatusBarView: View {
             Spacer(minLength: 8)
             if let warning {
                 field("DEGRADED", warning)
-                    .foregroundStyle(Palette.danger.color())
+                    .foregroundStyle(palette.danger.color())
             } else if let seconds = model.lastLoadSeconds {
                 field("LOADED IN", String(format: "%.2f s", seconds))
             }
@@ -37,9 +38,9 @@ struct StatusBarView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.panel.color())
+        .background(palette.panel.color())
         .overlay(alignment: .top) {
-            Rectangle().fill(Palette.rule.color()).frame(height: 1)
+            Rectangle().fill(palette.rule.color()).frame(height: 1)
         }
     }
 
@@ -52,7 +53,7 @@ struct StatusBarView: View {
                 .font(Typography.readout)
                 .monospacedDigit()
                 .foregroundStyle(
-                    model.isPlaying ? Palette.accent.color() : Palette.text.color())
+                    model.isPlaying ? palette.accent.color() : palette.text.color())
         }
     }
 
@@ -66,7 +67,7 @@ struct StatusBarView: View {
                 .font(emphasised ? Typography.readoutEmphasis : Typography.readout)
                 .lineLimit(1)
         }
-        .foregroundStyle(emphasised ? Palette.emphasis.color() : Palette.text.color())
+        .foregroundStyle(emphasised ? palette.emphasis.color() : palette.text.color())
     }
 
     /// Position over length, the way every transport reads it — the length on its

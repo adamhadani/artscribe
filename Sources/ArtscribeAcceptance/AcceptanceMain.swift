@@ -20,6 +20,11 @@ import SwiftUI
 struct AcceptanceMain: App {
     @State private var model = ViewerModel()
     @State private var devices = OutputDeviceController(source: CoreAudioDeviceSource())
+    /// Its own defaults suite: an acceptance run must not rewrite the theme the
+    /// user left the real app in, and it needs a known starting point anyway.
+    @State private var recents = RecentFiles()
+    @State private var theme = ThemeController(
+        defaults: UserDefaults(suiteName: "com.artscribe.acceptance") ?? .standard)
 
     init() {
         // Same reasoning as `ArtscribeAppMain`: an unbundled SwiftPM executable
@@ -29,14 +34,13 @@ struct AcceptanceMain: App {
 
     var body: some Scene {
         Window("Artscribe (acceptance)", id: "viewer") {
-            DocumentView(model: model)
+            ViewerWindow(model: model, theme: theme)
                 .frame(minWidth: 720, minHeight: 420)
-                .preferredColorScheme(.dark)
                 .task { await start() }
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
-            ViewerCommands(model: model)
+            ViewerCommands(model: model, theme: theme, recents: recents)
             PlaybackCommands(model: model, devices: devices)
         }
     }
@@ -44,8 +48,9 @@ struct AcceptanceMain: App {
     @MainActor
     private func start() async {
         model.attach(devices: devices)
+        model.attach(recents: recents)
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
-        await AcceptanceRun.runIfRequested(model: model)
+        await AcceptanceRun.runIfRequested(model: model, theme: theme)
     }
 }
