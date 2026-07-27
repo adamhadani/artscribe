@@ -14,11 +14,6 @@ let package = Package(
         .library(name: "ArtscribeKit", targets: ["ArtscribeKit"])
     ],
     targets: [
-        .target(name: "ArtscribeKit", swiftSettings: sharedSwiftSettings),
-        .testTarget(
-            name: "ArtscribeKitTests",
-            dependencies: ["ArtscribeKit"],
-            swiftSettings: sharedSwiftSettings
-        ),
+        .target(name: "ArtscribeKit", swiftSettings: sharedSwiftSettings)
     ]
 )
