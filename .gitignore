@@ -1,0 +1,17 @@
+# Brainstorming companion scratch
+.superpowers/
+
+# Generated Xcode project — project.yml is the source of truth
+*.xcodeproj/
+*.xcworkspace/
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+
+# Local test media (large, copyrighted — see ARTSCRIBE_TEST_MEDIA_DIR)
+Tests/Media/
