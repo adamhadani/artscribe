@@ -1,35 +1,115 @@
 # Artscribe — working notes
 
-Design spec: `docs/superpowers/specs/2026-07-27-artscribe-design.md`
+A keyboard-first music transcription app for macOS. Load a track, select a passage, loop it,
+slow it down without changing pitch.
+
+- Design spec: `docs/superpowers/specs/2026-07-27-artscribe-design.md`
+- Implementation plan: `docs/superpowers/plans/2026-07-27-artscribe-audio-core.md`
 
 ## Commands
-- `make bootstrap` — install Homebrew prerequisites (rubberband)
-- `swift test` — full headless suite, no Xcode and no audio hardware needed
-- `swift test --filter <TargetName>` — one module
+
+```sh
+make bootstrap   # brew: rubberband, swiftlint, xcodegen, pre-commit (+ installs hooks)
+make check       # THE GATE: swift-format lint, swiftlint --strict, full test suite
+make test        # tests only
+swift test --filter <TargetName>    # one module
+
+swift run -c release ArtscribeApp   # the app
+```
+
+`make check` must be green before every commit. Pre-commit hooks enforce the same checks, so
+a commit that skips them is rejected.
+
+## Rules learned the hard way
+
+**Measure in release, never debug.** A debug build decodes roughly 4× slower. Debug numbers
+have already produced two false conclusions here — a "6 s" decode that was really 1.5 s, and
+a performance panic that evaporated on re-measurement.
+
+**Never `git add -A`.** Several agents share this worktree. Staging everything once swept a
+running agent's in-flight work into an unrelated docs commit (`dd03ff4`), whose message
+describes 2 files while its contents are 16. Stage explicit paths.
+
+**The spec's action catalog (§6.2) is the source of truth for what exists**, not a task
+brief. Three nudge tiers sat documented-but-unimplemented for several tasks because a brief
+omitted them and the review checked the implementation against that brief rather than the
+spec.
+
+**Plan code is not pre-verified.** Reviews found well over a dozen genuine defects in
+plan-authored code, including three separate silent-truncation bugs. Treat code in a plan as
+a proposal to check, not an answer.
 
 ## Module boundaries — dependencies point one way only
-ArtscribeKit ← AudioDecode / Waveform / TimeStretch ← Playback ← ArtscribeUI
 
-`ArtscribeKit` imports **nothing**. If a type needs an upward import, it belongs
-in `ArtscribeKit`. `Playback` must never import UI.
+```
+ArtscribeKit ← AudioDecode / Waveform / TimeStretch ← Playback ← ArtscribeUI ← ArtscribeApp
+                                                                            ← ArtscribeAcceptance
+```
+
+`ArtscribeKit` imports **nothing** — not even Foundation. If a type needs an upward import,
+it belongs in `ArtscribeKit`. `Playback` must never import UI. `ArtscribeApp` is the shell
+only; the acceptance harness has its own target and must stay out of the product binary.
 
 ## Speed vs time ratio
-User-facing **speed ratio** (0.5 = half speed) is the reciprocal of Rubber Band's
-**time ratio** (2.0 = twice as long). `timeRatio == 1.0 / speedRatio`. Swapping
-these is the single easiest bug to introduce here.
 
-## Real-time rules — inside PlaybackEngine.render and the AVAudioSourceNode block
-No allocation. No locks. No `async`/`await`. No actor access. No Swift
-retain/release. No Foundation collections. Rubber Band is pre-sized via
-`setMaxProcessSize` at configure time so it never allocates during rendering.
+User-facing **speed ratio** (0.5 = half speed) is the reciprocal of Rubber Band's **time
+ratio** (2.0 = twice as long). `timeRatio == 1.0 / speedRatio`. The easiest bug to introduce
+here, and it is *audible* rather than caught by the type system.
 
-Main actor → render thread is `CommandRing` only. Render thread → main actor is
-one atomic frame counter that the UI polls. The audio thread never pushes.
+## Real-time rules — `PlaybackEngine.render` and the `AVAudioSourceNode` block
 
-## Looping
-Never `reset()` the stretcher at a loop boundary — feed continuously across it.
-Resetting flushes the overlap state and clicks on every repetition.
+No allocation. No locks. No `async`/`await`. No actor access. No Swift retain/release. No
+Foundation collections. No `String` — including in `precondition` messages, so check they
+are `@autoclosure`. Rubber Band is pre-sized via `setMaxProcessSize` at configure time so it
+never allocates while rendering.
+
+Main actor → render thread is `CommandRing` only. Render thread → main actor is atomics the
+UI **polls**. The audio thread never pushes, never calls back, never touches the model.
+
+The position the engine publishes is the **audible** position — already compensated for
+stretcher latency and buffered output. Do not add another correction on top.
+
+## Looping — the most important detail in the project
+
+**Never `reset()` the stretcher at a loop boundary.** Feed continuously across it. Resetting
+flushes Rubber Band's overlap state and clicks on *every* repetition, in a tool whose whole
+purpose is repetition.
+
+Measured, not assumed: forcing a reset at the wrap gives a 0.439 sample-to-sample step
+against a signal whose natural maximum step is 0.0157 — a 28× discontinuity. `reset()`
+appears in exactly one place, reachable only from seek and EOF-resume.
+
+Known gap: a sweep of realistic loop lengths showed this regression escaping the current
+seam tests about a third of the time through incidental phase alignment. A sweep-based test
+is queued.
+
+## Audio quality facts
+
+| Engine | Mode | Pitch error at 50% | At 200% |
+|---|---|---|---|
+| Rubber Band R3 | Studio (default) | ~0.00 cents | fraction of a cent |
+| Rubber Band R2 | Fast | up to ~26 cents | up to **−108 cents** |
+
+Studio is the default and earns it. Fast is for low-CPU scrubbing, not pitch reference.
+
+## Formats
+
+Decoded natively by macOS — no ffmpeg, no bundled codecs: MP3, AAC, M4A/MP4, ALAC, FLAC
+(incl. 24-bit), WAV, AIFF, CAF, Ogg Vorbis, Opus. `AVAssetReader` must be explicitly
+configured for Float32; the default path can return Int16 and silently discard 8 bits of a
+24-bit source.
 
 ## Test media
-Integration tests read `$ARTSCRIBE_TEST_MEDIA_DIR` and skip when unset. Never
-commit audio files over 100 KB.
+
+Integration tests read `$ARTSCRIBE_TEST_MEDIA_DIR` and **skip cleanly when unset**, so CI is
+green without it. Never commit audio over 100 KB — pre-commit enforces this.
+
+Known issue: the full suite hangs when `$ARTSCRIBE_TEST_MEDIA_DIR` is set. `make check` is
+unaffected. Root-causing is tracked.
+
+## Testing conventions
+
+- Swift Testing (`import Testing`, `@Test`, `#expect`), not XCTest
+- Views are not snapshot-tested — extract the pure logic and test that
+- A test that cannot fail is worse than none. Verify a new regression test actually fails
+  against the defect it targets before trusting it.

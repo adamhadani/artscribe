@@ -9,12 +9,16 @@ which is functionally excellent and ergonomically dated. Artscribe targets its c
 with a modern treatment: native Apple Silicon, better time-stretch quality, and an
 architecture that admits MIDI pedals and spectral analysis without a rewrite.
 
-**Status: in development.** The audio core works and is covered by tests. The first window —
-a waveform viewer with no sound yet — runs today:
+**Status: in development, and playable.** Load a file, hear it, select a passage, loop it
+seamlessly, and change speed — all from the keyboard.
 
 ```sh
+make bootstrap
 swift run -c release ArtscribeApp
 ```
+
+Not yet built: a double-clickable `.app` bundle, markers, pitch shift, spectrum analysis,
+and MIDI input. See the plan under `docs/superpowers/plans/`.
 
 ## Why it sounds better
 
@@ -23,32 +27,58 @@ shows its age. Artscribe uses [Rubber Band](https://breakfastquay.com/rubberband
 **R3 "Finer"** engine — a multiresolution, phase-locked spectral stretcher in the same
 class as Ableton's Complex Pro.
 
-Measured pitch error at half speed, FFT peak against a 440 Hz reference:
+Measured pitch error, FFT peak against a reference tone:
 
-| Engine | Mode | Pitch error |
-|---|---|---|
-| Rubber Band R3 | Studio (default) | ~0.00 cents |
-| Rubber Band R2 | Fast | frequency-dependent, up to ~26 cents (worst found: -25.95 at 300 Hz) |
+| Engine | Mode | At 50% speed | At 200% speed |
+|---|---|---|---|
+| Rubber Band R3 | Studio (default) | ~0.00 cents | a fraction of a cent |
+| Rubber Band R2 | Fast | up to ~26 cents (worst: −25.95 at 300 Hz) | up to **−108 cents** at 220 Hz |
 
-Studio is the default. Fast exists for low-CPU scrubbing and trades pitch accuracy for speed.
+Studio is the default and earns it. Fast exists for low-CPU scrubbing and trades pitch
+accuracy for speed — it is not a pitch reference, especially above 1×.
 
-## Running the viewer
+Looping is sample-accurate and feeds the stretcher *continuously across the seam* rather
+than resetting it. That detail is the difference between a clean loop and a click on every
+repetition: forcing a reset at the boundary produces a 28× discontinuity against the
+signal's natural step size.
 
-`swift run -c release ArtscribeApp` opens a window. Release, not debug: a debug build
-decodes roughly four times slower.
+## Using it
+
+Release, not debug — a debug build decodes roughly four times slower.
+
+### Transport and speed
+
+| Key | Action |
+|---|---|
+| `Space` | Play / pause |
+| `Return` | Play from start (of selection, else the file) |
+| `Q` / `W` | Slower / faster (5%) |
+| `⇧Q` / `⇧W` | Slower / faster (1%) |
+| `1` `2` `3` `4` | 100% / 75% / 50% / 33% |
+| `⌥E` | Toggle Studio / Fast engine |
+| `↑` / `↓` | Volume up / down |
+| `M` | Mute |
+
+### Selection, looping and view
 
 | Key | Action |
 |---|---|
 | `⌘O` | Open a file (dropping one on the window works too) |
+| `A` / `S` | Set loop in / out at the playhead |
+| `D` | Toggle looping |
+| `F` | Restart the loop |
+| `G` | Turn the selection into the loop |
 | `R` / `E` | Zoom in / out, anchored on the playhead |
 | `X` / `Z` | Pan right / left |
-| `⌘0` | Fit the whole file |
-| `⌘9` | Zoom to the selection |
+| `⌘0` / `⌘9` | Fit the whole file / zoom to selection |
 | `Esc` | Clear the selection |
 
 Drag in the lanes to select, shift-drag to extend, double-click to select all, click to
-place the playhead. Pinch to zoom and two-finger scroll to pan. Dragging the overview
-strip moves the visible window. There is no playback yet.
+place the playhead. Pinch to zoom, two-finger scroll to pan. Dragging the overview strip
+moves the visible window.
+
+Everything above also appears in the **Playback** menu with its shortcut, along with output
+device selection.
 
 ## Formats
 
@@ -61,44 +91,47 @@ Requires macOS 26+, Xcode 26+ (Swift 6.3), and Apple Silicon.
 
 ```sh
 make bootstrap   # brew: rubberband, swiftlint, xcodegen, pre-commit (+ installs hooks)
-make check       # format check, lint, and the full test suite
+make check       # format check, lint, and the full test suite — the gate for every commit
 ```
 
-Everything except the (not yet written) app shell builds and tests headlessly under
-`swift test` — no Xcode project, no scheme, no audio hardware.
+Every module except the app shell builds and tests headlessly under `swift test` — no Xcode
+project, no scheme, no audio hardware.
 
 ### Tests against real media
 
 Integration tests read `$ARTSCRIBE_TEST_MEDIA_DIR` and **skip cleanly when it is unset**,
 so CI stays green without it. Point it at a directory of real music to exercise the
-decode and waveform paths at full scale:
+decode, waveform and playback paths at full scale:
 
 ```sh
 ARTSCRIBE_TEST_MEDIA_DIR=~/Music/SomeAlbum swift test -c release
 ```
 
-Measure performance in **release** mode. A debug build is roughly 4x slower and will
-mislead you.
+Measure performance in **release**. A debug build is roughly 4× slower and will mislead you.
+
+> Known issue: the full suite hangs when `$ARTSCRIBE_TEST_MEDIA_DIR` is set. `make check`
+> is unaffected. Being tracked.
 
 ## Architecture
 
-Eight SwiftPM modules across three execution contexts. Dependencies point one way only.
+Nine SwiftPM modules across three execution contexts. Dependencies point one way only.
 
 ```
 BACKGROUND (load)       MAIN ACTOR (model & UI)     RENDER THREAD (real-time)
-AudioDecode             InputBindings               AVAudioSourceNode
+AudioDecode             ArtscribeUI                 AVAudioSourceNode
     ↓                        ↓                          ↓
 DecodedAudio  ─────────► ArtscribeKit               PlaybackEngine
     ↓                        ↓                          ↓
-Waveform      ─────────► ArtscribeUI                TimeStretch (Rubber Band)
+Waveform      ─────────► ArtscribeApp               TimeStretch (Rubber Band)
 ```
 
-`ArtscribeKit` imports nothing. The main actor and the render thread communicate through
-exactly one boundary: a lock-free command ring going down, and a single atomic frame
-counter polled going up. The audio thread never allocates, never locks, and never touches
-the model.
+`ArtscribeKit` imports nothing — not even Foundation. The main actor and the render thread
+communicate through exactly one boundary: a lock-free SPSC command ring going down, and
+atomics the UI polls going up. The audio thread never allocates, never locks, never calls
+back, and never touches the model.
 
-Design documents live in `docs/superpowers/specs/` and `docs/superpowers/plans/`.
+Design documents live in `docs/superpowers/specs/` and `docs/superpowers/plans/`;
+`CLAUDE.md` carries the working conventions.
 
 ## Licence
 
