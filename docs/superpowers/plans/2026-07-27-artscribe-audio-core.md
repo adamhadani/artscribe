@@ -2906,6 +2906,75 @@ find yourself unable to test a piece of logic because it is tangled into a view,
 chose, and the measured time from "file chosen" to "waveform on screen" for the reference
 track (spec §1.2 budget: under 2 s; decode alone is ~1.54 s, pyramid ~5 ms).
 
+---
+
+### Task 11: Wire playback into the viewer — the MVP milestone
+
+This is the task that makes the app worth using. After it, the user can load a file, hear
+it, select a passage, loop it seamlessly, and change speed — all from the keyboard.
+
+**Depends on:** Tasks 7 (`CommandRing`), 8 (`PlaybackEngine`), 9 (`AudioOutput`), 10 (viewer).
+
+**Files:** extend `Sources/ArtscribeUI/` (view model, commands, status bar, waveform overlay)
+and `Sources/ArtscribeApp/`. Add `Tests/ArtscribeUITests/` coverage for the pure logic.
+
+**Requirements:**
+
+- [ ] **Transport**: `Space` play/pause, `Return` to selection start (else 0). The playhead
+      is drawn in the waveform and ruler and moves during playback.
+- [ ] **Playhead position comes from polling** `PlaybackEngine.currentFrame` on a display
+      link, never pushed from the audio thread. The audio thread must not touch the model.
+- [ ] **Speed**: `Q`/`W` ∓5%, `⇧Q`/`⇧W` ∓1%, `1`/`2`/`3`/`4` → 100/75/50/33%, `⌥E` toggles
+      Studio/Fast. Range 0.10–2.00. Pitch is always preserved.
+- [ ] **Loop**: `A` set in at playhead, `S` set out at playhead, `D` toggle, `F` restart
+      loop, `G` selection → loop. The loop region is drawn distinctly from the selection.
+- [ ] **Auto-scroll is page-flip**, and suppressed while a loop is active and fits on
+      screen. Continuous centred scrolling is explicitly rejected — it looks better in a
+      demo and is miserable to transcribe against, because the waveform never stops moving.
+- [ ] **Status bar** shows speed %, engine, and loop state alongside the existing readouts.
+- [ ] **Speed and loop changes take effect on the next render quantum** with no dropout,
+      no click, and no loss of position.
+- [ ] Degraded engine state (R3 → R2 → passthrough) is **visibly** indicated per spec §8.
+
+**Acceptance — verify by running, and report what you actually heard:**
+- [ ] A 4-second loop at 50% speed repeats with **no click, pop, or gap at the seam**. This
+      is the single most important qualitative check in the whole project.
+- [ ] Pitch is unchanged at 50% and 200% — a held note is the same note, just longer.
+- [ ] Changing speed mid-playback does not click, stutter, or jump position.
+- [ ] Setting loop points while playing takes effect on the next pass.
+- [ ] The playhead stays visually synchronised with what you hear.
+
+---
+
+### Task 12: Bundle and distribute — make it launchable
+
+`swift run` is fine for development and wrong for daily use. This task produces a real
+double-clickable `Artscribe.app`.
+
+**Files:** `project.yml` (XcodeGen), `App/Info.plist`, `App/Artscribe.entitlements`, an app
+icon, `Makefile` targets, README updates.
+
+**Requirements:**
+
+- [ ] **`make app`** produces `Artscribe.app` that launches by double-click from Finder,
+      with a correct bundle identifier, version, display name, and icon.
+- [ ] The `.app` **must not be committed**; `project.yml` is the source of truth and the
+      generated `.xcodeproj` stays gitignored, per the project's build-system decision.
+- [ ] **Declare supported document types** in `Info.plist` so Artscribe appears in
+      Finder's "Open With" for the formats it decodes, and so dropping a file on the dock
+      icon works.
+- [ ] **Ad-hoc codesign** so it launches on this machine without Gatekeeper friction.
+      Document what a real Developer ID signature and notarisation would additionally
+      require, but do not attempt notarisation — it needs an Apple Developer account.
+- [ ] **`make dist`** produces a distributable archive (zip or DMG) of the signed app.
+- [ ] **README** gains a "Running Artscribe" section covering both `make app` for users and
+      `swift run` for development.
+- [ ] `make check` still passes, and the SwiftPM path keeps working — bundling must not
+      become the only way to build.
+
+**Acceptance:** double-click the built app from Finder, open a file through its own ⌘O, and
+confirm playback works from the bundled binary — not just from `swift run`.
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
