@@ -133,15 +133,49 @@ extension AcceptanceRun {
 
     /// Posted rather than sent: local event monitors only see events that pass
     /// through the application's event queue.
+    ///
+    /// `units` is the whole point of the P0 checks: `.pixel` produces the
+    /// precise deltas of a trackpad swipe, `.line` the coarse ones of a physical
+    /// mouse wheel, and `hasPreciseScrollingDeltas` is how the viewer tells them
+    /// apart. A synthesised event carries no window, so the viewer resolves its
+    /// anchor from the live pointer — warp the cursor first with `warp(toX:y:)`.
     @MainActor
-    static func scroll(deltaX: Int32) {
+    static func scroll(
+        deltaX: Int32 = 0,
+        deltaY: Int32 = 0,
+        units: CGScrollEventUnit = .pixel,
+        flags: CGEventFlags = []
+    ) {
         guard
             let scroll = CGEvent(
-                scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: 0,
-                wheel2: deltaX, wheel3: 0),
-            let event = NSEvent(cgEvent: scroll)
+                scrollWheelEvent2Source: nil, units: units, wheelCount: 2, wheel1: deltaY,
+                wheel2: deltaX, wheel3: 0)
         else { return }
+        scroll.flags = flags
+        guard let event = NSEvent(cgEvent: scroll) else { return }
         NSApp.postEvent(event, atStart: false)
+    }
+
+    /// Puts the real pointer somewhere in the window, in window content
+    /// coordinates with a top-left origin — the space the viewer hit-tests in.
+    ///
+    /// `CGWarpMouseCursorPosition` needs no accessibility permission, unlike
+    /// posting mouse events to the system, so this works on a machine where
+    /// synthetic input from outside the process is refused.
+    @MainActor
+    static func warp(toX x: Double, y: Double) {
+        guard let window = NSApp.keyWindow ?? NSApp.windows.first,
+            let view = window.contentView,
+            // The *primary* display, not the window's: CoreGraphics measures
+            // global coordinates from that one's top-left corner.
+            let screen = NSScreen.screens.first
+        else { return }
+        let inView = NSPoint(x: x, y: view.isFlipped ? y : view.bounds.height - y)
+        let inWindow = view.convert(inView, to: nil)
+        let onScreen = window.convertPoint(toScreen: inWindow)
+        // Screen coordinates run bottom-up; `CGWarpMouseCursorPosition` is
+        // top-down from the primary display's origin.
+        CGWarpMouseCursorPosition(CGPoint(x: onScreen.x, y: screen.frame.maxY - onScreen.y))
     }
 
     @MainActor

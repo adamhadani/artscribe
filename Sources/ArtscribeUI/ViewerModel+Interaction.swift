@@ -1,4 +1,5 @@
 import ArtscribeKit
+import CoreGraphics
 
 /// Everything the user can do to the view: zoom, pan, and select.
 ///
@@ -22,6 +23,36 @@ extension ViewerModel {
         guard hasTrack else { return }
         viewport.zoom(by: factor, anchorFrame: anchorFrame ?? zoomAnchor)
         refresh()
+    }
+
+    /// Zoom driven by the pointer — a wheel, a pinch, or a `⌘`-scroll.
+    ///
+    /// It anchors on the frame under the pointer, not on the playhead: a
+    /// cursor-driven zoom that anchors elsewhere slides the thing you are
+    /// pointing at out from under you. Over the overview strip the anchor is a
+    /// frame in the *whole file* and it is still the main viewport that zooms —
+    /// the strip is always fitted. With the pointer over neither lane (or before
+    /// the first layout pass) this is exactly `zoom(by:)`, playhead-anchored.
+    ///
+    /// - Parameter point: pointer position in window content coordinates.
+    public func zoom(by factor: Double, at point: CGPoint?) {
+        guard hasTrack else { return }
+        guard
+            let point,
+            let target = PointerZoom.target(at: point, lanes: laneFrame, overview: overviewFrame)
+        else {
+            zoom(by: factor)
+            return
+        }
+        switch target {
+        case .lanes(let x):
+            zoom(by: factor, anchorFrame: PixelMapping.frame(atPixel: x, in: viewport))
+        case .overview(let x):
+            zoom(
+                by: factor,
+                anchorFrame: PixelMapping.overviewFrame(
+                    atPixel: x, totalFrames: totalFrames, width: overviewFrame.width))
+        }
     }
 
     public func fitWholeFile() {

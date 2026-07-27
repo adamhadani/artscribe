@@ -64,10 +64,13 @@ struct WaveformLanesView: View {
         }
         .contentShape(.rect)
         .gesture(dragGesture)
-        .onGeometryChange(for: CGSize.self) {
-            $0.size
-        } action: { size in
-            model.setLaneSize(size, scale: displayScale)
+        // The frame, not just the size: a scroll event arrives at the window, so
+        // pointer-anchored zoom needs to know where this lane sits in it.
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .global)
+        } action: { frame in
+            model.setLaneFrame(frame)
+            model.setLaneSize(frame.size, scale: displayScale)
         }
     }
 

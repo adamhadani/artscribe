@@ -59,11 +59,12 @@ struct OverviewStripView: View {
                             width: overviewWidth))
                 }
         )
-        .onGeometryChange(for: CGSize.self) {
-            $0.size
-        } action: { size in
-            overviewWidth = size.width
-            model.setOverviewSize(size)
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .global)
+        } action: { frame in
+            overviewWidth = frame.width
+            model.setOverviewFrame(frame)
+            model.setOverviewSize(frame.size)
         }
     }
 

@@ -139,6 +139,12 @@ public final class ViewerModel {
     var generation = 0
     var laneSize = CGSize(width: 1, height: 1)
     var overviewSize = CGSize(width: 1, height: 1)
+    /// Hit-test rectangles for pointer-anchored zoom; see `setLaneFrame`.
+    /// Nothing draws from these, so they stay out of observation. Readable from
+    /// outside so the acceptance harness can aim the pointer at a real lane
+    /// instead of hard-coding a layout.
+    @ObservationIgnored public internal(set) var laneFrame: CGRect = .zero
+    @ObservationIgnored public internal(set) var overviewFrame: CGRect = .zero
     var scale: CGFloat = 2
     var renderedKey: WaveformRenderer.Key?
     var overviewKey: WaveformRenderer.Key?
@@ -272,6 +278,21 @@ public final class ViewerModel {
         guard size.width > 0, size.height > 0, size != overviewSize else { return }
         overviewSize = size
         refresh()
+    }
+
+    /// Where the lanes sit in the window, in SwiftUI's global (content-view)
+    /// coordinates. Only pointer-anchored zoom needs it: a scroll event arrives
+    /// at the window, not at a view, so the hit test happens here.
+    ///
+    /// Deliberately not part of `setLaneSize`: a window *move* changes neither
+    /// size nor scale and must not invalidate the bitmap, while a window
+    /// *resize* changes both frames and only one of them matters to rendering.
+    public func setLaneFrame(_ frame: CGRect) {
+        laneFrame = frame
+    }
+
+    public func setOverviewFrame(_ frame: CGRect) {
+        overviewFrame = frame
     }
 
     var lanePointWidth: Int { Swift.max(1, Int(laneSize.width.rounded())) }

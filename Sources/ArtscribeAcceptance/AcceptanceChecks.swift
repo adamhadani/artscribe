@@ -63,6 +63,92 @@ extension AcceptanceRun {
             model.viewport.startFrame > before)
     }
 
+    /// P0: the scroll-wheel/trackpad split, and pointer-anchored zoom.
+    ///
+    /// The events are genuine `NSEvent`s posted through the application queue,
+    /// with the same `hasPreciseScrollingDeltas` a real device would set —
+    /// `.line` for a wheel, `.pixel` for a trackpad. They carry no window, so
+    /// the pointer is warped first and the viewer resolves the anchor from it.
+    @MainActor
+    static func checkScrollZoom(model: ViewerModel, log: inout Logger) async {
+        model.fitWholeFile()
+        model.clearSelection()
+        model.seek(to: 0)
+        let lanes = model.laneFrame
+        let strip = model.overviewFrame
+        log.note("lane frame", "\(lanes)")
+        log.note("overview frame", "\(strip)")
+        guard !lanes.isEmpty, !strip.isEmpty else {
+            log.check("lane geometry is known to the model", false)
+            return
+        }
+
+        // A quarter of the way across the lanes, so anchoring on the playhead
+        // (at frame 0, the far left) would be unmistakable.
+        let laneX = lanes.width * 0.25
+        warp(toX: lanes.minX + laneX, y: lanes.midY)
+        await settle(seconds: 0.2)
+        let anchored = PixelMapping.frame(atPixel: laneX, in: model.viewport)
+        let fitted = model.zoomFactor
+        for _ in 0..<4 { scroll(deltaY: 1, units: .line) }
+        await settle(seconds: 0.3)
+        log.check(
+            "mouse wheel up zooms in (\(rounded(fitted))x -> \(rounded(model.zoomFactor))x)",
+            model.zoomFactor > fitted * 1.5)
+        let landed = model.viewport.pixel(forFrame: anchored)
+        log.check(
+            "wheel zoom anchors under the pointer "
+                + "(\(rounded(laneX)) pt -> \(rounded(landed)) pt)",
+            abs(landed - laneX) <= 2)
+
+        for _ in 0..<4 { scroll(deltaY: -1, units: .line) }
+        await settle(seconds: 0.3)
+        log.check(
+            "mouse wheel down zooms back out (\(rounded(model.zoomFactor))x)",
+            model.zoomFactor < fitted * 1.05)
+
+        for _ in 0..<3 { press(.r) }
+        let panFrom = model.viewport.startFrame
+        for _ in 0..<6 { scroll(deltaX: -24, units: .pixel) }
+        await settle(seconds: 0.3)
+        log.check(
+            "two-finger scroll still pans (\(panFrom) -> \(model.viewport.startFrame))",
+            model.viewport.startFrame > panFrom)
+
+        let zoomFrom = model.zoomFactor
+        for _ in 0..<4 { scroll(deltaY: 30, units: .pixel, flags: .maskCommand) }
+        await settle(seconds: 0.3)
+        log.check(
+            "Command-scroll zooms on a trackpad "
+                + "(\(rounded(zoomFrom))x -> \(rounded(model.zoomFactor))x)",
+            model.zoomFactor > zoomFrom * 1.5)
+
+        await checkOverviewZoom(model: model, strip: strip, log: &log)
+    }
+
+    /// The overview strip always shows the whole file, so zooming there has to
+    /// move the *main* viewport toward the frame under the pointer.
+    @MainActor
+    private static func checkOverviewZoom(
+        model: ViewerModel, strip: CGRect, log: inout Logger
+    ) async {
+        model.fitWholeFile()
+        let stripX = strip.width * 0.75
+        warp(toX: strip.minX + stripX, y: strip.midY)
+        await settle(seconds: 0.2)
+        let target = PixelMapping.overviewFrame(
+            atPixel: stripX, totalFrames: model.totalFrames, width: strip.width)
+        for _ in 0..<8 { scroll(deltaY: 1, units: .line) }
+        await settle(seconds: 0.3)
+        let visible = model.viewport.startFrame...model.viewport.endFrame
+        log.check(
+            "wheel over the overview zooms the main viewport toward that frame "
+                + "(\(rounded(model.zoomFactor))x, \(visible.lowerBound)…\(visible.upperBound) "
+                + "contains \(target))",
+            model.zoomFactor > 1.5 && visible.contains(target))
+        model.fitWholeFile()
+    }
+
     @MainActor
     static func checkZoomToSelection(model: ViewerModel, log: inout Logger) async {
         let range = model.selection.range

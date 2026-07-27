@@ -48,6 +48,7 @@ enum AcceptanceRun {
 
         checkPanClamping(model: model, log: &log)
         await checkTrackpad(model: model, log: &log)
+        await checkScrollZoom(model: model, log: &log)
         await checkSelection(model: model, log: &log)
         await settle(seconds: 0.2)
         snapshot(to: "\(outputDirectory)/03-selection.png")
