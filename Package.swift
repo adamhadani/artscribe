@@ -62,6 +62,16 @@ let package = Package(
             swiftSettings: sharedSwiftSettings
         ),
         .target(
+            name: "Playback",
+            dependencies: ["ArtscribeKit", "AudioDecode", "TimeStretch"],
+            swiftSettings: sharedSwiftSettings
+        ),
+        .testTarget(
+            name: "PlaybackTests",
+            dependencies: ["Playback"],
+            swiftSettings: sharedSwiftSettings
+        ),
+        .target(
             name: "ArtscribeUI",
             dependencies: ["ArtscribeKit", "AudioDecode", "Waveform"],
             swiftSettings: sharedSwiftSettings
