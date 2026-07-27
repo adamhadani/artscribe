@@ -43,4 +43,20 @@ ffmpeg -y -loglevel error -f lavfi \
   -i "sine=frequency=440:duration=0.75:sample_rate=44100" -ac 2 -af "$boost" -c:a pcm_s24le _master24.wav
 ffmpeg -y -loglevel error -i _master24.wav -c:a flac -sample_fmt s32 sine24.flac
 
+# --- Two-tone stereo fixture: L and R carry genuinely different content. ---
+# Every fixture above is a mono sine identically upmixed to both channels, so
+# L and R are byte-for-byte identical -- no test using them can tell a channel
+# swap or a misaligned deinterleave index from correct output. Two independent
+# mono generators merged via `amerge` give distinguishable per-channel content
+# (440 Hz left, 660 Hz right) that a swap or misalignment would fail.
+# `amerge`'s two independent sources aren't pan-law-attenuated the way a
+# mono->stereo upmix is, so they start around -18 dBFS already; +15dB (not
+# +18dB) lands at the same ~-3 dBFS/~0.7 amplitude used everywhere else,
+# rather than clipping.
+ffmpeg -y -loglevel error \
+  -f lavfi -i "sine=frequency=440:duration=1:sample_rate=44100" \
+  -f lavfi -i "sine=frequency=660:duration=1:sample_rate=44100" \
+  -filter_complex "[0:a]volume=15dB[l];[1:a]volume=15dB[r];[l][r]amerge=inputs=2[aout]" \
+  -map "[aout]" -sample_fmt s16 -c:a flac sine_stereo_distinct.flac
+
 ls -la

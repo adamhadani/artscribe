@@ -54,6 +54,53 @@ func decodesEveryNativeFormat(name: String, expectedRate: Double) async throws {
     #expect(foundSubQuantumValue, "decoder appears to have quantised a 24-bit source to 16 bits")
 }
 
+/// Counts sign changes between consecutive samples -- a cheap, FFT-free proxy
+/// for a sine wave's frequency (a tone at `f` Hz crosses zero `2 * f * duration`
+/// times, since each cycle crosses twice).
+private func zeroCrossings(_ samples: UnsafePointer<Float>, count: Int) -> Int {
+    guard count > 1 else { return 0 }
+    var crossings = 0
+    for i in 1..<count where samples[i - 1] * samples[i] < 0 {
+        crossings += 1
+    }
+    return crossings
+}
+
+@Test func decodePreservesChannelIdentityAndOrder() async throws {
+    // Every other fixture here is a mono sine identically upmixed to both
+    // channels -- L and R are byte-for-byte identical, so nothing above can
+    // detect a channel swap or a misaligned `deinterleave` index (`floats[i *
+    // channels + c]`). `sine_stereo_distinct.flac` carries 440 Hz on channel 0
+    // and 660 Hz on channel 1: a swap or misalignment fails this test.
+    let audio = try await AudioFileDecoder.decode(url: fixture("sine_stereo_distinct.flac"))
+    #expect(audio.channels == 2)
+    let n = Int(audio.frameCount)
+    let ch0 = audio.channel(0)
+    let ch1 = audio.channel(1)
+
+    var identical = true
+    for i in 0..<n where ch0[i] != ch1[i] {
+        identical = false
+        break
+    }
+    #expect(
+        !identical,
+        "left and right channel content is byte-identical -- fixture or decode path is not stereo"
+    )
+
+    let duration = Double(n) / audio.sampleRate
+    let crossings0 = zeroCrossings(ch0, count: n)
+    let crossings1 = zeroCrossings(ch1, count: n)
+    let expected440 = 2 * 440.0 * duration
+    let expected660 = 2 * 660.0 * duration
+
+    // Channel 0 must carry ~440 Hz and channel 1 ~660 Hz, in that order: a
+    // channel swap would fail both of these simultaneously (each count would
+    // land near the *other* channel's expectation instead).
+    #expect(abs(Double(crossings0) - expected440) < expected440 * 0.15)
+    #expect(abs(Double(crossings1) - expected660) < expected660 * 0.15)
+}
+
 @Test func missingFileThrowsUnreadable() async {
     await #expect(throws: DecodeError.self) {
         _ = try await AudioFileDecoder.decode(url: URL(fileURLWithPath: "/nope/missing.wav"))
@@ -201,10 +248,53 @@ private func makeBlockBuffer(bytes: [UInt8]) throws -> CMBlockBuffer {
         "expected the naive read to be short of the full buffer on this non-contiguous case"
     )
 
-    // The robust helper must recover every byte from both segments.
-    let recovered = try AudioFileDecoder.copyBytes(from: parent)
+    // The robust helper must recover every byte from both segments. (Reads
+    // into a reused scratch allocation rather than returning a fresh array --
+    // see `AudioFileDecoder.SampleScratch` -- but the correctness contract
+    // being exercised here is unchanged: every byte from every segment.)
+    let scratch = AudioFileDecoder.SampleScratch()
+    let recoveredLength = try AudioFileDecoder.copyBytes(from: parent, into: scratch)
+    #expect(recoveredLength == totalLength)
+    let recovered = (0..<recoveredLength).map {
+        scratch.buffer.load(fromByteOffset: $0, as: Int8.self)
+    }
     #expect(
         recovered == segmentA.map { Int8(bitPattern: $0) } + segmentB.map { Int8(bitPattern: $0) })
+}
+
+@Test func copyBytesReturnsZeroForEmptyBlockBuffer() throws {
+    // The benign half of the defect-2 fix's sibling decision (finding 2 from
+    // review round 2): a genuinely zero-length `CMBlockBuffer` carries no
+    // payload to lose, so `copyBytes` returns 0 rather than throwing, and the
+    // read loop treats that as a no-op skip rather than an error.
+    var buffer: CMBlockBuffer?
+    let status = CMBlockBufferCreateEmpty(
+        allocator: kCFAllocatorDefault, capacity: 0, flags: 0, blockBufferOut: &buffer)
+    #expect(status == noErr)
+    let empty = try #require(buffer)
+    #expect(CMBlockBufferGetDataLength(empty) == 0)
+
+    let scratch = AudioFileDecoder.SampleScratch()
+    let length = try AudioFileDecoder.copyBytes(from: empty, into: scratch)
+    #expect(length == 0)
+}
+
+// MARK: - Defect regression: partial frames must throw, not silently drop bytes.
+
+@Test func frameCountComputesWholeFrames() throws {
+    let frames = try AudioFileDecoder.frameCount(inByteCount: 32, frameSize: 8)
+    #expect(frames == 4)
+}
+
+@Test func frameCountThrowsRatherThanTruncateOnPartialFrame() {
+    // 17 bytes at an 8-byte frame size is 2 whole frames plus 1 leftover byte.
+    // The original implementation computed `17 / 8 == 2` and silently
+    // dropped that trailing byte; real LPCM sample buffers from AVFoundation
+    // are always frame-aligned, so this should never happen, and if it ever
+    // does, it must be surfaced rather than quietly losing real decoded data.
+    #expect(throws: DecodeError.self) {
+        _ = try AudioFileDecoder.frameCount(inByteCount: 17, frameSize: 8)
+    }
 }
 
 // MARK: - Real-media sanity check (optional)

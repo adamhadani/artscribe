@@ -2,8 +2,11 @@ import AVFoundation
 import ArtscribeKit
 import CoreMedia
 import Foundation
+import os
 
 public enum AudioFileDecoder {
+
+    private static let logger = Logger(subsystem: "com.artscribe.AudioDecode", category: "decode")
 
     /// Decodes an entire file to planar Float32.
     ///
@@ -133,21 +136,42 @@ public enum AudioFileDecoder {
         progress: (@Sendable (Double) -> Void)?
     ) async throws -> Int {
         var written = 0
+        var emptyBufferCount = 0
+        let scratch = SampleScratch()
+        let frameSize = MemoryLayout<Float>.size * channels
 
         while let sample = reader.output.copyNextSampleBuffer() {
             defer { CMSampleBufferInvalidate(sample) }
-            guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
+            guard let block = CMSampleBufferGetDataBuffer(sample) else {
+                // A `CMSampleBuffer` with no data buffer carries no audio payload at
+                // all -- some containers emit these as markers around a mid-stream
+                // format-description change. There is nothing to lose by skipping
+                // one, but a *run* of them would be a symptom of something else
+                // going wrong, so this is counted and logged rather than silently
+                // discarded.
+                emptyBufferCount += 1
+                continue
+            }
 
-            let bytes = try copyBytes(from: block)
-            let frames = bytes.count / (MemoryLayout<Float>.size * channels)
-            guard frames > 0 else { continue }
+            let byteCount = try copyBytes(from: block, into: scratch)
+            guard byteCount > 0 else {
+                // A genuinely zero-length block buffer: same reasoning as above,
+                // no payload existed to lose.
+                emptyBufferCount += 1
+                continue
+            }
+            // LPCM sample buffers from AVFoundation are always frame-aligned; a
+            // partial frame here would mean real decoded bytes exist that don't
+            // fit our layout assumptions. Never silently drop them -- throw
+            // instead of truncating via integer division.
+            let frames = try frameCount(inByteCount: byteCount, frameSize: frameSize)
 
             // Never silently truncate: if the file turns out longer than the
             // duration-based estimate predicted, grow rather than stop early.
             if written + frames > storage.capacityFrames {
                 storage.grow(toAtLeast: written + frames, preserving: written)
             }
-            deinterleave(bytes, frames: frames, channels: channels, into: storage, at: written)
+            deinterleave(scratch, frames: frames, channels: channels, into: storage, at: written)
             written += frames
 
             if let progress, estimatedFrames > 0 {
@@ -163,29 +187,86 @@ public enum AudioFileDecoder {
             throw DecodeError.unreadable(
                 reader.reader.error?.localizedDescription ?? "Decode failed.")
         }
+        if emptyBufferCount > 0 {
+            logger.notice(
+                "Skipped \(emptyBufferCount) empty sample buffer(s) with no audio payload.")
+        }
         return written
     }
 
-    /// Stride-copies channel `c` out of the packed interleaved frame stream.
-    /// (Accelerate's `cblas_scopy` is deprecated on this SDK in favour of an
-    /// ILP64 interface; a plain loop avoids that churn entirely, and this runs
-    /// once per file load, never on the render path.)
+    /// Computes how many complete `frameSize`-byte frames are present in
+    /// `byteCount` bytes of already-known-nonempty decoded audio data.
+    ///
+    /// LPCM sample buffers handed back by `AVAssetReaderTrackOutput` are always
+    /// frame-aligned, so `byteCount` not dividing evenly means our assumptions
+    /// about this stream's layout are wrong. The previous implementation
+    /// computed `byteCount / frameSize` and silently ignored any remainder --
+    /// exactly the kind of silent data loss this project doesn't allow, so this
+    /// throws instead.
+    static func frameCount(inByteCount byteCount: Int, frameSize: Int) throws -> Int {
+        precondition(frameSize > 0)
+        let frames = byteCount / frameSize
+        guard byteCount == frames * frameSize else {
+            throw DecodeError.unsupportedFormat(
+                "Decoded \(byteCount) bytes, which is not a whole multiple of the "
+                    + "\(frameSize)-byte frame size.")
+        }
+        return frames
+    }
+
+    /// Stride-copies channel `c` out of the packed interleaved frame stream held
+    /// in `scratch`. (Accelerate's `cblas_scopy` is deprecated on this SDK in
+    /// favour of an ILP64 interface; a plain loop avoids that churn entirely,
+    /// and `-O` can vectorise this since `dst`/`floats` are raw, unchecked
+    /// pointers.)
     private static func deinterleave(
-        _ bytes: [Int8], frames: Int, channels: Int, into storage: AudioStorage, at written: Int
+        _ scratch: SampleScratch, frames: Int, channels: Int, into storage: AudioStorage,
+        at written: Int
     ) {
-        bytes.withUnsafeBytes { raw in
-            guard let floats = raw.bindMemory(to: Float.self).baseAddress else { return }
-            for c in 0..<channels {
-                let dst = storage.pointer(c) + written
-                for i in 0..<frames {
-                    dst[i] = floats[i * channels + c]
-                }
+        let floats = scratch.buffer.bindMemory(to: Float.self, capacity: frames * channels)
+        for c in 0..<channels {
+            let dst = storage.pointer(c) + written
+            for i in 0..<frames {
+                dst[i] = floats[i * channels + c]
             }
         }
     }
 
-    /// Copies the full logical contents of a `CMBlockBuffer` into a freshly
-    /// allocated buffer.
+    /// A single raw scratch allocation reused across every sample buffer in one
+    /// decode, growing (never shrinking) as needed.
+    ///
+    /// Previously each chunk allocated a fresh `[Int8](repeating: 0, count:
+    /// length)` -- zero-initialising memory that `CMBlockBufferCopyDataBytes`
+    /// was about to overwrite in full, plus a fresh heap allocation every
+    /// iteration. Profiling a real ~9.5 minute 24-bit FLAC decode (release
+    /// build) showed that work was never the bottleneck (~3% of total decode
+    /// time; `AVAssetReader.startReading()` and the codec's own per-chunk work
+    /// inside `copyNextSampleBuffer()` account for the other ~97% and are
+    /// outside this module's control), but it was real, avoidable waste, so
+    /// it's removed regardless.
+    final class SampleScratch {
+        private(set) var buffer: UnsafeMutableRawPointer
+        private(set) var capacity: Int
+
+        init() {
+            capacity = 0
+            buffer = UnsafeMutableRawPointer.allocate(
+                byteCount: 1, alignment: MemoryLayout<Float>.alignment)
+        }
+
+        deinit { buffer.deallocate() }
+
+        func reserve(_ byteCount: Int) {
+            guard byteCount > capacity else { return }
+            buffer.deallocate()
+            buffer = UnsafeMutableRawPointer.allocate(
+                byteCount: byteCount, alignment: MemoryLayout<Float>.alignment)
+            capacity = byteCount
+        }
+    }
+
+    /// Copies the full logical contents of a `CMBlockBuffer` into `scratch`
+    /// (growing it if necessary) and returns the number of bytes copied.
     ///
     /// `CMBlockBufferGetDataPointer`'s `totalLengthOut` reports the buffer's
     /// entire logical length, but the pointer it hands back is only guaranteed
@@ -197,19 +278,16 @@ public enum AudioFileDecoder {
     /// `CMBlockBufferCopyDataBytes` is the API documented to read correctly
     /// across segment boundaries, so it's used unconditionally here rather than
     /// only in a fallback path.
-    static func copyBytes(from block: CMBlockBuffer) throws -> [Int8] {
+    static func copyBytes(from block: CMBlockBuffer, into scratch: SampleScratch) throws -> Int {
         let length = CMBlockBufferGetDataLength(block)
-        guard length > 0 else { return [] }
-        var bytes = [Int8](repeating: 0, count: length)
-        let status = bytes.withUnsafeMutableBytes { raw -> OSStatus in
-            guard let base = raw.baseAddress else { return kCMBlockBufferBadPointerParameterErr }
-            return CMBlockBufferCopyDataBytes(
-                block, atOffset: 0, dataLength: length, destination: base)
-        }
+        guard length > 0 else { return 0 }
+        scratch.reserve(length)
+        let status = CMBlockBufferCopyDataBytes(
+            block, atOffset: 0, dataLength: length, destination: scratch.buffer)
         guard status == noErr else {
             throw DecodeError.unreadable(
                 "Could not read decoded audio samples (OSStatus \(status)).")
         }
-        return bytes
+        return length
     }
 }
