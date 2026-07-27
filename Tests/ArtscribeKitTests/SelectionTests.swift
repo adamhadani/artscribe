@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import ArtscribeKit
@@ -33,4 +34,24 @@ import Testing
 @Test func loopRegionDefaultsDisabled() {
     let l = LoopRegion(range: FrameRange(start: 0, count: 100))
     #expect(!l.isEnabled)
+}
+
+@Test func extendBackToAnchorCollapsesToEmpty() {
+    var s = Selection()
+    s.begin(at: 100)
+    s.extend(to: 500)
+    #expect(!s.isEmpty)
+    s.extend(to: 100)
+    #expect(s.isEmpty)
+    #expect(s.range.isEmpty)
+}
+
+// isEmpty must be derived from anchor/head, not an independently-decodable
+// stored field, or corrupted/hand-edited JSON can desynchronise it from the
+// range it is supposed to describe.
+@Test func decodingCannotDesynchroniseIsEmptyFromAnchorAndHead() throws {
+    let json = Data(#"{"anchor": 100, "head": 100, "isEmpty": false}"#.utf8)
+    let decoded = try JSONDecoder().decode(Selection.self, from: json)
+    #expect(decoded.isEmpty == decoded.range.isEmpty)
+    #expect(decoded.isEmpty)
 }

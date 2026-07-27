@@ -3,19 +3,20 @@
 public struct Selection: Equatable, Sendable, Codable {
     public private(set) var anchor: FrameIndex
     public private(set) var head: FrameIndex
-    public private(set) var isEmpty: Bool
 
     public init() {
         anchor = 0
         head = 0
-        isEmpty = true
     }
 
     public init(anchor: FrameIndex, head: FrameIndex) {
         self.anchor = anchor
         self.head = head
-        self.isEmpty = anchor == head
     }
+
+    /// Derived from `anchor`/`head` rather than stored, so it can never
+    /// desynchronise from the range it describes (including via `Decodable`).
+    public var isEmpty: Bool { anchor == head }
 
     public var range: FrameRange {
         guard !isEmpty else { return FrameRange(start: anchor, count: 0) }
@@ -27,12 +28,10 @@ public struct Selection: Equatable, Sendable, Codable {
     public mutating func begin(at frame: FrameIndex) {
         anchor = frame
         head = frame
-        isEmpty = true
     }
 
     public mutating func extend(to frame: FrameIndex) {
         head = frame
-        isEmpty = (frame == anchor)
     }
 
     public mutating func clear() {

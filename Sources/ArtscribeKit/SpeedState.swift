@@ -17,6 +17,22 @@ public struct SpeedState: Equatable, Sendable, Codable {
         self.engine = engine
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case ratio
+        case engine
+    }
+
+    /// Custom decoding so a hand-edited or corrupted `.artscribe` file (design
+    /// spec §7 persists this type in a visible, user-editable sidecar) cannot
+    /// smuggle an out-of-range or non-finite `ratio` past the clamp invariant
+    /// that `init(ratio:engine:)` and `setRatio` both enforce.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decodedRatio = try container.decode(Double.self, forKey: .ratio)
+        self.ratio = Self.clamp(decodedRatio)
+        self.engine = try container.decode(StretchEngine.self, forKey: .engine)
+    }
+
     public var timeRatio: Double { 1.0 / ratio }
 
     public mutating func setRatio(_ newValue: Double) {

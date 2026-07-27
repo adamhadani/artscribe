@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import ArtscribeKit
@@ -16,6 +17,14 @@ import Testing
     #expect(s.timeRatio == 2.0)  // half speed => twice as long
     s.setRatio(2.0)
     #expect(s.timeRatio == 0.5)
+}
+
+// Guards against a linear-reflection formula (e.g. `2.5 - ratio`) that would
+// satisfy the symmetric 0.5<->2.0 pair above but is not the true reciprocal.
+@Test func timeRatioIsReciprocalAtAnAsymmetricPoint() {
+    var s = SpeedState()
+    s.setRatio(0.25)
+    #expect(s.timeRatio == 4.0)
 }
 
 @Test func stepClampsAtBounds() {
@@ -45,4 +54,20 @@ import Testing
 @Test func boundsMatchSpec() {
     #expect(SpeedState.minRatio == 0.10)
     #expect(SpeedState.maxRatio == 2.00)
+}
+
+// SpeedState is persisted in a visible, user-editable .artscribe file (design
+// spec §7), so hand-edited or corrupted JSON is expected input. Decoding must
+// route through the same clamp as setRatio/init, not bypass it.
+@Test func decodingClampsOutOfRangeRatioAboveMax() throws {
+    let json = Data(#"{"ratio": 99, "engine": "studio"}"#.utf8)
+    let decoded = try JSONDecoder().decode(SpeedState.self, from: json)
+    #expect(decoded.ratio == SpeedState.maxRatio)
+}
+
+@Test func decodingClampsZeroRatioToFiniteTimeRatio() throws {
+    let json = Data(#"{"ratio": 0, "engine": "studio"}"#.utf8)
+    let decoded = try JSONDecoder().decode(SpeedState.self, from: json)
+    #expect(decoded.ratio == SpeedState.minRatio)
+    #expect(decoded.timeRatio.isFinite)
 }
