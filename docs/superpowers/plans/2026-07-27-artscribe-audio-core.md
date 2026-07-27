@@ -234,9 +234,14 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: macos-15
+    # macos-26 is GA on arm64 and is the only image with a Swift 6.3 /
+    # macOS 26 SDK toolchain. macos-15 cannot build platforms: [.macOS(.v26)].
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version && swift format --version && sw_vers
 
       - name: Install dependencies
         run: brew install rubberband swiftlint
