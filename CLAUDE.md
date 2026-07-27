@@ -35,6 +35,14 @@ brief. Three nudge tiers sat documented-but-unimplemented for several tasks beca
 omitted them and the review checked the implementation against that brief rather than the
 spec.
 
+**Observation notifies on `_modify` whether or not the value changed.** Assigning to an
+`@Observable` property is compared first and stays silent when the value is equal (measured on
+Swift 6.2). Calling a `mutating` method on one *is not* — `_modify` cannot know what the callee
+did, so it notifies every time. `transport.poll(…)` on the display link therefore invalidated
+`isPlaying` 62 times a second with the track paused, SwiftUI reapplied the Playback menu's items
+just as often, and the Output Device submenu never survived long enough for AppKit's submenu-open
+delay to elapse. Poll a copy; write it back only if it moved.
+
 **Plan code is not pre-verified.** Reviews found well over a dozen genuine defects in
 plan-authored code, including three separate silent-truncation bugs. Treat code in a plan as
 a proposal to check, not an answer.

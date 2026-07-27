@@ -115,7 +115,7 @@ extension ViewerModel {
             if resampling != isResampling { isResampling = resampling }
         }
 
-        switch transport.poll(enginePlaying: session.engine.isPlaying, now: now) {
+        switch pollTransport(enginePlaying: session.engine.isPlaying, now: now) {
         case .unchanged, .started:
             break
         case .finished:
@@ -141,6 +141,27 @@ extension ViewerModel {
         // second while the engine is stalled or paused mid-drain.
         if frame != playhead { playhead = frame }
         autoScroll()
+    }
+
+    /// Reconciles the latch with the engine, writing it back **only when it
+    /// actually moved** — which is the whole reason this method exists.
+    ///
+    /// `TransportLatch.poll` is `mutating`, so polling the stored `transport` in
+    /// place goes through the `@Observable` macro's `_modify`, which notifies
+    /// unconditionally: a poll that decided nothing still counted as a change.
+    /// Measured with a track loaded and *paused*, an observer of `isPlaying` was
+    /// invalidated 62 times a second, forever. That is what hid the Output Device
+    /// submenu — SwiftUI reapplied the Playback menu's items on every one of
+    /// those, and a menu item reapplied at 62 Hz never survives long enough for
+    /// AppKit's submenu-open delay to elapse, so hovering the row opened nothing.
+    /// A/B against this exact line: 62 invalidations/s and no submenu; 0 and it
+    /// opens, playing or paused. See CLAUDE.md, "Observation notifies on
+    /// `_modify` whether or not the value changed".
+    func pollTransport(enginePlaying: Bool, now: Double) -> TransportOutcome {
+        var latch = transport
+        let outcome = latch.poll(enginePlaying: enginePlaying, now: now)
+        if latch != transport { transport = latch }
+        return outcome
     }
 
     /// Consumes the counters Task 8 and Task 9 publish. A counter nobody reads is

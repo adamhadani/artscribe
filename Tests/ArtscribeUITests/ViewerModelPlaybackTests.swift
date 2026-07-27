@@ -1,5 +1,6 @@
 import ArtscribeKit
 import AudioDecode
+import Observation
 import Testing
 import Waveform
 
@@ -255,6 +256,85 @@ struct ViewerModelPlaybackTests {
         #expect(model.playhead == 0)
     }
 
+    // MARK: - The display-link poll and what it is allowed to invalidate
+
+    /// The Output Device submenu regression, at the level it was actually caused.
+    ///
+    /// `TransportLatch.poll` is `mutating`, so polling the stored `transport` in
+    /// place went through the `@Observable` macro's `_modify`, which notifies
+    /// unconditionally. With a track loaded and paused, that invalidated every
+    /// reader of `isPlaying` sixty-odd times a second, SwiftUI reapplied the
+    /// Playback menu's items just as often, and AppKit's submenu-open delay never
+    /// got to elapse: hovering "Output Device" opened nothing.
+    ///
+    /// Verified to fail against the defect: restoring the in-place
+    /// `transport.poll(…)` makes this expectation report 1 invalidation, not 0.
+    @Test("a poll that decides nothing does not invalidate the menu's observers")
+    func idlePollDoesNotInvalidateObservers() {
+        let model = makeModel()
+        let counter = InvalidationCounter()
+        withObservationTracking {
+            _ = model.isPlaying
+        } onChange: {
+            MainActor.assumeIsolated { counter.bump() }
+        }
+
+        // Idle: not playing, so the latch has nothing to reconcile.
+        for tick in 0..<10 {
+            #expect(model.pollTransport(enginePlaying: false, now: Double(tick) / 60) == .unchanged)
+        }
+        #expect(counter.count == 0)
+    }
+
+    /// The other half, so the test above cannot pass by never notifying at all.
+    @Test("a poll that does change the latch still invalidates, and still reports")
+    func meaningfulPollStillInvalidatesAndReports() {
+        let model = makeModel()
+        model.transport.request(true, now: 0)
+
+        let confirmation = InvalidationCounter()
+        withObservationTracking {
+            _ = model.isPlaying
+        } onChange: {
+            MainActor.assumeIsolated { confirmation.bump() }
+        }
+        // The render thread confirms: `isConfirmed` moves, so this is a real
+        // change and observers must hear about it.
+        #expect(model.pollTransport(enginePlaying: true, now: 0.1) == .started)
+        #expect(confirmation.count == 1)
+
+        // Re-armed, because `withObservationTracking` is one-shot: without a
+        // fresh registration the expectation below would hold no matter what the
+        // polls did, which is the sort of test that cannot fail.
+        let steady = InvalidationCounter()
+        withObservationTracking {
+            _ = model.isPlaying
+        } onChange: {
+            MainActor.assumeIsolated { steady.bump() }
+        }
+        // Confirmed and still playing: nothing moves, nothing is published.
+        for tick in 0..<10 {
+            #expect(model.pollTransport(enginePlaying: true, now: 0.2 + Double(tick)) == .unchanged)
+        }
+        #expect(steady.count == 0)
+
+        // End of file: the engine cleared its own flag, which is a real change.
+        #expect(model.pollTransport(enginePlaying: false, now: 12) == .finished)
+        #expect(!model.isPlaying)
+        #expect(steady.count == 1)
+    }
+
+    @Test("a start the engine never confirms is still reported exactly once")
+    func neverStartedIsStillReported() {
+        let model = makeModel()
+        model.transport.request(true, now: 0)
+        #expect(model.pollTransport(enginePlaying: false, now: 1.0) == .unchanged)
+        #expect(
+            model.pollTransport(enginePlaying: false, now: TransportLatch.startTimeout + 0.1)
+                == .neverStarted)
+        #expect(model.pollTransport(enginePlaying: false, now: 10) == .unchanged)
+    }
+
     // MARK: - Playhead synchronisation
 
     @Test("the drawn playhead is pulled back by the output latency, scaled by speed")
@@ -277,4 +357,14 @@ struct ViewerModelPlaybackTests {
             PlayheadSync.audibleFrame(
                 engineFrame: 500, outputLatency: -1, sampleRate: 44_100, speedRatio: 1.0) == 500)
     }
+}
+
+/// Counts `withObservationTracking` callbacks. A box rather than a captured
+/// `var` because the change handler is `@Sendable`; `@MainActor` is what makes
+/// the box itself `Sendable`, and the handler runs on the main actor because the
+/// mutation that triggers it does.
+@MainActor
+final class InvalidationCounter {
+    private(set) var count = 0
+    func bump() { count += 1 }
 }
