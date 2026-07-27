@@ -9,9 +9,7 @@ public struct FrameRange: Equatable, Sendable, Codable {
     }
 
     public var end: FrameIndex { start + count }
-    // Equivalent to `count <= 0`, phrased to avoid SwiftLint's `empty_count` rule, which
-    // treats any property named `count` compared to zero as a collection-emptiness check.
-    public var isEmpty: Bool { end <= start }
+    public var isEmpty: Bool { count <= 0 }
 
     /// Clamps into [0, total], collapsing to empty at `start` if inverted.
     public func clamped(to total: FrameIndex) -> FrameRange {

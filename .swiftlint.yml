@@ -9,7 +9,6 @@ analyzer_rules:
 
 opt_in_rules:
   - force_unwrapping
-  - empty_count
   - explicit_init
   - first_where
   - redundant_nil_coalescing

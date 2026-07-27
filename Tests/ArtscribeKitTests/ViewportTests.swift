@@ -72,3 +72,68 @@ private func makeViewport() -> Viewport {
     #expect(r.start == 0)
     #expect(r.end == 100)
 }
+
+// MARK: - Finding 1: resize(widthPixels:) must reclamp framesPerPixel, not just startFrame.
+
+@Test func resizeNeverExceedsFitInvariant() {
+    var v = Viewport(totalFrames: 1_000_000, widthPixels: 100)
+    #expect(v.framesPerPixel == 10_000)
+    v.resize(widthPixels: 100_000)
+    #expect(v.framesPerPixel == v.maxFramesPerPixel)
+    #expect(v.framesPerPixel == 10)
+    #expect(v.endFrame <= v.totalFrames)
+}
+
+// MARK: - Finding 2: very short (including empty) files must never overshoot totalFrames.
+
+@Test func emptyFileDegeneratesSanely() {
+    let v = Viewport(totalFrames: 0, widthPixels: 1000)
+    #expect(v.startFrame == 0)
+    #expect(v.endFrame == 0)
+    #expect(v.visibleFrames == 0)
+}
+
+@Test func singleFrameFileNeverOvershootsTotalFrames() {
+    let v = Viewport(totalFrames: 1, widthPixels: 1000)
+    #expect(v.visibleFrames <= v.totalFrames)
+    #expect(v.endFrame <= v.totalFrames)
+}
+
+@Test func fileShorterThanWidthNeverOvershootsTotalFrames() {
+    let v = Viewport(totalFrames: 9, widthPixels: 1000)
+    #expect(v.visibleFrames <= v.totalFrames)
+    #expect(v.endFrame <= v.totalFrames)
+}
+
+// MARK: - Finding 3: extreme Double -> FrameIndex conversions must clamp, not trap.
+
+@Test func scrollByExtremePixelCountClampsRatherThanCrashing() {
+    var v = makeViewport()
+    v.fit()
+    v.scroll(byPixels: Int.max)
+    #expect(v.endFrame == v.totalFrames)
+    #expect(v.startFrame >= 0)
+}
+
+@Test func frameAtExtremePixelClampsRatherThanCrashing() {
+    var v = makeViewport()
+    v.fit()
+    // `frame(atPixel:)` is a pure coordinate conversion (not bounded by totalFrames —
+    // a pixel past the visible edge legitimately maps past endFrame); the invariant
+    // under test is that an absurd pixel clamps into FrameIndex's range instead of
+    // trapping on the Double -> Int64 conversion.
+    let f = v.frame(atPixel: 1e300)
+    #expect(f == FrameIndex.max)
+}
+
+@Test func zoomWithExtremeAnchorAndZoomOutClampsRatherThanCrashing() {
+    var v = makeViewport()
+    v.fit()
+    // Zoom in repeatedly to reach the floor (framesPerPixel == minFramesPerPixel).
+    for _ in 0..<50 { v.zoom(by: 4.0, anchorFrame: 500_000) }
+    // Zoom out drastically anchored on an extreme frame far from startFrame: the
+    // anchor-preserving arithmetic must not overflow Int64 during the conversion.
+    v.zoom(by: 0.0001, anchorFrame: FrameIndex.max)
+    #expect(v.startFrame >= 0)
+    #expect(v.endFrame <= v.totalFrames)
+}

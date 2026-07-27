@@ -24,8 +24,11 @@ public struct Viewport: Equatable, Sendable {
         Swift.max(Self.minFramesPerPixel, Double(totalFrames) / Double(widthPixels))
     }
 
+    /// Never exceeds `totalFrames`: a file shorter than the minimum-zoom width in
+    /// frames (including an empty file) cannot show more frames than exist.
     public var visibleFrames: FrameIndex {
-        FrameIndex((Double(widthPixels) * framesPerPixel).rounded())
+        let raw = FrameIndex((Double(widthPixels) * framesPerPixel).rounded())
+        return Swift.min(raw, totalFrames)
     }
 
     public var endFrame: FrameIndex { startFrame + visibleFrames }
@@ -49,7 +52,7 @@ public struct Viewport: Equatable, Sendable {
             maxFramesPerPixel,
             Swift.max(Self.minFramesPerPixel, target))
         let newStart = Double(anchorFrame) - anchorPixel * framesPerPixel
-        startFrame = FrameIndex(newStart.rounded())
+        startFrame = Self.clampedFrameIndex(newStart)
         clamp()
     }
 
@@ -66,7 +69,8 @@ public struct Viewport: Equatable, Sendable {
     }
 
     public mutating func scroll(byPixels pixels: Int) {
-        startFrame += FrameIndex((Double(pixels) * framesPerPixel).rounded())
+        let newStart = Double(startFrame) + Double(pixels) * framesPerPixel
+        startFrame = Self.clampedFrameIndex(newStart)
         clamp()
     }
 
@@ -75,11 +79,26 @@ public struct Viewport: Equatable, Sendable {
     }
 
     public func frame(atPixel pixel: Double) -> FrameIndex {
-        startFrame + FrameIndex((pixel * framesPerPixel).rounded())
+        Self.clampedFrameIndex(Double(startFrame) + pixel * framesPerPixel)
     }
 
     private mutating func clamp() {
+        framesPerPixel = Swift.max(
+            Self.minFramesPerPixel, Swift.min(framesPerPixel, maxFramesPerPixel))
         let maxStart = Swift.max(0, totalFrames - visibleFrames)
         startFrame = Swift.max(0, Swift.min(startFrame, maxStart))
+    }
+
+    /// Converts a `Double` to `FrameIndex`, clamping into `FrameIndex`'s representable
+    /// range instead of trapping. Callers may combine extreme user input (e.g. an
+    /// absurd scroll delta or pixel coordinate) with the current zoom level, producing
+    /// a `Double` outside `Int64`'s range.
+    private static func clampedFrameIndex(_ value: Double) -> FrameIndex {
+        guard value.isFinite else {
+            return value > 0 ? FrameIndex.max : FrameIndex.min
+        }
+        if value >= Double(FrameIndex.max) { return FrameIndex.max }
+        if value <= Double(FrameIndex.min) { return FrameIndex.min }
+        return FrameIndex(value.rounded())
     }
 }
