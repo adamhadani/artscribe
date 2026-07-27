@@ -9,7 +9,12 @@ which is functionally excellent and ergonomically dated. Artscribe targets its c
 with a modern treatment: native Apple Silicon, better time-stretch quality, and an
 architecture that admits MIDI pedals and spectral analysis without a rewrite.
 
-**Status: in development.** The audio core works and is covered by tests; there is no UI yet.
+**Status: in development.** The audio core works and is covered by tests. The first window —
+a waveform viewer with no sound yet — runs today:
+
+```sh
+swift run -c release ArtscribeApp
+```
 
 ## Why it sounds better
 
@@ -26,6 +31,24 @@ Measured pitch error at half speed, FFT peak against a 440 Hz reference:
 | Rubber Band R2 | Fast | frequency-dependent, up to ~16 cents |
 
 Studio is the default. Fast exists for low-CPU scrubbing and trades pitch accuracy for speed.
+
+## Running the viewer
+
+`swift run -c release ArtscribeApp` opens a window. Release, not debug: a debug build
+decodes roughly four times slower.
+
+| Key | Action |
+|---|---|
+| `⌘O` | Open a file (dropping one on the window works too) |
+| `R` / `E` | Zoom in / out, anchored on the playhead |
+| `X` / `Z` | Pan right / left |
+| `⌘0` | Fit the whole file |
+| `⌘9` | Zoom to the selection |
+| `Esc` | Clear the selection |
+
+Drag in the lanes to select, shift-drag to extend, double-click to select all, click to
+place the playhead. Pinch to zoom and two-finger scroll to pan. Dragging the overview
+strip moves the visible window. There is no playback yet.
 
 ## Formats
 

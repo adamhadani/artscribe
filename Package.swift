@@ -60,6 +60,21 @@ let package = Package(
             name: "TimeStretchTests",
             dependencies: ["TimeStretch"],
             swiftSettings: sharedSwiftSettings
+        ),
+        .target(
+            name: "ArtscribeUI",
+            dependencies: ["ArtscribeKit", "AudioDecode", "Waveform"],
+            swiftSettings: sharedSwiftSettings
+        ),
+        .testTarget(
+            name: "ArtscribeUITests",
+            dependencies: ["ArtscribeUI"],
+            swiftSettings: sharedSwiftSettings
+        ),
+        .executableTarget(
+            name: "ArtscribeApp",
+            dependencies: ["ArtscribeUI"],
+            swiftSettings: sharedSwiftSettings
         )
     ]
 )
