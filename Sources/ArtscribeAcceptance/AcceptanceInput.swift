@@ -50,6 +50,13 @@ extension AcceptanceRun {
         static let three = Key(20, "3")
         static let four = Key(21, "4")
 
+        static let m = Key(46, "m")
+        /// Arrow keys report a private-use character, not a printable one.
+        static let up = Key(126, "\u{F700}")
+        static let down = Key(125, "\u{F701}")
+        static let shiftUp = Key(126, "\u{F700}", modifiers: .shift)
+        static let shiftDown = Key(125, "\u{F701}", modifiers: .shift)
+
         static let shiftW = Key(13, "W", modifiers: .shift)
         static let shiftQ = Key(12, "Q", modifiers: .shift)
         /// On a US layout ⌥E is the acute-accent dead key, so `characters` is the

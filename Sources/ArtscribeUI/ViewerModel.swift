@@ -74,6 +74,9 @@ public final class ViewerModel {
 
     public internal(set) var speed = SpeedState()
     public internal(set) var loop = LoopRegion()
+    /// Output level and mute. Half scale by default, and it survives a load: how
+    /// loud you want it is a property of your headphones, not of the file.
+    public internal(set) var volume = VolumeState()
     /// Spec §8 in the transport: an output that could not be opened, a route
     /// change, a stall, or a rejected command. Shown as an inline banner, never a
     /// modal, and never cleared by anything but the user.

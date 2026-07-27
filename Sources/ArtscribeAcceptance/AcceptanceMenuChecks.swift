@@ -29,7 +29,8 @@ extension AcceptanceRun {
 
         for expected in [
             "Play", "Stop", "Play from Start", "Faster", "Slower", "Set Loop In", "Set Loop Out",
-            "Loop", "Restart Loop", "Selection", "Output Device"
+            "Loop", "Restart Loop", "Selection", "Output Device",
+            "Volume Up", "Volume Down", "Volume Up (Fine)", "Volume Down (Fine)", "Mute"
         ] {
             log.check(
                 "the menu carries \(expected)",
@@ -58,6 +59,8 @@ extension AcceptanceRun {
         model.setSpeedPreset(1.0)
         await refresh(menu)
         log.check("the checkmark follows the speed", item(menu, "100%")?.state == .on)
+
+        await checkVolumeItems(menu, model: model, log: &log)
 
         let playItem = menu.items.first { $0.title.hasPrefix("Play") && !$0.title.contains("from") }
         log.check("the play item is enabled with a track loaded", playItem?.isEnabled == true)
@@ -111,6 +114,22 @@ extension AcceptanceRun {
         log.check("W still steps once with the menu live", model.speed.ratio == 1.05)
         press(.q)
         log.check("Q still steps once with the menu live", model.speed.ratio == 1.0)
+    }
+
+    /// Mute reflects state, and the volume items grey out with no track.
+    @MainActor
+    private static func checkVolumeItems(
+        _ menu: NSMenu, model: ViewerModel, log: inout Logger
+    ) async {
+        model.toggleMute()
+        await refresh(menu)
+        log.check("Mute is checked while muted", item(menu, "Mute")?.state == .on)
+        model.toggleMute()
+        await refresh(menu)
+        log.check("Mute unchecks when unmuted", item(menu, "Mute")?.state == .off)
+        log.check(
+            "Volume Up is enabled with a track loaded",
+            item(menu, "Volume Up  (")?.isEnabled == true)
     }
 
     /// Lets SwiftUI's update transaction run, then asks AppKit to validate.

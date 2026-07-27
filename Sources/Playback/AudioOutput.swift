@@ -147,6 +147,27 @@ public final class AudioOutput: AudioOutputDeviceSink {
         isRunning = false
     }
 
+    // MARK: - Level
+
+    /// Sets the output gain, from the **main actor**.
+    ///
+    /// Deliberately the mixer's own control rather than a multiply inside
+    /// `PlaybackEngine.render`: applying gain on the render path would need its
+    /// own per-sample smoothing to avoid zipper noise on every keystroke, and
+    /// `AVAudioMixerNode` already ramps `outputVolume` internally. It also keeps
+    /// the render block exactly as small as spec §5 requires.
+    ///
+    /// Non-finite and out-of-range values are clamped rather than passed on: a
+    /// NaN here would silence the graph with no way to tell why.
+    public func setVolume(_ amplitude: Double) {
+        guard amplitude.isFinite else { return }
+        avEngine.mainMixerNode.outputVolume = Float(Swift.max(0, Swift.min(1, amplitude)))
+    }
+
+    /// Read back for verification; the UI owns the value, this is what the graph
+    /// actually has.
+    public var volume: Double { Double(avEngine.mainMixerNode.outputVolume) }
+
     // MARK: - Device
 
     /// The sample rate the output hardware is actually running at, or 0 when it

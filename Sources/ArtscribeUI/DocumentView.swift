@@ -30,6 +30,14 @@ public struct DocumentView: View {
                 ErrorBannerView(message: message) { model.dismissPlaybackNotice() }
             }
 
+            // The output device vanished, or refused a switch. Kept separate from
+            // `playbackNotice` because its lifetime belongs to the device
+            // controller, and because it must show even with no track loaded —
+            // when there is no session and therefore no display link polling.
+            if let message = model.deviceNotice {
+                ErrorBannerView(message: message) { model.dismissDeviceNotice() }
+            }
+
             if model.hasTrack {
                 OverviewStripView(model: model)
                     .frame(height: 58)
@@ -86,6 +94,7 @@ public struct DocumentView: View {
         let character = String(press.key.character).lowercased()
         let handled =
             handleTransport(press)
+            || handleVolume(character, press: press)
             || handleView(character, press: press)
             || handleSpeed(character, press: press)
             || handleLoop(character)
@@ -98,6 +107,23 @@ public struct DocumentView: View {
         case .return: model.playFromStart()
         case .escape: model.clearSelection()
         default: return false
+        }
+        return true
+    }
+
+    /// `↑`/`↓` ∓5%, `⇧↑`/`⇧↓` ∓1%, `M` mute.
+    ///
+    /// The vertical arrows are free: spec §6.2 binds only `←`/`→` (nudge) and
+    /// `⇧←`/`⇧→` (extend selection), so this creates no double-binding and
+    /// leaves the whole left-hand cluster alone.
+    private func handleVolume(_ character: String, press: KeyPress) -> Bool {
+        let fine = press.modifiers.contains(.shift)
+        switch press.key {
+        case .upArrow: model.volumeUp(fine: fine)
+        case .downArrow: model.volumeDown(fine: fine)
+        default:
+            guard character == "m" else { return false }
+            model.toggleMute()
         }
         return true
     }

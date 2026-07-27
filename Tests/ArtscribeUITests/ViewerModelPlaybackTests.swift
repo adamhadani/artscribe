@@ -77,6 +77,59 @@ struct ViewerModelPlaybackTests {
         #expect(model.speed.ratio == 0.5)
     }
 
+    // MARK: - Volume
+
+    @Test("the volume starts at half scale, not full")
+    func volumeDefault() {
+        #expect(makeModel().volume.level == 0.5)
+    }
+
+    @Test("the arrow keys step the volume, shifted a fifth of the distance")
+    func volumeKeys() {
+        let model = makeModel()
+        model.volumeUp(fine: false)
+        #expect(model.volume.level == 0.55)
+        model.volumeDown(fine: false)
+        #expect(model.volume.level == 0.5)
+        model.volumeUp(fine: true)
+        #expect(model.volume.level == 0.51)
+        model.volumeDown(fine: true)
+        #expect(model.volume.level == 0.5)
+    }
+
+    @Test("M mutes and restores the level it was at")
+    func mute() {
+        let model = makeModel()
+        model.setVolumeLevel(0.72)
+        model.toggleMute()
+        #expect(model.volume.isMuted)
+        #expect(model.volume.amplitude == 0)
+        model.toggleMute()
+        #expect(model.volume.amplitude == 0.72)
+    }
+
+    @Test("volume works with no track loaded, and survives loading one")
+    func volumeIsIndependentOfTheTrack() {
+        let model = ViewerModel()
+        model.setVolumeLevel(0.2)
+        #expect(model.volume.level == 0.2)
+
+        let storage = AudioStorage(channels: 1, capacityFrames: 1000)
+        let audio = DecodedAudio(
+            channels: 1, sampleRate: Self.sampleRate, frameCount: 1000, storage: storage)
+        model.loadForTesting(audio: audio, pyramid: PeakPyramid.build(audio))
+        #expect(model.volume.level == 0.2)
+    }
+
+    /// The knob has width, so the usable travel is the track minus the knob.
+    /// Mapping against the full width would leave both ends unreachable.
+    @Test("the slider reaches both ends of its travel")
+    func sliderMapping() {
+        #expect(VolumeSliderView.level(atX: -20) == 0)
+        #expect(VolumeSliderView.level(atX: 1000) == 1)
+        #expect(abs(VolumeSliderView.level(atX: 92 / 2) - 0.5) < 0.02)
+    }
+
     // MARK: - Loop
 
     @Test("A and S set the loop edges at the playhead")

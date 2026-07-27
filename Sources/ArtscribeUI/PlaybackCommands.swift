@@ -72,6 +72,10 @@ struct PlaybackMenu: View {
 
             Divider()
 
+            volumeItems
+
+            Divider()
+
             loopItems
         }
         // One `.disabled` on the group, evaluated inside a `View` body so it
@@ -99,6 +103,24 @@ struct PlaybackMenu: View {
     private var engineTitle: String {
         model.speed.engine == .studio
             ? "Use Fast Engine  (now: Studio)" : "Use Studio Engine  (now: Fast)"
+    }
+
+    /// `↑`/`↓` are shown in the titles and `⇧↑`/`⇧↓` are real key equivalents,
+    /// the same split as the speed cluster and for the same reason.
+    @ViewBuilder
+    private var volumeItems: some View {
+        Button("Volume Up  (↑)") { model.volumeUp(fine: false) }
+        Button("Volume Down  (↓)") { model.volumeDown(fine: false) }
+        Button("Volume Up (Fine)") { model.volumeUp(fine: true) }
+            .keyboardShortcut(.upArrow, modifiers: .shift)
+        Button("Volume Down (Fine)") { model.volumeDown(fine: true) }
+            .keyboardShortcut(.downArrow, modifiers: .shift)
+        Toggle(
+            "Mute  (M)",
+            isOn: Binding(
+                get: { model.volume.isMuted },
+                set: { isOn in if isOn != model.volume.isMuted { model.toggleMute() } })
+        )
     }
 
     @ViewBuilder

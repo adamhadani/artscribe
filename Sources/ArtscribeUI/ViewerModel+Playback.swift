@@ -41,6 +41,9 @@ extension ViewerModel {
             devices?.attach(output: session.output)
             try session.start()
             session.push(.setTimeRatio(speed.timeRatio))
+            // The graph is new, so it is at its own default gain until told
+            // otherwise — including after an engine rebuild.
+            session.output.setVolume(volume.amplitude)
             isResampling = session.output.needsSampleRateConversion()
             startClock()
         } catch {
@@ -78,6 +81,21 @@ extension ViewerModel {
 
     public func dismissPlaybackNotice() {
         playbackNotice = nil
+    }
+
+    /// A device disappearing, or a refused switch (spec §8).
+    ///
+    /// Read straight from the controller rather than copied into
+    /// `playbackNotice` on a poll, because it must be visible **whether or not a
+    /// track is loaded** — the display link only runs while there is a session,
+    /// and a controller notice raised with no track would otherwise sit unread
+    /// inside the Playback menu, which is exactly the state the previous version
+    /// left it in. `OutputDeviceController` is `@Observable`, so a view reading
+    /// this tracks it with no polling at all.
+    public var deviceNotice: String? { devices?.notice }
+
+    public func dismissDeviceNotice() {
+        devices?.clearNotice()
     }
 
     // MARK: - The poll
@@ -147,11 +165,6 @@ extension ViewerModel {
         if let notice = session.output.notice {
             playbackNotice = notice
             session.output.clearNotice()
-            isResampling = session.output.needsSampleRateConversion()
-        }
-        if let devices, let notice = devices.notice {
-            playbackNotice = notice
-            devices.clearNotice()
             isResampling = session.output.needsSampleRateConversion()
         }
     }
@@ -281,6 +294,42 @@ extension ViewerModel {
         session?.push(.setLoop(loop.range, loop.isEnabled))
         seek(to: position)
         if wasPlaying { play() }
+    }
+
+    // MARK: - Volume
+
+    public func volumeUp(fine isFine: Bool) {
+        applyVolume { $0.step(by: isFine ? VolumeState.fineStep : VolumeState.coarseStep) }
+    }
+
+    public func volumeDown(fine isFine: Bool) {
+        applyVolume { $0.step(by: -(isFine ? VolumeState.fineStep : VolumeState.coarseStep)) }
+    }
+
+    /// What the mixer actually holds, as opposed to what the model believes it
+    /// asked for. `nil` when there is no audio output at all — deliberately not
+    /// 0, which would be indistinguishable from silence.
+    public var outputVolume: Double? { session?.output.volume }
+
+    /// From the slider. Takes the raw 0…1 position; `VolumeState` clamps.
+    public func setVolumeLevel(_ level: Double) {
+        applyVolume { $0.setLevel(level) }
+    }
+
+    public func toggleMute() {
+        applyVolume { $0.toggleMute() }
+    }
+
+    /// Volume is the one control that is applied on the **main actor**, straight
+    /// to the mixer, rather than through the command ring: it is not the render
+    /// thread's business, and `AVAudioMixerNode` already ramps it. Nothing here
+    /// depends on a track being loaded — the level is remembered for the next one.
+    private func applyVolume(_ change: (inout VolumeState) -> Void) {
+        var next = volume
+        change(&next)
+        guard next != volume else { return }
+        volume = next
+        session?.output.setVolume(volume.amplitude)
     }
 
     // MARK: - Loop

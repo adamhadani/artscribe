@@ -12,13 +12,16 @@ struct StatusBarView: View {
         // "19822 f/px" to "1.28 f/px" as you zoom, and a shifting column drags
         // every field to its right along with it. The position readout is the
         // worst offender of all, changing sixty times a second.
-        HStack(alignment: .firstTextBaseline, spacing: 18) {
+        HStack(alignment: .firstTextBaseline, spacing: 14) {
             transport.frame(width: 172, alignment: .leading)
-            field("SPEED", speedText).frame(width: 152, alignment: .leading)
-            field("LOOP", loopText).frame(width: 166, alignment: .leading)
-            field("SELECTION", selectionText).frame(width: 158, alignment: .leading)
-            field("ZOOM", zoom).frame(width: 148, alignment: .leading)
-            field("FORMAT", format).frame(width: 112, alignment: .leading)
+            // Beside the transport, not buried in a menu: the level is something
+            // you reach for constantly while transcribing.
+            VolumeSliderView(model: model).frame(width: 150, alignment: .leading)
+            field("SPEED", speedText).frame(width: 150, alignment: .leading)
+            field("LOOP", loopText).frame(width: 160, alignment: .leading)
+            field("SELECTION", selectionText).frame(width: 150, alignment: .leading)
+            field("ZOOM", zoom).frame(width: 146, alignment: .leading)
+            field("FORMAT", format).frame(width: 104, alignment: .leading)
             Spacer(minLength: 8)
             if let warning {
                 field("DEGRADED", warning)

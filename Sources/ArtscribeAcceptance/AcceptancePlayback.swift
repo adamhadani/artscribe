@@ -27,6 +27,7 @@ extension AcceptanceRun {
         }
 
         await checkTransport(model: model, log: &log)
+        checkVolume(model: model, log: &log)
         await checkSpeed(model: model, log: &log)
         await checkLoop(model: model, log: &log, outputDirectory: outputDirectory)
         await checkAutoScroll(model: model, log: &log)
@@ -70,6 +71,82 @@ extension AcceptanceRun {
         log.check("Return moved the position back to zero", model.playhead < paused)
         press(.space)
         await settle(seconds: 0.1)
+    }
+
+    // MARK: - Volume
+
+    /// Every claim here is checked against `AudioOutput.volume` — the value the
+    /// mixer actually holds — as well as against the model, because "the readout
+    /// says 40%" is not the same claim as "the graph is at 0.4".
+    @MainActor
+    private static func checkVolume(model: ViewerModel, log: inout Logger) {
+        // `-1` is deliberately unreachable, so a missing graph fails loudly
+        // rather than passing a comparison against 0.
+        func mixer() -> Double { model.outputVolume ?? -1 }
+
+        log.check("a fresh session opens at half scale, not full", model.volume.level == 0.5)
+        log.check(
+            "the mixer is actually at half scale (\(rounded(mixer())))",
+            abs(mixer() - 0.5) < 0.001)
+
+        let playheadBefore = model.playhead
+        press(.up)
+        log.check(
+            "↑ steps up exactly one 5% notch (\(model.volume.level))",
+            model.volume.level == 0.55)
+        press(.down)
+        log.check("↓ steps back down exactly one notch", model.volume.level == 0.5)
+        press(.shiftUp)
+        log.check(
+            "⇧↑ steps up exactly one 1% notch (\(model.volume.level))",
+            model.volume.level == 0.51)
+        press(.shiftDown)
+        log.check("⇧↓ steps back down one 1% notch", model.volume.level == 0.5)
+        log.check(
+            "a fine step really is finer than a coarse one",
+            VolumeState.fineStep < VolumeState.coarseStep)
+
+        // The arrows must not have moved anything else — this is the
+        // double-binding check the coordinator asked for.
+        log.check("↑↓ did not touch the speed", model.speed.ratio == 1.0)
+        log.check("↑↓ did not move the playhead", model.playhead == playheadBefore)
+        log.check("↑↓ did not touch the loop", model.loop.range.isEmpty)
+
+        model.setVolumeLevel(0.4)
+        log.check(
+            "the slider drives the mixer (\(rounded(mixer())))",
+            abs(mixer() - 0.4) < 0.001)
+
+        press(.m)
+        log.check("M mutes", model.volume.isMuted)
+        log.check(
+            "muting takes the mixer to silence (\(rounded(mixer())))",
+            mixer() == 0)
+        log.check("muting does not lose the level the slider shows", model.volume.level == 0.4)
+        press(.m)
+        log.check("M unmutes", !model.volume.isMuted)
+        log.check(
+            "unmuting restores the prior level, not full scale "
+                + "(\(rounded(mixer())))",
+            abs(mixer() - 0.4) < 0.001)
+
+        press(.m)
+        press(.up)
+        log.check("↑ while muted unmutes and makes sound", !model.volume.isMuted)
+        log.check(
+            "and the mixer follows (\(rounded(mixer())))",
+            abs(mixer() - 0.45) < 0.001)
+
+        model.setVolumeLevel(1.0)
+        for _ in 0..<3 { press(.up) }
+        log.check("volume clamps at full scale", model.volume.level == 1.0)
+        model.setVolumeLevel(0.0)
+        for _ in 0..<3 { press(.down) }
+        log.check("volume clamps at silence", model.volume.level == 0.0)
+        log.check(
+            "and silence really is silence at the mixer", mixer() == 0)
+
+        model.setVolumeLevel(VolumeState.defaultLevel)
     }
 
     // MARK: - Speed

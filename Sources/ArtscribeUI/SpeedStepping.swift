@@ -40,10 +40,7 @@ public enum SpeedStepping {
         return (ratio * grid).rounded() / grid
     }
 
-    public static func percentLabel(_ ratio: Double) -> String {
-        guard ratio.isFinite else { return "—" }
-        return "\(Int((ratio * 100).rounded()))%"
-    }
+    public static func percentLabel(_ ratio: Double) -> String { Readout.percent(ratio) }
 
     /// Whether a preset should show a checkmark in the menu. Compared with a
     /// tolerance of half a grid step: 0.33 is not representable, so an exact
