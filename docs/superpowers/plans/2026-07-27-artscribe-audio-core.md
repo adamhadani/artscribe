@@ -3616,8 +3616,20 @@ shortcut overlay on a keyboard, grouped and coloured by category.
 - [ ] **A separate `Window` scene**, not `.inspector()`. Resizable, its size and position
       remembered, opened by `⌘/` and from the View menu, closable independently of the
       document window. Remove the inspector's Shortcuts page — do not ship both.
-- [ ] Keep the inspector container itself: Task 21's Practice hub still needs it, and the
-      sidecar-fallback indicator now lives in its chrome.
+- [ ] **Remove the inspector entirely**, including its `⌥⌘I` binding, its View-menu item, and
+      its catalog entries. With the Session page cut as redundant and Shortcuts moving to its
+      own window, it would contain nothing — and a menu item that opens an empty panel is
+      worse than no menu item. The user spotted this. Task 21's Practice hub becomes its own
+      window too, which is more consistent and does not cost the waveform any width.
+- [ ] **Rehome the read-only sidecar-fallback indicator** (spec §8), which Task 20 moved into
+      the inspector's chrome. The inline banner used for decode errors is the right place — it
+      is where the user already looks for "something is wrong", and spec §8's requirement is
+      that the fallback be *visible*, not that it live in any particular container.
+- [ ] Update spec §6.2 to drop `view.toggleInspector`, and §2/§1.1 which still describe a
+      "collapsible inspector" as part of the UI. Record *why* it was cut — that the status bar
+      and transport bar came to cover its content — so this is not rediscovered later as a
+      missing feature. That has already happened five times on this project in the other
+      direction.
 - [ ] **The keyboard view.** A macOS layout, each bound key tinted by category with its action
       labelled; unbound keys visibly dimmed so the bound ones read at a glance. Scale with the
       window rather than clipping.
