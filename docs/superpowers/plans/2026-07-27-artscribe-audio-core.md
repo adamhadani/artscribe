@@ -3388,6 +3388,62 @@ start, which is a legitimate way to practise *slowing down*), and clamping to th
 speed range. Verify the ramp advances on loop wrap rather than on a timer, so it stays
 correct when the loop length or speed changes underneath it.
 
+---
+
+### Task 22 (P0): Play-from-start precedence, and double-click plays instead of selecting all
+
+Two behaviours the user hit while driving the app. Both are small; both are wrong in a way
+that makes the app feel arbitrary.
+
+#### A — `Play from start` (`⇧Space`) must follow one precedence rule
+
+Observed: with no selection it plays from the **track** start even when a loop is set; with a
+selection it plays from the selection start *or* the loop start depending on circumstances.
+
+**Diagnosis (already established — do not re-derive):** `returnToStart()`, which
+`playFromStart()` delegates to, is
+
+```swift
+seek(to: selection.isEmpty ? 0 : selection.range.start)
+```
+
+It never considers the loop. The "or from loop start" behaviour is not a second code path —
+it is `PlaybackEngine` *containing* the seek: seeking outside an active loop makes the engine
+pull the cursor into the region (it "wraps in from after, falls in from before", by design
+from Task 8). So the UI aims at the track start, the engine drags it to the loop, and the
+result reads as two competing rules.
+
+- [ ] Implement one precedence, in this order:
+      1. **A selection exists** → play from the selection start
+      2. **No selection but a loop is active** → play from the loop start
+      3. **Otherwise** → play from the track start
+- [ ] Fix it in `returnToStart()` so the aim point is right at source, rather than relying on
+      the engine to correct a bad target. `returnToStart` is also bound on its own, so both
+      callers benefit.
+- [ ] Decide whether "a loop is active" means `isEnabled` or merely "loop points are set",
+      and say which and why. (Recommendation: `isActive` — an existing but disabled loop
+      should not steer the playhead, because the user has explicitly turned it off.)
+- [ ] Test all four combinations: selection only, loop only, both, neither. The both case is
+      the one that was broken.
+- [ ] Update the spec's §6.2 catalog entry for `transport.returnToStart`, which currently
+      says "To selection start, else 0" and will now be wrong.
+
+#### B — Double-click plays from the click point instead of selecting all
+
+Observed today at `ViewerModel+Interaction.swift:259-262`: a second click within the
+double-click window calls `selectAll()`.
+
+- [ ] Double-click now **moves the playhead to the click point and starts playing**. Single
+      click continues to place the playhead without playing.
+- [ ] `⌘A` remains Select All, so nothing is lost — only the mouse gesture is reassigned.
+- [ ] The click state machine (`isSecondClick`, the time window, the slop distance) is
+      covered by tests added in an earlier fix round. **Keep them meaningful** — update what
+      they assert rather than deleting them, and confirm a third click still does not chain.
+- [ ] Confirm this composes with the precedence rule in A: a double-click sets an explicit
+      cursor position, so it should play from *there*, not be re-routed to a selection or
+      loop start.
+- [ ] Update `README.md`, which currently documents "double-click to select all".
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
