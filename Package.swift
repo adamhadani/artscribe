@@ -112,6 +112,14 @@ let package = Package(
             name: "ArtscribeAcceptance",
             dependencies: ["ArtscribeUI", "Playback"],
             swiftSettings: sharedSwiftSettings
+        ),
+        // Only the harness's *pure* logic — which groups a command line selects
+        // — is tested here. Driving a window is what the harness itself is for;
+        // the parsing in front of it is ordinary code and gets ordinary tests.
+        .testTarget(
+            name: "ArtscribeAcceptanceTests",
+            dependencies: ["ArtscribeAcceptance"],
+            swiftSettings: sharedSwiftSettings
         )
     ]
 )

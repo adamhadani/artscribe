@@ -43,132 +43,35 @@ enum AcceptanceRun {
     ) async {
         silenceOutput()
         let args = CommandLine.arguments
+
+        // Both before the `--acceptance` guard: a mistyped `--only` on a command
+        // line that also forgot `--acceptance` must still say so rather than
+        // start the app as if nothing had been asked for.
+        let plan: Plan
+        switch parsePlan(from: args) {
+        case .success(let parsed): plan = parsed
+        case .failure(let error):
+            print("\nACCEPTANCE: \(error.message)\n")
+            exit(2)
+        }
+        if args.contains("--list") {
+            print(groupListing())
+            exit(0)
+        }
+
         guard let audioPath = value(after: "--acceptance", in: args) else { return }
-        let audio = URL(fileURLWithPath: audioPath)
-        let badFile = value(after: "--bad-file", in: args).map { URL(fileURLWithPath: $0) }
-        let outputDirectory = value(after: "--out", in: args) ?? "."
+        let run = Inputs(
+            audio: URL(fileURLWithPath: audioPath),
+            badFile: value(after: "--bad-file", in: args).map { URL(fileURLWithPath: $0) },
+            outputDirectory: value(after: "--out", in: args) ?? ".")
 
-        var log = Logger()
-        // Asserted, not assumed: the whole point is that no run can make a noise
-        // by accident, so the run says whether it can.
-        log.check(
-            "this run cannot reach the speakers", OutputAudibility.shared.isSilenced,
-            unless: ProcessInfo.processInfo.environment[audibleEnvironmentKey] == "1"
-                ? "\(audibleEnvironmentKey)=1 was set, so this run is deliberately audible" : nil)
-        await settle(seconds: 1.0)
-        // macOS restores a window's saved frame, so pin a known size: otherwise
-        // the resize check below shrinks the window a little on every run.
-        await normaliseWindow()
-        log.check("regular activation policy (menu bar)", NSApp.activationPolicy() == .regular)
-        log.note("app active / key window", "\(NSApp.isActive) / \(NSApp.keyWindow != nil)")
-        log.check(
-            "window can take keyboard focus",
-            NSApp.windows.first.map { $0.canBecomeKey } ?? false)
-        log.note(
-            "first responder",
-            "\(NSApp.windows.first?.firstResponder.map(String.init(describing:)) ?? "none")")
-
-        await checkLoad(model: model, url: audio, log: &log)
-        checkStructure(model: model, log: &log)
-        snapshot(to: "\(outputDirectory)/01-loaded.png")
-
-        // Task 17, and deliberately early. The same gestures Task 16 could only
-        // reach through the model, this time as real pointer events into
-        // SwiftUI's own machinery, plus the cursors that advertise them. Both
-        // need a key window and a pointer this process can aim; a run lasts
-        // minutes on a machine somebody else may be using, and by the time the
-        // playback checks are done neither is reliably still true.
-        await checkPointerGestures(model: model, log: &log)
-        await checkPointerAffordances(model: model, log: &log)
-        // Task 23, deliberately immediately after them and for the same reason:
-        // it needs a key window and a pointer this process can aim. It leaves
-        // the loop and the selection cleared, so nothing downstream inherits a
-        // region it did not ask for.
-        await checkEdgeDrag(
-            model: model, theme: theme, log: &log, outputDirectory: outputDirectory)
-
-        checkZoomAnchor(model: model, log: &log)
-        await settle(seconds: 0.2)
-        snapshot(to: "\(outputDirectory)/02-zoomed.png")
-
-        await checkDeepZoom(model: model, log: &log, outputDirectory: outputDirectory)
-
-        checkPanClamping(model: model, log: &log)
-        await checkTrackpad(model: model, log: &log)
-        await checkScrollZoom(model: model, log: &log)
-        await checkDragZoom(model: model, log: &log)
-        await checkZoomDirection(model: model, log: &log)
-        await checkSpeedEmphasis(model: model, log: &log, outputDirectory: outputDirectory)
-        await checkFileAndViewMenus(model: model, log: &log)
-        // Task 15. The presentation and strobe checks read the menus; the
-        // transport bar checks click real buttons and then press Space.
-        await checkShortcutPresentation(log: &log)
-        await checkMenuBarStrobe(model: model, log: &log)
-        checkSingleFire(model: model, log: &log)
-        await checkDisabledItemsClaimNothing(model: model, log: &log)
-        await checkTransportBar(
-            model: model, theme: theme, log: &log, outputDirectory: outputDirectory)
-        await checkNudge(model: model, log: &log)
-        await checkSettings(model: model, theme: theme, log: &log)
-        await checkTheme(model: model, theme: theme, log: &log, outputDirectory: outputDirectory)
-        await checkSelection(model: model, log: &log)
-        await settle(seconds: 0.2)
-        snapshot(to: "\(outputDirectory)/03-selection.png")
-
-        await checkZoomToSelection(model: model, log: &log)
-        await settle(seconds: 0.2)
-        snapshot(to: "\(outputDirectory)/04-zoom-to-selection.png")
-
-        // Task 18: the selection moves and extends, and the two menus it now
-        // lives in. Deliberately *after* `checkZoomToSelection`, which reads the
-        // selection this leaves cleared — measured, as a ⌘9 check that framed an
-        // empty range.
-        await checkSelectionMovement(model: model, log: &log)
-        await checkEditMenu(model: model, log: &log)
-        await checkLoopMenu(model: model, log: &log)
-        await checkLoopMovement(model: model, log: &log)
-
-        await checkPlayback(model: model, log: &log, outputDirectory: outputDirectory)
-        await settle(seconds: 0.2)
-        snapshot(to: "\(outputDirectory)/07-playback.png")
-
-        // Task 22. Both need an audio graph, so they sit after `checkPlayback`
-        // rather than beside the other pointer checks; the double-click one also
-        // needs the window to still be key, which it re-asserts for itself.
-        await checkStartPrecedence(model: model, log: &log)
-        await checkDoubleClickPlays(model: model, log: &log)
-        // Task 23's seamless half: an edge moved with the transport running.
-        // Here rather than with the other edge checks because it needs the
-        // audio graph `checkPlayback` proves is alive.
-        await checkEdgeDragWhilePlaying(model: model, log: &log)
-
-        await checkResize(model: model, log: &log)
-        await settle(seconds: 0.3)
-        snapshot(to: "\(outputDirectory)/05-resized.png")
-
-        // Task 19. Deliberately on a *copy* of the track in a scratch folder,
-        // never beside the real media the run was pointed at, and deliberately
-        // before `checkBadFile`, which leaves a failed load on screen.
-        await checkSession(model: model, log: &log, source: audio)
-        await settle(seconds: 0.2)
-        snapshot(to: "\(outputDirectory)/08-session.png")
-
-        if let badFile { await checkBadFile(model: model, url: badFile, log: &log) }
-        await settle(seconds: 0.3)
-        snapshot(to: "\(outputDirectory)/06-error-banner.png")
-
-        // Tasks 20 and 25: the menu bar against the catalog, and the shortcut
-        // window. Deliberately after every pointer check — it opens a second
-        // window and takes the keyboard focus with it, and the lane coordinates
-        // those checks aim at are measured against the document window.
-        await checkCatalogAndShortcutWindow(
-            model: model, theme: theme, context: context, log: &log,
-            outputDirectory: outputDirectory)
-
-        // Deliberately last. It puts a text field into the window's responder
-        // chain, and a field left there swallows every later keystroke — which
-        // is exactly what happened the first time it ran earlier in the run.
-        await checkTypingInAField(model: model, log: &log)
+        var log = Logger(plan: plan)
+        await prelude(model: model, run: run, log: &log)
+        await runViewGroups(model: model, theme: theme, run: run, log: &log)
+        await runChromeGroups(model: model, theme: theme, run: run, log: &log)
+        await runRegionGroups(model: model, log: &log, run: run)
+        await runPlaybackGroups(model: model, log: &log, run: run)
+        await runSessionGroups(model: model, theme: theme, context: context, run: run, log: &log)
 
         log.report()
         exit(log.exitCode)
@@ -194,7 +97,7 @@ enum AcceptanceRun {
     // MARK: - Checks
 
     @MainActor
-    private static func checkLoad(model: ViewerModel, url: URL, log: inout Logger) async {
+    static func checkLoad(model: ViewerModel, url: URL, log: inout Logger) async {
         let started = Date()
         model.open(url: url)
         while model.isLoading || !model.hasTrack {
@@ -214,7 +117,7 @@ enum AcceptanceRun {
     /// still "draw", so this measures the spread of column amplitudes over the
     /// whole file rather than trusting the picture.
     @MainActor
-    private static func checkStructure(model: ViewerModel, log: inout Logger) {
+    static func checkStructure(model: ViewerModel, log: inout Logger) {
         guard let pyramid = model.pyramid else {
             log.check("waveform shows musical structure", false)
             return
@@ -242,7 +145,7 @@ enum AcceptanceRun {
     /// Every zoom here goes through a posted `E`/`R` key event, so a failure
     /// would mean either the binding or the keyboard focus is broken.
     @MainActor
-    private static func checkZoomAnchor(model: ViewerModel, log: inout Logger) {
+    static func checkZoomAnchor(model: ViewerModel, log: inout Logger) {
         model.fitWholeFile()
         let fitted = model.framesPerPixel
         for _ in 0..<6 { press(.r) }
@@ -277,7 +180,7 @@ enum AcceptanceRun {
     /// call exactly these methods — are what is left of keyboard panning. The
     /// keys themselves are covered by `checkNudge`.
     @MainActor
-    private static func checkPanClamping(model: ViewerModel, log: inout Logger) {
+    static func checkPanClamping(model: ViewerModel, log: inout Logger) {
         model.fitWholeFile()
         for _ in 0..<6 { press(.r) }
         for _ in 0..<10 { model.scrollRight() }
@@ -313,7 +216,7 @@ enum AcceptanceRun {
     /// the model entry points the gesture calls, and the run says so rather than
     /// claiming coverage it does not have.
     @MainActor
-    private static func checkSelection(model: ViewerModel, log: inout Logger) async {
+    static func checkSelection(model: ViewerModel, log: inout Logger) async {
         model.fitWholeFile()
         let expected = PixelMapping.range(fromPixel: 200, toPixel: 520, in: model.viewport)
         // Try real pointer events first. They reach SwiftUI's gesture machinery

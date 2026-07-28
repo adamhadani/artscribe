@@ -12,13 +12,49 @@ slow it down without changing pitch.
 make bootstrap   # brew: rubberband, swiftlint, xcodegen, pre-commit (+ installs hooks)
 make check       # THE GATE: swift-format lint, swiftlint --strict, full test suite
 make test        # tests only
-swift test --filter <TargetName>    # one module
+swift test --filter <TargetName>    # one module while iterating
 
 swift run -c release ArtscribeApp   # the app
+
+# The acceptance harness: a live window driven through ~600 checks.
+swift run -c release ArtscribeAcceptance --list
+swift run -c release ArtscribeAcceptance --acceptance <audio> [--bad-file <f>] [--out <dir>] \
+    [--only <groups>] [--skip <groups>] [--quick]
 ```
 
 `make check` must be green before every commit. Pre-commit hooks enforce the same checks, so
 a commit that skips them is rejected.
+
+## Acceptance runs — the same rule as the unit suite
+
+Run the **relevant group** while iterating; run the **full harness once** before committing.
+It is the acceptance equivalent of `swift test --filter <Target>` during the loop and
+`make check` at the end, and it exists because it is worth minutes per iteration:
+
+| Run | Wall clock | Against a full run |
+|---|---|---|
+| everything | **134 s** | — |
+| `--quick` (drops `playback`, `start`) | 96 s | 1.4× |
+| `--only transport` | 13.3 s | 10× |
+| `--only menu` | 6.2 s | 22× |
+| `--only selection` | 4.6 s | 29× |
+| `--only loop` | 3.4 s | **40×** |
+
+Measured on 2026-07-28, release build, the same 108 MB FLAC each time. The floor is about
+3 s: the load and the window checks in front of the first group always run. `--quick` is the
+weakest of these — the two slow groups are only 39 s of the 134 — so prefer `--only`.
+
+- `--list` prints the sixteen groups, what each covers, and roughly how many checks it
+  carries. Use it rather than reading `AcceptanceGroups.swift`.
+- `--only` and `--skip` take comma-separated names and compose — `--only` chooses the field,
+  `--skip` narrows it, `--quick` drops the slow groups from whatever is left.
+- **An unknown name is fatal**, and so is a combination that selects nothing. A typo that
+  reported success would be worse than useless.
+- **A partial run is not an acceptance pass, and cannot exit 0.** Exit 1 is a failure, 2 is
+  "nothing failed but not everything was checked" — which now covers both the environment
+  skips and the groups a flag left out. The summary names them individually.
+- The harness silences itself; see the audio rules below. `--quick` still drives real audio
+  in `edge` and `navigation`, just not the long timed sweeps.
 
 ## Rules learned the hard way
 
