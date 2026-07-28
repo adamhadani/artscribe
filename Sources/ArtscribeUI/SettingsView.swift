@@ -57,18 +57,27 @@ struct NudgeSettingsTab: View {
             }
         }
         .formStyle(.grouped)
+        // Three sections and a button. Without a floor the pane opens at the
+        // height of whichever tab was shown first and scrolls the rest, which
+        // hides the zoom switch — the one control here nobody would think to
+        // scroll for.
+        .frame(minHeight: 645)
     }
 
     @ViewBuilder
     private var nudgeSection: some View {
         Section {
             ForEach(NudgeTier.allCases) { tier in
-                LabeledContent(tier.label) { field(for: tier) }
-                // The keys the amount applies to, under the field, because
-                // "Nudge" alone does not say which of three tiers this is.
-                Text(tier.keys)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                LabeledContent {
+                    field(for: tier)
+                } label: {
+                    // The keys the amount applies to, under its name, because
+                    // "Nudge" alone does not say which of three tiers this is.
+                    // Inside the label rather than as a row of its own: five
+                    // amounts and a switch fit a Settings pane, ten rows and a
+                    // switch do not.
+                    rowLabel(tier.label, keys: tier.keys)
+                }
             }
         } header: {
             Text("Navigation amounts")
@@ -87,15 +96,20 @@ struct NudgeSettingsTab: View {
     private var selectionSection: some View {
         Section {
             ForEach(SelectionMoveTier.allCases) { tier in
-                LabeledContent(tier.label) { moveField(for: tier) }
-                Text(tier.keys)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                LabeledContent {
+                    moveField(for: tier)
+                } label: {
+                    rowLabel(tier.label, keys: tier.keys)
+                }
             }
         } header: {
             Text("Selection movement")
         } footer: {
-            Self.rangeFooter
+            // The range is stated once, under the amounts above; repeating it
+            // verbatim would cost a pane's worth of height to say nothing new.
+            Text("The same range applies.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -111,10 +125,14 @@ struct NudgeSettingsTab: View {
         } header: {
             Text("Zoom")
         } footer: {
+            // Deliberately unemphasised. `Text` parses Markdown in a string
+            // *literal* only, and this string has to be concatenated to stay
+            // inside the line limit — a `**down**` here reached the screen with
+            // its asterisks showing, which is how that was measured.
             Text(
-                "Normally a vertical drag **down** — on the time ruler, or ⌥-dragging the "
-                    + "waveform — zooms in, and the scroll wheel zooms in when rolled forward. "
-                    + "Inverting reverses both, so the window never holds two conventions at once."
+                "Normally a vertical drag downwards — on the time ruler, or ⌥-dragging "
+                    + "the waveform — zooms in, and the wheel zooms in rolled forward. "
+                    + "Inverting reverses both, so one window never holds two conventions."
             )
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -132,6 +150,16 @@ struct NudgeSettingsTab: View {
         )
         .font(.caption)
         .foregroundStyle(.secondary)
+    }
+
+    /// One amount row's name with the keys it governs under it.
+    private func rowLabel(_ title: String, keys: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(title)
+            Text(keys)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func field(for tier: NudgeTier) -> some View {

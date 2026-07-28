@@ -191,11 +191,37 @@ extension AcceptanceRun {
                 "the Edit menu still carries \(expected)",
                 titles.contains { $0.hasPrefix(expected) })
         }
+        await checkSelectionItemsStandDown(menu, log: &log)
+
         // The move amounts are in the titles, like the nudge amounts.
         let gentle = NudgeAmounts.label(seconds: model.selectionMoveAmounts[.gentle])
         log.check(
             "the move items name their amount (\(gentle))",
             titles.contains { $0.hasPrefix("Move Selection Left") && $0.hasSuffix(gentle) })
+    }
+
+    /// `C`, `V` and `Esc` are **plain** key equivalents, offered to the menu
+    /// before the key window's first responder — so with Settings open, typing
+    /// `c` into an amount field would move the selection instead of typing.
+    ///
+    /// The remedy is the same one the Playback menu uses: a disabled item
+    /// claims nothing. This measures that the whole selection block really does
+    /// go dead when the document is not the key window, and comes back.
+    @MainActor
+    private static func checkSelectionItemsStandDown(
+        _ menu: NSMenu, log: inout Logger
+    ) async {
+        let watched = ["Move Selection Left", "Clear Selection", "Extend Selection Left"]
+        KeyWindowTracker.shared.forcedDocumentIsKey = false
+        await refresh(menu)
+        let dead = watched.allSatisfy { item(menu, $0)?.isEnabled == false }
+        KeyWindowTracker.shared.forcedDocumentIsKey = nil
+        await refresh(menu)
+        let alive = watched.allSatisfy { item(menu, $0)?.isEnabled == true }
+        log.check(
+            "the selection items go dead while another window holds the keyboard "
+                + "— C, V and Esc are plain keys over Settings' fields", dead)
+        log.check("and come back when the document holds it again", alive)
     }
 
     /// Mute reflects state, and the volume items grey out with no track.
