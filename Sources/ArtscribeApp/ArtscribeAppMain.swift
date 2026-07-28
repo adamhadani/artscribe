@@ -18,9 +18,9 @@ final class ArtscribeAppDelegate: NSObject, NSApplicationDelegate {
     /// startup, so it is held here and replayed rather than dropped.
     var model: ViewerModel? {
         didSet {
-            guard let pending else { return }
+            guard let pending, let model else { return }
             self.pending = nil
-            model?.open(url: pending)
+            ViewerActions.open(model, url: pending)
         }
     }
 
@@ -31,9 +31,37 @@ final class ArtscribeAppDelegate: NSObject, NSApplicationDelegate {
         // is the one that opens. Silently loading the last would be worse.
         guard let url = urls.first else { return }
         if let model {
-            model.open(url: url)
+            ViewerActions.open(model, url: url)
         } else {
             pending = url
+        }
+    }
+
+    /// ⌘Q. The third event that leaves a session behind, and the one AppKit
+    /// gives no window-close notification for: without this, quitting with an
+    /// unsaved loop would drop it silently, which is precisely what spec §7
+    /// forbids.
+    ///
+    /// `.terminateLater` because the sheet is asynchronous; the reply comes
+    /// back from its completion handler.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let model else { return .terminateNow }
+        switch model.closeAction {
+        case .close:
+            return .terminateNow
+        case .saveThenClose:
+            model.performClose()
+            return .terminateNow
+        case .ask:
+            SessionPrompt.whenSafeToLeave(model) { proceed in
+                // Deferred, always: `reply(toApplicationShouldTerminate:)` is
+                // only legal *after* this method has returned `.terminateLater`,
+                // and the completion can run synchronously.
+                DispatchQueue.main.async {
+                    NSApp.reply(toApplicationShouldTerminate: proceed)
+                }
+            }
+            return .terminateLater
         }
     }
 }
@@ -59,6 +87,10 @@ struct ArtscribeAppMain: App {
     /// The zoom direction and the selection-move amounts, persisted the same
     /// way and for the same reason (see `InteractionSettings`).
     @State private var interaction = InteractionSettings()
+    /// Reads and writes the `.artscribe` sidecar (spec §7). Application state
+    /// like the rest of these: it outlives every loaded track, and it holds
+    /// nothing but where the read-only-volume fallback lives.
+    @State private var sessions = SessionStore()
 
     init() {
         // A SwiftPM executable is not an app bundle, so AppKit starts it as an
@@ -101,6 +133,7 @@ struct ArtscribeAppMain: App {
         model.attach(recents: recents)
         model.attach(nudge: nudge)
         model.attach(interaction: interaction)
+        model.attach(sessions: sessions)
         // Hands the delegate somewhere to send a file, and replays one that
         // arrived before the scene existed — which is what happens when the app
         // is launched *by* opening a track.

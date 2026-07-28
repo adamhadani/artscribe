@@ -10,6 +10,9 @@ public struct DocumentView: View {
     private let model: ViewerModel
     @FocusState private var hasKeyboardFocus: Bool
     @State private var trackpad = TrackpadMonitor()
+    /// The window's modified dot, proxy icon and close prompt. Built once, from
+    /// the same model this view draws — see `DocumentWindowChrome`.
+    @State private var chrome: DocumentWindowChrome
     /// The *resolved* scheme, after the window has applied the theme
     /// preference. Reading it here rather than the preference itself keeps this
     /// view out of the theme's business entirely — it draws whatever scheme it
@@ -23,6 +26,7 @@ public struct DocumentView: View {
 
     public init(model: ViewerModel) {
         self.model = model
+        _chrome = State(initialValue: DocumentWindowChrome(model: model))
     }
 
     private var appearance: Appearance { colorScheme == .dark ? .dark : .light }
@@ -50,6 +54,15 @@ public struct DocumentView: View {
                 ErrorBannerView(message: message) { model.dismissDeviceNotice() }
             }
 
+            // Spec §7: a damaged sidecar, a session that had to go into
+            // Application Support because the track's folder is read-only, or a
+            // Save As that went somewhere reopening will not look. All three are
+            // cases where what is on disk is not what the user would assume, so
+            // none of them is allowed to be silent.
+            if let message = model.sessionNotice {
+                ErrorBannerView(message: message) { model.dismissSessionNotice() }
+            }
+
             if model.hasTrack {
                 OverviewStripView(model: model)
                     .frame(height: 58)
@@ -70,7 +83,20 @@ public struct DocumentView: View {
         // Tells `KeyWindowTracker` which window the transport belongs to. That
         // is what lets the menus' plain-letter key equivalents stand down while
         // Settings — which has editable fields — is the key window.
-        .background(WindowReader { KeyWindowTracker.shared.adopt(document: $0) })
+        .background(
+            WindowReader { window in
+                KeyWindowTracker.shared.adopt(document: window)
+                // And which window carries the modified dot and answers ⌘W.
+                chrome.adopt(window)
+            }
+        )
+        // The window's title, so the proxy icon and the ⌘-click path menu both
+        // name the track rather than the app.
+        .navigationTitle(model.windowTitle)
+        // AppKit has no SwiftUI equivalent for the close button's modified dot,
+        // so it is pushed across whenever the model's answer moves.
+        .onChange(of: model.isDirty, initial: true) { _, _ in chrome.refresh() }
+        .onChange(of: model.fileName) { _, _ in chrome.refresh() }
         // One place sets the palette, so no view can draw half of one theme.
         .environment(\.palette, Palette.of(appearance))
         // And one place tells the model, because the cached waveform bitmap has
@@ -86,7 +112,7 @@ public struct DocumentView: View {
         .onKeyPress(phases: [.down, .repeat], action: handle)
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
-            model.open(url: url)
+            ViewerActions.open(model, url: url)
             return true
         }
         .onAppear {

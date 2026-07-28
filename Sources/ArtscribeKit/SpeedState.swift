@@ -26,11 +26,19 @@ public struct SpeedState: Equatable, Sendable, Codable {
     /// spec §7 persists this type in a visible, user-editable sidecar) cannot
     /// smuggle an out-of-range or non-finite `ratio` past the clamp invariant
     /// that `init(ratio:engine:)` and `setRatio` both enforce.
+    ///
+    /// `ratio` is required and `engine` is not, for the same reason
+    /// `LoopRegion` treats its two fields differently: a payload with no ratio
+    /// says nothing about speed and is reported as missing, whereas a misspelt
+    /// or absent engine name has an obviously right answer — Studio, the
+    /// default, which is the accurate one. Falling back to it costs CPU;
+    /// throwing the whole payload away would cost the user their loop points.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let decodedRatio = try container.decode(Double.self, forKey: .ratio)
         self.ratio = Self.clamp(decodedRatio)
-        self.engine = try container.decode(StretchEngine.self, forKey: .engine)
+        self.engine =
+            (try? container.decodeIfPresent(StretchEngine.self, forKey: .engine)) ?? .studio
     }
 
     public var timeRatio: Double { 1.0 / ratio }

@@ -26,6 +26,27 @@ struct TitleBarView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
 
+            // A standing indicator, not a dismissible one. Spec §7 requires the
+            // read-only fallback be surfaced, and the banner that announces it
+            // can be dismissed — after which the only thing telling you your
+            // loop points are not beside your music would be gone. This stays
+            // for as long as the condition does.
+            if model.isSessionStoredAwayFromTheTrack {
+                Text("SESSION IN APP SUPPORT")
+                    .font(Typography.eyebrow)
+                    .tracking(1.4)
+                    .foregroundStyle(palette.emphasis.color())
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(palette.emphasis.color(opacity: 0.5), lineWidth: 1)
+                    )
+                    .help(
+                        "This track's folder could not be written to, so its session is stored "
+                            + "in Application Support instead of beside the track.")
+            }
+
             Spacer(minLength: 12)
 
             if model.isLoading {

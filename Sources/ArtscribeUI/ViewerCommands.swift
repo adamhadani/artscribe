@@ -6,7 +6,33 @@ public enum ViewerActions {
     @MainActor
     public static func open(_ model: ViewerModel) {
         guard let url = AudioFileTypes.runOpenPanel() else { return }
-        model.open(url: url)
+        open(model, url: url)
+    }
+
+    /// The one way into `ViewerModel.open(url:)` from the UI.
+    ///
+    /// Artscribe is a one-window, one-track app, so loading another file is the
+    /// only other way to walk away from a session — and it has to ask the same
+    /// question closing the window does, or a loop you set two minutes ago
+    /// disappears because you reached for Open Recent. Every route in goes
+    /// through here: the Open panel, Open Recent, a drop on the window, and a
+    /// file handed over by Launch Services.
+    @MainActor
+    public static func open(_ model: ViewerModel, url: URL) {
+        SessionPrompt.whenSafeToLeave(model) { proceed in
+            guard proceed else { return }
+            model.open(url: url)
+        }
+    }
+
+    /// **File ▸ Save As…** — the panel, then the write. The decision about what
+    /// saving somewhere other than the canonical sidecar *means* is
+    /// `ViewerModel.saveSession(to:)`'s, and is tested there.
+    @MainActor
+    public static func saveAs(_ model: ViewerModel) {
+        guard let suggestion = model.suggestedSessionSaveURL, model.canSaveSession else { return }
+        guard let url = SessionPanels.runSavePanel(suggesting: suggestion) else { return }
+        model.saveSession(to: url)
     }
 }
 
@@ -43,6 +69,22 @@ public struct ViewerCommands: Commands {
             Button("Open…") { ViewerActions.open(model) }
                 .keyboardShortcut("o", modifiers: .command)
             RecentFilesMenu(model: model, recents: recents)
+        }
+
+        // Session persistence (spec §7) in the place every Mac user looks for
+        // it. `.saveItem` is the standard group, so these land under Open Recent
+        // with the separator the system draws, and ⌘S / ⇧⌘S are the system's own
+        // shortcuts rather than ones invented here.
+        //
+        // Always enabled, for the reason recorded above: a `Commands` body does
+        // not re-evaluate when the model changes, so a state-dependent
+        // `.disabled` goes stale and stops the shortcut firing for good. Both
+        // actions are guarded no-ops with no track loaded.
+        CommandGroup(replacing: .saveItem) {
+            Button("Save") { model.saveSession() }
+                .keyboardShortcut("s", modifiers: .command)
+            Button("Save As…") { ViewerActions.saveAs(model) }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
         }
 
         // Into the *standard* View menu rather than a second one of our own: a
@@ -106,7 +148,7 @@ struct RecentFilesMenu: View {
                 // The file name, not the path: the menu is for recognising a
                 // track, and the full path is what the tooltip-free menu bar
                 // truncates worst.
-                Button(url.lastPathComponent) { model.open(url: url) }
+                Button(url.lastPathComponent) { ViewerActions.open(model, url: url) }
             }
             if !recents.urls.isEmpty {
                 Divider()

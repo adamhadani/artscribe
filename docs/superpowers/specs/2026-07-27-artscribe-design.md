@@ -318,6 +318,39 @@ If the containing directory is not writable — a read-only volume, a NAS, a mou
 fall back to Application Support keyed by file URL, and surface the fallback in the
 inspector. Loop points must never be silently lost because a directory was read-only.
 
+### 7.1 Save, Save As, and the close prompt
+
+The sidecar behaves the way modern macOS treats a document that has a location: **once
+`<track>.artscribe` exists it is kept up to date** — written a couple of seconds after an edit
+and again on close — so nothing has to be saved by hand. **⌘S** is therefore a checkpoint that
+writes immediately rather than waiting, and **⇧⌘S** is Save As.
+
+What Artscribe will not do is create that file unasked, because it lands in the user's music
+folder where they can see it. So the first time a track with no session file is edited,
+leaving it — closing the window, quitting, or loading another track — asks **Save / Don't Save
+/ Cancel**, and Cancel really cancels. After the file exists it never asks again.
+
+This resolves the tension between "written on close and debounced during editing" above and a
+classic save prompt, which cannot both hold for the same document state: a file that always
+matches the working state has nothing to prompt about. The macOS rule — ask about a document
+with no location, autosave one that has a location — keeps both halves meaningful.
+
+**An edit is speed, stretch engine, or loop.** The playhead, the viewport and the selection
+are persisted but never mark the document modified: they are where you are looking, not a
+decision about the track, and a playhead that ticks sixty times a second would leave the
+window permanently modified and the prompt meaningless.
+
+**Save As** writes wherever it is pointed. Pointed at the canonical `<track>.artscribe` it
+adopts that file as the live session; anywhere else it writes a **copy** for sharing or
+archiving and says so, because reopening the track only ever looks beside the track. The
+sidecar is named by appending to the whole file name — `Blackbird.flac.artscribe` — so two
+encodings of one song in one folder cannot overwrite each other's loop points.
+
+**The JSON is user-editable by design, so it is never trusted.** Every field decodes
+independently and is clamped into the loaded recording; a field that cannot be read falls back
+to its default and is named to the user. A malformed sidecar opens the track on defaults and
+says so — it never crashes, hangs, or installs a nonsensical state.
+
 ---
 
 ## 8. Error handling

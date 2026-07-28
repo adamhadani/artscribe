@@ -127,6 +127,13 @@ enum AcceptanceRun {
         await settle(seconds: 0.3)
         snapshot(to: "\(outputDirectory)/05-resized.png")
 
+        // Task 19. Deliberately on a *copy* of the track in a scratch folder,
+        // never beside the real media the run was pointed at, and deliberately
+        // before `checkBadFile`, which leaves a failed load on screen.
+        await checkSession(model: model, log: &log, source: audio)
+        await settle(seconds: 0.2)
+        snapshot(to: "\(outputDirectory)/08-session.png")
+
         if let badFile { await checkBadFile(model: model, url: badFile, log: &log) }
         await settle(seconds: 0.3)
         snapshot(to: "\(outputDirectory)/06-error-banner.png")

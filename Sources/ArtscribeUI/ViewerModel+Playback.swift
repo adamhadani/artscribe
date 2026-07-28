@@ -297,6 +297,11 @@ extension ViewerModel {
         guard next != speed else { return }
         let enginesDiffer = next.engine != speed.engine
         speed = next
+        // Before the engine-rebuild branch, not after it: `⌥E` changes the
+        // active engine, which spec §7 persists, and marking only the ratio
+        // path would leave an engine switch out of the sidecar and out of the
+        // close prompt.
+        markSessionEdited()
         guard !enginesDiffer else {
             rebuildSession()
             return
@@ -316,42 +321,6 @@ extension ViewerModel {
         session?.push(.setLoop(loop.range, loop.isEnabled))
         seek(to: position)
         if wasPlaying { play() }
-    }
-
-    // MARK: - Volume
-
-    public func volumeUp(fine isFine: Bool) {
-        applyVolume { $0.step(by: isFine ? VolumeState.fineStep : VolumeState.coarseStep) }
-    }
-
-    public func volumeDown(fine isFine: Bool) {
-        applyVolume { $0.step(by: -(isFine ? VolumeState.fineStep : VolumeState.coarseStep)) }
-    }
-
-    /// What the mixer actually holds, as opposed to what the model believes it
-    /// asked for. `nil` when there is no audio output at all — deliberately not
-    /// 0, which would be indistinguishable from silence.
-    public var outputVolume: Double? { session?.output.volume }
-
-    /// From the slider. Takes the raw 0…1 position; `VolumeState` clamps.
-    public func setVolumeLevel(_ level: Double) {
-        applyVolume { $0.setLevel(level) }
-    }
-
-    public func toggleMute() {
-        applyVolume { $0.toggleMute() }
-    }
-
-    /// Volume is the one control that is applied on the **main actor**, straight
-    /// to the mixer, rather than through the command ring: it is not the render
-    /// thread's business, and `AVAudioMixerNode` already ramps it. Nothing here
-    /// depends on a track being loaded — the level is remembered for the next one.
-    private func applyVolume(_ change: (inout VolumeState) -> Void) {
-        var next = volume
-        change(&next)
-        guard next != volume else { return }
-        volume = next
-        session?.output.setVolume(volume.amplitude)
     }
 
     // MARK: - Loop
@@ -396,5 +365,6 @@ extension ViewerModel {
         // Takes effect on the next pass, not this one: the engine wraps at the
         // boundary it is fed, and never resets the stretcher there (spec §5.1).
         session?.push(.setLoop(loop.range, loop.isEnabled))
+        markSessionEdited()
     }
 }

@@ -1,5 +1,6 @@
 import AppKit
 import ArtscribeUI
+import Foundation
 import Playback
 import SwiftUI
 
@@ -33,6 +34,14 @@ struct AcceptanceMain: App {
     /// zoom direction and edits the move amounts to check that each applies
     /// live, and must not leave the user's real preferences altered.
     @State private var interaction = InteractionSettings(defaults: Self.defaults)
+    /// On its own fallback directory, for the same reason the four above are on
+    /// their own defaults suite: the run deliberately makes a track's folder
+    /// read-only to check the spec §7 fallback, and must not leave sessions in
+    /// the user's real Application Support.
+    @State private var sessions = SessionStore(fallbackDirectory: Self.sessionFallbackDirectory)
+
+    static let sessionFallbackDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("artscribe-acceptance-sessions", isDirectory: true)
 
     private static let defaults =
         UserDefaults(suiteName: "com.artscribe.acceptance") ?? .standard
@@ -76,6 +85,7 @@ struct AcceptanceMain: App {
         model.attach(recents: recents)
         model.attach(nudge: nudge)
         model.attach(interaction: interaction)
+        model.attach(sessions: sessions)
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
         await AcceptanceRun.runIfRequested(model: model, theme: theme)

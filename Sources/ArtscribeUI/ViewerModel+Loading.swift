@@ -14,6 +14,13 @@ import Waveform
 extension ViewerModel {
 
     public func open(url: URL) {
+        // Replacing the track is, for the session being left behind, the same
+        // event as closing the window — and spec §7 says a session is written
+        // on close. Only the already-adopted case is written here; a track that
+        // has never had a sidecar is asked about first, by
+        // `SessionPrompt.whenSafeToLeave`, which every route into this method
+        // goes through.
+        if closeAction == .saveThenClose { performClose() }
         loadTask?.cancel()
         errorMessage = nil
         isLoading = true
@@ -87,8 +94,16 @@ extension ViewerModel {
         // Only on success: a file that could not be decoded is not somewhere you
         // want to be offered a shortcut back to.
         recents?.note(url)
+        // Spec §7, and it has to happen *here* — after the audio is in place, so
+        // everything read from the sidecar is clamped against the recording's
+        // real length, and before the graph is built, because `openSession`
+        // constructs the stretcher for `speed.engine` and pushes `speed`'s time
+        // ratio. Anything a sidecar sets after that point would be a rebuild.
+        adoptSession(for: url)
         refresh()
         openSession(for: loaded.audio)
+        // The two the graph cannot pick up from `speed` alone.
+        applyRestoredSession()
         // Measured through to the rasterised bitmap, not just the decode, so the
         // readout answers "how long until I saw the waveform" (spec §1.2).
         lastLoadSeconds = Date().timeIntervalSince(startedAt)

@@ -107,6 +107,46 @@ public final class ViewerModel {
     /// The render-thread counters, polled alongside the playhead.
     public internal(set) var degradation = DegradationCounts()
 
+    // MARK: - Session persistence (spec §7)
+    //
+    // See `ViewerModel+Session` for the whole model, including why the playhead
+    // moving is not an edit and why an adopted sidecar closes without asking.
+
+    /// True when this track's *durable* settings — speed, engine, loop — differ
+    /// from what is stored for it. Drawn by AppKit as the dot in the window's
+    /// close button.
+    public internal(set) var isDirty = false
+    /// Where this track's session is stored, or `nil` when it has never been
+    /// saved. `.applicationSupport` is the read-only-volume fallback and is
+    /// always surfaced.
+    public internal(set) var sessionLocation: SessionLocation?
+    /// A damaged sidecar, a fallback in effect, a Save As that went somewhere
+    /// reopening will not look, or a save that failed. Shown as an inline
+    /// banner, never a modal, and only cleared by the user or by the next load.
+    public internal(set) var sessionNotice: String?
+    /// The last write failed outright — neither beside the track nor in the
+    /// fallback. Turns closing back into a question.
+    public internal(set) var lastSaveFailed = false
+    /// Where sessions are read and written, if the app shell attached a store.
+    /// Absent in unit tests that do not ask for one, which is what keeps them
+    /// off the disk entirely.
+    @ObservationIgnored var sessions: SessionStore?
+    /// The file this window's session belongs to. Not `fileName`, which is only
+    /// the last path component and cannot be written next to anything.
+    @ObservationIgnored var trackURL: URL?
+    /// The debounced autosave in flight, if any. Cancelled and replaced on every
+    /// edit, and flushed by an explicit Save or a close.
+    @ObservationIgnored var autosaveTask: Task<Void, Never>?
+    /// How long after the last edit the sidecar is written (spec §7's
+    /// "debounced during editing"). Long enough that a `Q`/`W` speed sweep is
+    /// one write rather than twenty; short enough that nothing meaningful is in
+    /// flight when you reach for the window's close button.
+    ///
+    /// Per-instance rather than a global constant so a test can shorten it
+    /// without reaching into shared state that the rest of the suite — which
+    /// runs in parallel — would see.
+    @ObservationIgnored public var autosaveDelay: Duration = .seconds(2)
+
     /// What the *user* asked for, not `PlaybackEngine.isPlaying` — see
     /// `TransportLatch` for why reading the engine directly is a trap.
     public var isPlaying: Bool { transport.isPlaying }

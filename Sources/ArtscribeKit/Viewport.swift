@@ -43,6 +43,35 @@ public struct Viewport: Equatable, Sendable {
         startFrame = 0
     }
 
+    /// The persisted half of this viewport, for the `.artscribe` sidecar
+    /// (spec §7). `totalFrames` and `widthPixels` are deliberately left out —
+    /// see `ViewportState`.
+    public var state: ViewportState {
+        ViewportState(startFrame: startFrame, framesPerPixel: framesPerPixel)
+    }
+
+    /// Puts a persisted viewport back, through the same clamps every other
+    /// mutation goes through.
+    ///
+    /// A zoom finer or coarser than this file and this window can express is
+    /// clamped rather than refused: the sidecar may have been written with a
+    /// wider window, or beside a longer version of the recording, and landing on
+    /// the nearest legal zoom is what the user wants in both cases. A
+    /// non-positive or non-finite zoom means "whole file" — that is what an
+    /// absent or hand-damaged value degrades to, and it is a state the user can
+    /// see and act on rather than a NaN propagating through every pixel-to-frame
+    /// conversion in the app.
+    public mutating func restore(_ state: ViewportState) {
+        guard state.framesPerPixel.isFinite, state.framesPerPixel > 0 else {
+            fit()
+            return
+        }
+        framesPerPixel = Swift.min(
+            maxFramesPerPixel, Swift.max(Self.minFramesPerPixel, state.framesPerPixel))
+        startFrame = Swift.max(0, state.startFrame)
+        clamp()
+    }
+
     /// `factor > 1` zooms in. `anchorFrame` stays under the same pixel.
     public mutating func zoom(by factor: Double, anchorFrame: FrameIndex) {
         guard factor > 0, factor.isFinite else { return }
