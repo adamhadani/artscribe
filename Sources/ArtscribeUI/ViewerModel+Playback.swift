@@ -238,16 +238,16 @@ extension ViewerModel {
         transport.request(false, now: ProcessInfo.processInfo.systemUptime)
     }
 
-    /// `Return`. Goes to the start of the selection, or the start of the file
-    /// when there is none, and plays from there — the transcriber's most-used
-    /// key, because it is how you hear the same phrase again.
+    /// `⇧Space` (`Return` until Task 18). To the selection start, else the file
+    /// start, and plays from there — the transcriber's most-used key, because it
+    /// is how you hear the same phrase again.
     public func playFromStart() {
         guard hasTrack else { return }
         returnToStart()
         play()
     }
 
-    /// The seek half of `Return`, without starting playback.
+    /// The seek half of `⇧Space`, without playing. The name predates the rebind.
     public func returnToStart() {
         guard hasTrack else { return }
         seek(to: selection.isEmpty ? 0 : selection.range.start)

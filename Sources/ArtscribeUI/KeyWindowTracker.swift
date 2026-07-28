@@ -5,7 +5,7 @@ import SwiftUI
 /// Whether the document window is the one receiving keystrokes.
 ///
 /// It exists because the menu carries **plain-letter key equivalents** (`Q`, `W`,
-/// `A`–`G`, `1`–`4`, Space, Return). AppKit offers a key event to the main menu
+/// `A`–`G`, `1`–`4`, Space, `C`/`V`, `Esc`). AppKit offers a key event to the main menu
 /// *before* the key window's first responder, so a live plain `Q` would step the
 /// playback speed instead of typing a digit into Settings' nudge fields. A
 /// disabled menu item claims nothing, so disabling the transport menus while
