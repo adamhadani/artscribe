@@ -57,7 +57,10 @@ is untouched, so the volume checks still read back the value the user's control 
   as its first check. **Do not make this an opt-in flag.**
 - To hear an acceptance run on purpose: `ARTSCRIBE_ACCEPTANCE_AUDIBLE=1`.
 - To silence any other Artscribe binary — `ArtscribeApp`, `artscribe-cli` — export
-  `ARTSCRIBE_SILENT=1`. **Launch the app this way when verifying a change.**
+  `ARTSCRIBE_SILENT=1`. **Launch the app this way when verifying a change.** Do *not*
+  export it for `swift test`: the gate is process-wide, so it silences the deliberately
+  audible control in `aSilencedGraphEmitsExactlyZero` and three tests fail. The suite
+  renders offline and never reaches a device, so it needs no gate.
 - Verified by `aSilencedGraphEmitsExactlyZero`, which renders the real graph offline and
   asserts every sample is exactly 0 against a control that is not.
 
@@ -105,9 +108,18 @@ Measured, not assumed: forcing a reset at the wrap gives a 0.439 sample-to-sampl
 against a signal whose natural maximum step is 0.0157 — a 28× discontinuity. `reset()`
 appears in exactly one place, reachable only from seek and EOF-resume.
 
-Known gap: a sweep of realistic loop lengths showed this regression escaping the current
-seam tests about a third of the time through incidental phase alignment. A sweep-based test
-is queued.
+**The test that guards it is a differential one, not a step threshold.** Because
+`feedSource` wraps by feeding continuously, the stream it pushes into the stretcher when
+looping `0..<L` is byte-for-byte the stream it pushes when playing a file that already has
+that passage laid out end to end. So `rubberBandLoopingIsIndistinguishableFromAContiguousRender`
+renders both and compares them in a window around every wrap: measured difference is
+**exactly zero** at all eight loop lengths swept (0.2 s to 9.1 s), and a forced `reset()`
+at the wrap scores 0.94–1.05 of signal RMS at every one of them.
+
+That replaced a worst-single-sample-step bound, which a sweep showed missing the forced
+reset in 5 of 13 realistic loop lengths — a global maximum only sees a click louder than
+the material's loudest natural transient, and at L=50003 the reset actually *lowered* the
+worst step. Do not go back to a step threshold, and do not "simplify" the control away.
 
 ## Audio quality facts
 
