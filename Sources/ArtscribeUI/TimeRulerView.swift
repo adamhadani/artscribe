@@ -58,6 +58,24 @@ struct TimeRulerView: View {
             drawPlayhead(in: &context, size: size, frame: playhead, viewport: viewport)
         }
         .frame(height: 24)
+        .contentShape(.rect)
+        .gesture(zoomDragGesture)
+    }
+
+    /// Drag vertically to zoom, smoothly, anchored where the drag began — the
+    /// beat-time ruler convention Ableton Live and Melodyne both document, and
+    /// the only continuous zoom control the app has that needs no modifier and
+    /// no trackpad. Horizontal travel is ignored; see
+    /// `ViewerModel.zoomDragChanged`.
+    ///
+    /// `coordinateSpace: .local` puts `x` in the ruler's own points, which is
+    /// the space the viewport maps from — the ruler and the lanes are siblings
+    /// in the same full-width `VStack`, so a point means the same thing in
+    /// both, and both draw through `viewport.pixel(forFrame:)`.
+    private var zoomDragGesture: some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .local)
+            .onChanged { model.zoomDragChanged(start: $0.startLocation, current: $0.location) }
+            .onEnded { _ in model.zoomDragEnded() }
     }
 
     /// The loop shown as a bar spanning the region, so the in and out points stay

@@ -75,18 +75,24 @@ struct WaveformLanesView: View {
         }
     }
 
+    /// Selection, ⇧-extend, or an ⌥-modified zoom. Which of the three it is gets
+    /// decided by the model when the mouse goes down and held for the gesture's
+    /// life — the flags are read live here, so the latch has to be there rather
+    /// than here. See `ViewerModel.laneDragChanged`.
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
-                model.dragChanged(
-                    startPixel: value.startLocation.x,
-                    currentPixel: value.location.x,
-                    extending: NSEvent.modifierFlags.contains(.shift))
+                let modifiers = NSEvent.modifierFlags
+                model.laneDragChanged(
+                    start: value.startLocation,
+                    current: value.location,
+                    option: modifiers.contains(.option),
+                    shift: modifiers.contains(.shift))
             }
             .onEnded { value in
-                model.dragEnded(
-                    startPixel: value.startLocation.x,
-                    endPixel: value.location.x,
+                model.laneDragEnded(
+                    start: value.startLocation,
+                    end: value.location,
                     now: ProcessInfo.processInfo.systemUptime)
             }
     }

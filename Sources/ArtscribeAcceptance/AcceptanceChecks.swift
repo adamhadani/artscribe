@@ -115,15 +115,146 @@ extension AcceptanceRun {
             "two-finger scroll still pans (\(panFrom) -> \(model.viewport.startFrame))",
             model.viewport.startFrame > panFrom)
 
+        // Task 16 made ⌘-scroll the *fine* zoom, at a third of the bare rate, so
+        // it takes three times the travel to cover the same ground. Twelve
+        // events at 30 points is what four used to be.
         let zoomFrom = model.zoomFactor
-        for _ in 0..<4 { scroll(deltaY: 30, units: .pixel, flags: .maskCommand) }
+        for _ in 0..<12 { scroll(deltaY: 30, units: .pixel, flags: .maskCommand) }
         await settle(seconds: 0.3)
         log.check(
             "Command-scroll zooms on a trackpad "
                 + "(\(rounded(zoomFrom))x -> \(rounded(model.zoomFactor))x)",
             model.zoomFactor > zoomFrom * 1.5)
 
+        await checkFineScrollZoom(model: model, log: &log)
         await checkOverviewZoom(model: model, strip: strip, log: &log)
+    }
+
+    /// Task 16: `⌘`-scroll and the bare wheel over the *same* travel, so the
+    /// difference measured is the rate and nothing else. Both are real posted
+    /// `NSEvent`s, so this also proves the modifier survives the trip through
+    /// the event queue into `TrackpadAction`.
+    @MainActor
+    private static func checkFineScrollZoom(model: ViewerModel, log: inout Logger) async {
+        model.fitWholeFile()
+        for _ in 0..<4 { scroll(deltaY: 1, units: .line) }
+        await settle(seconds: 0.3)
+        let coarse = model.zoomFactor
+
+        model.fitWholeFile()
+        for _ in 0..<4 { scroll(deltaY: 1, units: .line, flags: .maskCommand) }
+        await settle(seconds: 0.3)
+        let fine = model.zoomFactor
+
+        log.check(
+            "Command-scroll is finer than the bare wheel over the same travel "
+                + "(\(rounded(coarse))x vs \(rounded(fine))x)",
+            fine > 1.0001 && fine < coarse)
+        model.fitWholeFile()
+    }
+
+    /// Task 16: the vertical drag on the time ruler, and the ⌥-drag in the
+    /// lanes that does the same thing without taking the plain left-drag away
+    /// from selection.
+    ///
+    /// Driven through the model entry points the gestures call, for the reason
+    /// `checkSelection` records at length: a synthesised pointer drag does not
+    /// reach SwiftUI's `DragGesture` while the login session's screen is locked,
+    /// and claiming otherwise would be claiming coverage this run does not have.
+    @MainActor
+    static func checkDragZoom(model: ViewerModel, log: inout Logger) async {
+        model.fitWholeFile()
+        model.clearSelection()
+        let lanes = model.laneFrame
+        guard !lanes.isEmpty else {
+            log.check("lane geometry is known to the drag-zoom check", false)
+            return
+        }
+        log.note("drag-zoom path", "model entry points (the gesture's own)")
+
+        // A quarter across, so anchoring on the playhead (frame 0) would show.
+        let anchorX = lanes.width * 0.25
+        let start = CGPoint(x: anchorX, y: 12)
+        let anchored = PixelMapping.frame(atPixel: anchorX, in: model.viewport)
+        let fitted = model.zoomFactor
+
+        // 240 points up: two doublings at the shipped rate. Fed one point at a
+        // time, the way `DragGesture` delivers it.
+        for offset in 1...240 {
+            model.zoomDragChanged(
+                start: start, current: CGPoint(x: anchorX, y: 12 - Double(offset)))
+        }
+        await settle(seconds: 0.25)
+        let landed = model.viewport.pixel(forFrame: anchored)
+        let peak = model.zoomFactor
+        log.check(
+            "dragging up the ruler zooms in (\(rounded(fitted))x -> \(rounded(peak))x)",
+            peak > fitted * 1.5)
+        log.check(
+            "the ruler drag stays anchored where it began "
+                + "(\(rounded(anchorX)) pt -> \(rounded(landed)) pt)",
+            abs(landed - anchorX) <= 2)
+
+        // Back down the same distance **without letting go**: one gesture, so
+        // the zoom is a function of where the pointer is rather than of the
+        // path it took, and it returns exactly. (Releasing and starting again
+        // deliberately does *not* return — the second gesture begins from where
+        // the viewport now is, which `ViewerModelDragZoomTests` pins.)
+        for offset in stride(from: 239, through: 0, by: -1) {
+            model.zoomDragChanged(
+                start: start, current: CGPoint(x: anchorX, y: 12 - Double(offset)))
+        }
+        model.zoomDragEnded()
+        await settle(seconds: 0.25)
+        log.check(
+            "dragging back down without letting go returns to where it started "
+                + "(\(rounded(peak))x -> \(rounded(model.zoomFactor))x)",
+            abs(model.zoomFactor - fitted) < fitted * 0.02)
+
+        await checkOptionDragZoom(model: model, lanes: lanes, log: &log)
+    }
+
+    /// ⌥-drag zooms; the plain left-drag it sits beside still selects. Both
+    /// halves matter — the second is the regression the first one risks.
+    @MainActor
+    private static func checkOptionDragZoom(
+        model: ViewerModel, lanes: CGRect, log: inout Logger
+    ) async {
+        model.fitWholeFile()
+        model.clearSelection()
+        let start = CGPoint(x: lanes.width * 0.4, y: lanes.height * 0.5)
+        let fitted = model.zoomFactor
+        for offset in 1...240 {
+            model.laneDragChanged(
+                start: start, current: CGPoint(x: start.x, y: start.y - Double(offset)),
+                option: true, shift: false)
+        }
+        model.laneDragEnded(
+            start: start, end: CGPoint(x: start.x, y: start.y - 240), now: 0)
+        await settle(seconds: 0.25)
+        log.check(
+            "Option-drag in the lanes zooms (\(rounded(fitted))x -> "
+                + "\(rounded(model.zoomFactor))x)",
+            model.zoomFactor > fitted * 1.5)
+        log.check("and makes no selection while doing it", model.selection.isEmpty)
+
+        // The modifier released halfway must not start selecting.
+        model.fitWholeFile()
+        let second = CGPoint(x: lanes.width * 0.6, y: lanes.height * 0.5)
+        model.laneDragChanged(start: second, current: second, option: true, shift: false)
+        for offset in 1...120 {
+            model.laneDragChanged(
+                start: second,
+                current: CGPoint(x: second.x + Double(offset), y: second.y - Double(offset)),
+                option: false, shift: false)
+        }
+        model.laneDragEnded(
+            start: second, end: CGPoint(x: second.x + 120, y: second.y - 120), now: 0)
+        log.check(
+            "releasing Option mid-drag does not turn the zoom into a selection",
+            model.selection.isEmpty && model.zoomFactor > 1.5)
+        model.fitWholeFile()
+        model.clearSelection()
     }
 
     /// The overview strip always shows the whole file, so zooming there has to

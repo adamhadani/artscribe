@@ -143,7 +143,78 @@ struct TrackpadActionTests {
 
     @Test("Command-scroll on a wheel still zooms")
     func commandWheelZooms() {
-        #expect(factor(wheel(y: 1, command: true)) == factor(wheel(y: 1)))
+        #expect(factor(wheel(y: 1, command: true)).map { $0 > 1 } == true)
+        #expect(factor(wheel(y: -1, command: true)).map { $0 < 1 } == true)
+    }
+
+    // MARK: - Command-scroll is the *fine* zoom
+
+    /// The wheel already zooms bare, so `⌘` duplicating it would be worth
+    /// nothing. It is the careful gear instead — and "finer" has to mean
+    /// strictly less zoom for the same travel, in both directions.
+    @Test("Command-scroll zooms less far than the same bare wheel movement")
+    func commandWheelIsFiner() throws {
+        for lines in [0.5, 1.0, 3.0, 10.0] {
+            let coarse = try #require(factor(wheel(y: lines)))
+            let fine = try #require(factor(wheel(y: lines, command: true)))
+            #expect(fine > 1)
+            #expect(fine < coarse, "⌘ over \(lines) lines was not finer than bare")
+
+            let coarseOut = try #require(factor(wheel(y: -lines)))
+            let fineOut = try #require(factor(wheel(y: -lines, command: true)))
+            #expect(fineOut < 1)
+            #expect(fineOut > coarseOut, "⌘ out over \(lines) lines was not finer than bare")
+        }
+    }
+
+    /// The rate is the *exponent's* — which is what keeps a fine zoom composable
+    /// with a coarse one instead of merely smaller. Pinned on both devices,
+    /// because the wheel and the trackpad reach `zoomFactor` by different
+    /// arithmetic.
+    @Test("the fine rate is exactly the named fraction of the coarse one")
+    func fineRateIsTheNamedFraction() throws {
+        let wheelCoarse = try #require(factor(wheel(y: 3)))
+        let wheelFine = try #require(factor(wheel(y: 3, command: true)))
+        #expect(abs(log2(wheelFine) / log2(wheelCoarse) - TrackpadAction.fineZoomRate) < 1e-12)
+
+        // A trackpad's bare vertical swipe pans, so the coarse comparison is
+        // against the documented rate rather than another action.
+        let swipeFine = try #require(factor(swipe(y: 90, command: true)))
+        let coarseExponent = 90 / TrackpadAction.pointsPerDoubling
+        #expect(abs(log2(swipeFine) / coarseExponent - TrackpadAction.fineZoomRate) < 1e-12)
+    }
+
+    /// Roughly a quarter to a third: below that the control is dead, above it
+    /// there is no felt difference from the bare gesture.
+    @Test("the fine rate is genuinely finer, and not so fine it is dead")
+    func fineRateIsInBand() {
+        #expect(TrackpadAction.fineZoomRate > 0.2)
+        #expect(TrackpadAction.fineZoomRate < 0.4)
+    }
+
+    /// Three fine notches must land exactly where one coarse notch does, and a
+    /// fine zoom must still undo itself. Both follow from scaling the exponent
+    /// and neither survives scaling the factor.
+    @Test("fine notches compose and cancel like coarse ones")
+    func fineZoomComposes() throws {
+        let coarse = try #require(factor(wheel(y: 1)))
+        let fine = try #require(factor(wheel(y: 1, command: true)))
+        #expect(abs(pow(fine, 1 / TrackpadAction.fineZoomRate) - coarse) < 1e-12)
+
+        let back = try #require(factor(wheel(y: -1, command: true)))
+        #expect(abs(fine * back - 1) < 1e-12)
+    }
+
+    /// The clamp still holds with `⌘` down: it is applied to the raw delta,
+    /// before the rate, so a flung wheel cannot escape it by holding a modifier.
+    @Test("an absurd Command-scroll delta is still clamped")
+    func fineZoomIsClamped() throws {
+        let huge = try #require(factor(wheel(y: 10_000, command: true)))
+        let tiny = try #require(factor(wheel(y: -10_000, command: true)))
+        #expect(huge.isFinite)
+        #expect(huge <= 10)
+        #expect(tiny > 0)
+        #expect(abs(huge * tiny - 1) < 1e-12)
     }
 
     /// Shift is the pan escape hatch, the mirror of Command being the zoom one:

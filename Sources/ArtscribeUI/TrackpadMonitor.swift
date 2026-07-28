@@ -32,6 +32,21 @@ enum TrackpadAction: Equatable, Sendable {
     /// few hundred of them, so the gain has to be far gentler than the wheel's.
     static let pointsPerDoubling = 90.0
 
+    /// What `⌘`-scroll zooms *relative to* the bare rate, as a fraction of the
+    /// exponent — a third, so three times the travel for the same result.
+    ///
+    /// The wheel already zooms bare, so without this `⌘` would merely duplicate
+    /// it and be worth nothing. Made finer instead, it becomes the careful
+    /// control: the one you reach for to creep up on a transient rather than to
+    /// cross four octaves of zoom. A third is far enough below 1 to feel like a
+    /// different gear and far enough above 0 that a notch still visibly moves —
+    /// a "fine" control that does nothing reads as a broken one.
+    ///
+    /// On a trackpad this is the only scroll-zoom (a bare two-finger swipe
+    /// pans), so it makes that gesture slower too. Deliberate: pinch and the
+    /// new vertical drag are both coarse and both closer to hand there.
+    static let fineZoomRate = 1.0 / 3.0
+
     /// A wheel's deltas are in **lines**, not points — the same fact the device
     /// split is read off. Panning is measured in points, so a line has to be
     /// converted or a detent moves the viewport by a single point: about twelve
@@ -80,7 +95,8 @@ enum TrackpadAction: Equatable, Sendable {
         if zooms, scrollingDeltaY != 0 {
             guard
                 let factor = Self.zoomFactor(
-                    deltaY: scrollingDeltaY, precise: hasPreciseScrollingDeltas)
+                    deltaY: scrollingDeltaY, precise: hasPreciseScrollingDeltas,
+                    fine: commandHeld)
             else { return nil }
             self = .zoom(factor: factor, anchor: anchor)
             return
@@ -121,14 +137,20 @@ enum TrackpadAction: Equatable, Sendable {
     }
 
     /// A positive delta means the content scrolled up, which zooms in.
-    private static func zoomFactor(deltaY: Double, precise: Bool) -> Double? {
+    ///
+    /// `fine` scales the *exponent*, not the factor, which is the only way the
+    /// rate stays a rate: a fine zoom then remains symmetric (equal and
+    /// opposite travel still cancels) and still composes, so three fine notches
+    /// land exactly where one coarse one does.
+    private static func zoomFactor(deltaY: Double, precise: Bool, fine: Bool) -> Double? {
+        let rate = fine ? fineZoomRate : 1
         let factor: Double
         if precise {
             let points = Swift.max(-maxPrecisePoints, Swift.min(maxPrecisePoints, deltaY))
-            factor = pow(2, points / pointsPerDoubling)
+            factor = pow(2, points * rate / pointsPerDoubling)
         } else {
             let lines = Swift.max(-maxWheelLines, Swift.min(maxWheelLines, deltaY))
-            factor = pow(wheelZoomPerLine, lines)
+            factor = pow(wheelZoomPerLine, lines * rate)
         }
         guard factor > 0, factor.isFinite else { return nil }
         return factor

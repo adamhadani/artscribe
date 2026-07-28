@@ -55,6 +55,110 @@ extension ViewerModel {
         }
     }
 
+    // MARK: - Drag to zoom
+
+    /// A vertical drag that zooms, smoothly and continuously: bare on the time
+    /// ruler, ⌥-modified in the waveform lanes. See `ZoomDrag` for the maths
+    /// and the direction, and for why the natural-scrolling preference does not
+    /// enter into a drag.
+    ///
+    /// - Parameters:
+    ///   - start: where the drag began, local to the dragged view. Its `x` is
+    ///     the anchor: the frame under it when the mouse went down stays under
+    ///     it for the whole gesture.
+    ///   - current: where the pointer is now, in the same space. Only `y` is
+    ///     used. **Horizontal travel is deliberately ignored** rather than
+    ///     panning as Ableton's ruler does: the gesture's whole contract is
+    ///     that the frame under the cursor holds still, and panning at the same
+    ///     time would slide it out from under the pointer — as would any
+    ///     sideways wobble during what the hand meant as a vertical drag. The
+    ///     app has three other ways to pan.
+    public func zoomDragChanged(start: CGPoint, current: CGPoint) {
+        guard hasTrack else { return }
+        var gesture =
+            liveZoomDrag(startingAt: start)
+            ?? ZoomDrag(
+                start: start,
+                anchorFrame: PixelMapping.frame(atPixel: start.x, in: viewport),
+                startFramesPerPixel: viewport.framesPerPixel)
+        defer { zoomDrag = gesture }
+        guard
+            let factor = gesture.factor(
+                atY: current.y, currentFramesPerPixel: viewport.framesPerPixel)
+        else { return }
+        zoom(by: factor, anchorFrame: gesture.anchorFrame)
+        gesture.appliedFramesPerPixel = viewport.framesPerPixel
+    }
+
+    /// The gesture already in flight, when this event belongs to it: same start
+    /// point, and nothing else has moved the viewport since its last event.
+    /// `nil` otherwise, which starts a fresh gesture from wherever the viewport
+    /// now is — see `ZoomDrag.appliedFramesPerPixel`.
+    private func liveZoomDrag(startingAt start: CGPoint) -> ZoomDrag? {
+        guard let live = zoomDrag, live.start == start else { return nil }
+        return live.appliedFramesPerPixel == viewport.framesPerPixel ? live : nil
+    }
+
+    public func zoomDragEnded() {
+        zoomDrag = nil
+    }
+
+    // MARK: - The lane drag, and what it was decided to mean
+
+    /// A left-drag in the waveform lanes: selection, or an ⌥-modified zoom.
+    ///
+    /// **The mode is latched at mouse-down.** `option` and `shift` are read
+    /// live from `NSEvent.modifierFlags` by the view, so they change the moment
+    /// the user's finger does; without the latch, pressing ⌥ halfway through a
+    /// selection would abandon the selection and start zooming instead, and
+    /// releasing it mid-zoom would start selecting. What the gesture is gets
+    /// decided once and holds.
+    ///
+    /// A gesture is recognised as new when it starts somewhere the live one did
+    /// not. `DragGesture.Value.startLocation` is stable for one drag's whole
+    /// lifetime, so this is self-correcting even if `laneDragEnded` never ran —
+    /// the same reasoning `dragChanged` records for `dragOrigin`.
+    public func laneDragChanged(start: CGPoint, current: CGPoint, option: Bool, shift: Bool) {
+        guard hasTrack else { return }
+        let mode: LaneDragMode
+        if let live = laneDrag, live.start == start {
+            mode = live.mode
+        } else {
+            mode = LaneDragMode(option: option, shift: shift)
+            laneDrag = (start, mode)
+            // A new gesture never continues the previous one's zoom, even when
+            // the two began at the same point.
+            zoomDrag = nil
+        }
+        switch mode {
+        case .select(let extending):
+            dragChanged(startPixel: start.x, currentPixel: current.x, extending: extending)
+        case .zoom:
+            zoomDragChanged(start: start, current: current)
+        }
+    }
+
+    /// Ends a lane drag, on the terms it began on.
+    ///
+    /// A zoom drag must **not** fall through to `dragEnded`: an ⌥-drag that
+    /// never really moved would otherwise be read as a click, seek the playhead
+    /// and throw the selection away — and two of them as a double-click, which
+    /// selects the whole file.
+    ///
+    /// With no latched mode this behaves exactly as it did before ⌥-drag
+    /// existed, so an end that somehow arrives without a preceding change still
+    /// runs the click logic.
+    public func laneDragEnded(start: CGPoint, end: CGPoint, now: Double) {
+        let mode = laneDrag?.mode
+        laneDrag = nil
+        switch mode {
+        case .zoom:
+            zoomDragEnded()
+        case .select, nil:
+            dragEnded(startPixel: start.x, endPixel: end.x, now: now)
+        }
+    }
+
     public func fitWholeFile() {
         guard hasTrack else { return }
         viewport.fit()

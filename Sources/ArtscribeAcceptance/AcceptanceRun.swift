@@ -79,6 +79,7 @@ enum AcceptanceRun {
         checkPanClamping(model: model, log: &log)
         await checkTrackpad(model: model, log: &log)
         await checkScrollZoom(model: model, log: &log)
+        await checkDragZoom(model: model, log: &log)
         await checkSpeedEmphasis(model: model, log: &log, outputDirectory: outputDirectory)
         await checkFileAndViewMenus(model: model, log: &log)
         // Task 15. The presentation and strobe checks read the menus; the
@@ -272,10 +273,15 @@ enum AcceptanceRun {
         if NSApp.keyWindow != nil { await mouseDrag(fromX: 200, toX: 520) }
         var viaPointer = !model.selection.range.isEmpty
         if !viaPointer {
-            model.dragChanged(startPixel: 200, currentPixel: 200, extending: false)
-            model.dragChanged(startPixel: 200, currentPixel: 520, extending: false)
-            model.dragEnded(
-                startPixel: 200, endPixel: 520, now: ProcessInfo.processInfo.systemUptime)
+            // The lane entry points, which is what the view calls as of Task 16
+            // — the plain left-drag now arrives through the same door as the
+            // ⌥-drag zoom, and this is where it is proved it still selects.
+            let from = CGPoint(x: 200, y: model.laneFrame.height / 2)
+            let to = CGPoint(x: 520, y: model.laneFrame.height / 2)
+            model.laneDragChanged(start: from, current: from, option: false, shift: false)
+            model.laneDragChanged(start: from, current: to, option: false, shift: false)
+            model.laneDragEnded(
+                start: from, end: to, now: ProcessInfo.processInfo.systemUptime)
             viaPointer = false
         }
         log.note(

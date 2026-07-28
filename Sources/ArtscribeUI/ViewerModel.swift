@@ -194,6 +194,18 @@ public final class ViewerModel {
     private var loadToken = 0
     var dragOrigin: Double?
     var lastClick: (pixel: Double, time: Double)?
+    /// The vertical drag-to-zoom currently in flight — a bare drag on the time
+    /// ruler, or an ⌥-drag in the lanes. `nil` between gestures.
+    ///
+    /// `@ObservationIgnored` like the hit-test frames: nothing in any `body`
+    /// reads it, and it is rewritten on every pointer event, so observing it
+    /// would invalidate the window sixty times a second for nothing. The redraw
+    /// a drag really does need comes from the viewport it moves.
+    @ObservationIgnored var zoomDrag: ZoomDrag?
+    /// What the left-drag in flight in the lanes was decided to mean, latched
+    /// at mouse-down together with the point it began at. See
+    /// `laneDragChanged` for why it cannot be re-read per event.
+    @ObservationIgnored var laneDrag: (start: CGPoint, mode: LaneDragMode)?
 
     /// Each `E`/`R` press changes zoom by this factor. A half-octave keeps the
     /// key-repeat sweep readable instead of jumping past the detail you want.

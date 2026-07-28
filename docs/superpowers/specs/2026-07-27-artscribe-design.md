@@ -252,8 +252,33 @@ cluster. This is intentional: the arrows belong to the system-conventions layer 
 left-hand cluster belongs to the ergonomic layer, and each is internally consistent. It is
 recorded here so it is not later "fixed" as an oversight.
 
-Pointer input: drag to select, ⇧-drag to extend, double-click to select all, pinch to
-zoom, two-finger scroll to pan.
+**Pointer input.** The full catalog, since it is now large enough that "drag to select" no
+longer covers it. Everything that zooms anchors on the frame under the pointer; the keyboard
+zoom is the only one that anchors on the playhead.
+
+| Gesture | Where | Action |
+|---|---|---|
+| Left-drag | Lanes | Select a passage. **The core gesture — not negotiable** |
+| ⇧ left-drag | Lanes | Extend the selection, keeping its anchor |
+| Click | Lanes | Place the playhead, clear the selection |
+| Double-click | Lanes | Select all |
+| **⌥ left-drag, vertically** | **Lanes** | **Zoom, smooth and continuous, anchored at the drag's start** |
+| **Left-drag, vertically** | **Time ruler** | **The same zoom, with no modifier — Ableton's and Melodyne's ruler convention** |
+| Click / drag | Overview strip | Centre the viewport there |
+| Pinch | Anywhere | Zoom |
+| Wheel (coarse deltas) | Anywhere | Zoom |
+| Two-finger scroll (precise deltas) | Anywhere | Pan |
+| ⌘ + scroll | Anywhere | Zoom on either device, at **⅓ the bare rate** — the careful gear |
+| ⇧ + scroll | Anywhere | Pan on either device, so a plain mouse can still pan |
+
+Drag-to-zoom is **up to zoom in, down to zoom out**, and is anchored on the pointer's
+horizontal position when the drag began, so the frame under the cursor holds still for the
+whole gesture. Horizontal travel during it is ignored rather than panning as Ableton's ruler
+does: holding the anchor still is the gesture's contract, and panning at the same time — or
+any sideways wobble during what the hand meant as a vertical drag — would break it. What a
+lane drag *means* is decided when the mouse goes down and held for the gesture's life, so a
+modifier pressed or released halfway through can never silently convert a selection into a
+zoom or the reverse.
 
 ### 6.3 Bindings
 
