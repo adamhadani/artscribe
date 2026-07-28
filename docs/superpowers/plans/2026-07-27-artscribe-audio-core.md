@@ -3308,6 +3308,86 @@ The user additionally asks for the standard document behaviour:
 read-only fallback path, and dirty-tracking transitions are all pure and must be tested. The
 save panel and the close prompt are AppKit and are not.
 
+---
+
+### Task 20: The inspector — a reusable side panel, and the shortcut reference
+
+The user asked for "a side-window that can be toggled to show/hide" for the shortcut
+reference, and for the Practice hub to use "a similar mechanism". That mechanism already
+exists in the approved design and was never built: a **collapsible inspector**, specified in
+§1.1 (MVP scope), §2 (architecture decisions), §6.2 (`view.toggleInspector`, `⌥⌘I`), and §8
+(where the read-only sidecar fallback is supposed to be surfaced). This is the **fourth**
+documented-but-unbuilt feature the user found rather than our reviews.
+
+Build the mechanism once, then two clients land on it: Shortcuts here, Practice in Task 21.
+
+#### A — The inspector mechanism
+
+- [ ] SwiftUI's `.inspector()` — the native trailing-sidebar idiom, collapsible, resizable,
+      with its width persisted. Do not hand-roll a panel.
+- [ ] **Pages**, switchable within the one inspector rather than competing for the trailing
+      edge: **Session**, **Shortcuts**, and later **Practice**. Xcode's inspector is the
+      reference for how this reads.
+- [ ] `⌥⌘I` toggles the inspector, per spec §6.2. Each page additionally gets its own
+      shortcut that opens the inspector *to that page* — pick them, justify them, and make
+      sure they do not collide with the now-large keymap.
+- [ ] Entries in the **View** menu, with right-aligned system-drawn shortcuts like every
+      other menu item.
+- [ ] Collapsing it must return the full width to the waveform, and the viewport must
+      re-render correctly at the new width (`Viewport.resize` already exists).
+
+#### B — The Session page — spec §1.1's "inspector showing speed, loop points, and active engine"
+
+- [ ] Speed, loop in/out/enabled, and the active stretch engine, live.
+- [ ] **This is where spec §8's read-only-sidecar fallback belongs.** Task 19 had to put that
+      indicator in the title bar because no inspector existed; move it here and remove the
+      workaround.
+
+#### C — The Shortcuts page — and the anti-drift requirement that shapes it
+
+- [ ] A clean, scannable reference: grouped by category, key on the right in the same
+      system style the menus use, scrollable, legible in both themes.
+- [ ] **It must be generated from a single source of truth that the menus also consume.**
+      A hand-written list is guaranteed to drift — this project has already shipped four
+      features whose documentation and implementation disagreed. Introduce an
+      `ActionCatalog`: one list of (action id, display name, category, default shortcut) that
+      **both** the menu builders and this panel read from. A shortcut must be impossible to
+      change in one place and not the other.
+- [ ] This is also the foundation spec §6.3 needs for the deferred rebindable `BindingTable`
+      and for MIDI mapping later. Build it as that foundation, but **do not build rebinding
+      now** — one list, consumed twice, is the whole scope.
+- [ ] Add a test asserting every action in the catalog appears in exactly one menu, and that
+      no menu item exists outside the catalog. That test is the drift guard.
+
+---
+
+### Task 21: The Practice hub
+
+The user's idea, and the most genuinely novel thing in the product — Transcribe! has no
+equivalent. Lands as a third page in the Task 20 inspector.
+
+- [ ] **Ramping loops.** Play a loop repeatedly while the speed climbs. MVP behaviour the
+      user described: increase by a fixed percentage each repetition.
+- [ ] **The better form they asked for**: give **start speed**, **end speed** and **number of
+      repetitions**, and compute the per-repetition delta. Sane defaults (e.g. 50% → 100%
+      over 10 repetitions), each field overridable.
+- [ ] **Live state while running**: which repetition you are on, the current speed, and how
+      many remain. A practice tool whose progress is invisible is a stopwatch you cannot see.
+- [ ] Start / stop, and a clear indication when the ramp completes. Decide what happens at
+      the end — hold the final speed, or stop — and justify it.
+- [ ] The ramp drives the **existing** speed and loop actions on `ViewerModel`. Do not
+      duplicate transport logic; if the ramp needs behaviour the manual path lacks, that
+      behaviour belongs on the model where it is testable.
+- [ ] Speed changes must not click or interrupt playback — the engine already applies a
+      ratio change on the next render quantum, so drive it the same way the keyboard does.
+- [ ] Its own shortcut and View-menu entry, consistent with the other pages.
+
+**Testing:** the ramp schedule is pure and must be tested — the computed deltas for a given
+start/end/count, behaviour when start equals end, count of 1, an inverted range (end below
+start, which is a legitimate way to practise *slowing down*), and clamping to the 0.10–2.00
+speed range. Verify the ramp advances on loop wrap rather than on a timer, so it stays
+correct when the loop length or speed changes underneath it.
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
