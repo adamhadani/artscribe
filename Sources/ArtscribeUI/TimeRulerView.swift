@@ -7,8 +7,28 @@ struct TimeRulerView: View {
     let model: ViewerModel
     @Environment(\.palette) private var palette
 
+    /// The ruler's height, and therefore its hit area.
+    ///
+    /// It was 24, which is a comfortable *reading* height and a mean drag
+    /// target — and as of Task 16 this strip carries the app's only
+    /// modifier-free continuous zoom, which the user reaches for constantly.
+    /// 32 clears Apple's 28-point minimum for a pointer target with room to
+    /// spare while staying a thin strip: the ticks and the label keep their
+    /// spacing (both are laid out from the bottom edge), so the extra eight
+    /// points are quiet background rather than more ink.
+    ///
+    /// It is not extended past the drawn ruler in either direction. Downwards
+    /// would steal from the waveform lanes, where a bare drag selects; upwards
+    /// would steal from the overview strip, where a bare drag scrubs. Both are
+    /// gestures with no modifier, so an invisible margin over either would make
+    /// the wrong thing happen with the pointer apparently in the right place.
+    static let height: Double = 32
+
     private static let majorTickHeight: Double = 9
     private static let minorTickHeight: Double = 4
+    /// The tick labels' baseline, measured from the bottom edge so the label
+    /// keeps its relationship to the ticks whatever the height is.
+    private static let labelBaseline: Double = 16
     /// Constant, because the ruler's zoom drag needs no modifier and there is
     /// no other gesture here to be in flight.
     private static let pointerAffordance = PointerAffordance.over(
@@ -51,7 +71,7 @@ struct TimeRulerView: View {
                         Text(label)
                             .font(Typography.tick)
                             .foregroundStyle(palette.dimmed.color()),
-                        at: CGPoint(x: x + 4, y: 8),
+                        at: CGPoint(x: x + 4, y: size.height - Self.labelBaseline),
                         anchor: .leading)
                 }
             }
@@ -61,7 +81,7 @@ struct TimeRulerView: View {
                 in: &context, size: size, range: selectionRange, viewport: viewport)
             drawPlayhead(in: &context, size: size, frame: playhead, viewport: viewport)
         }
-        .frame(height: 24)
+        .frame(height: Self.height)
         .contentShape(.rect)
         // A drag nobody can see is not an affordance. The ruler's answer takes
         // neither a modifier nor a gesture in flight, but it is asked through

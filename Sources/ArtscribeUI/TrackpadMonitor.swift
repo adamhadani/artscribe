@@ -243,8 +243,17 @@ extension TrackpadAction {
     @MainActor
     func apply(to model: ViewerModel) {
         switch self {
-        case .pan(let points): model.scroll(byPoints: points)
-        case .zoom(let factor, let anchor): model.zoom(by: factor, at: anchor)
+        case .pan(let points):
+            model.scroll(byPoints: points)
+        case .zoom(let factor, let anchor):
+            // The same preference the vertical drags read. One window holding
+            // two zoom conventions — a drag that goes one way and a wheel that
+            // goes the other — is worse than disagreeing with any other app, so
+            // the switch governs both. The *defaults* still differ per device,
+            // because a wheel is indirect and every application zooms in on a
+            // forward roll; what the toggle promises is that both flip together.
+            let applied = model.invertZoomDrag && factor > 0 ? 1 / factor : factor
+            model.zoom(by: applied, at: anchor)
         }
     }
 }

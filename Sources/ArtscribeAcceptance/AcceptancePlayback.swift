@@ -73,15 +73,26 @@ extension AcceptanceRun {
         await settle(seconds: 0.4)
         log.check("the playhead stops when paused", model.playhead == paused)
 
-        press(.enter)
-        log.check("Return plays from the start", model.isPlaying)
+        // Task 18 moved this off `Return` and onto `⇧Space`, so the whole
+        // transport is left-hand driveable. Both halves are checked: the new
+        // binding works, and the old one no longer does — a binding that keeps
+        // working after every document says it moved is the drift this project
+        // has been bitten by twice.
+        press(.shiftSpace)
+        log.check("Shift-Space plays from the start", model.isPlaying)
         await settle(seconds: 0.2)
         // Position-dependent only because `paused` is 0 when nothing ever
         // rendered, and nothing is less than zero.
         log.check(
-            "Return moved the position back to zero", model.playhead < paused, unless: stalled)
+            "Shift-Space moved the position back to zero", model.playhead < paused,
+            unless: stalled)
         press(.space)
         await settle(seconds: 0.1)
+
+        log.check("Space still pauses after a Shift-Space", !model.isPlaying)
+        press(.enter)
+        await settle(seconds: 0.2)
+        log.check("Return is bound to nothing and starts no playback", !model.isPlaying)
     }
 
     // MARK: - Volume

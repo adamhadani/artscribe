@@ -268,10 +268,10 @@ extension AcceptanceRun {
         let start = CGPoint(x: anchorX, y: ruler.midY)
         let travel = ViewerModel.zoomDragPointsPerDoubling
 
-        await pointerDrag(from: start, to: CGPoint(x: anchorX, y: start.y - travel))
+        await pointerDrag(from: start, to: CGPoint(x: anchorX, y: start.y + travel))
         let zoomed = model.zoomFactor
         log.check(
-            "a real drag on the ruler zooms (\(rounded(fitted))x -> \(rounded(zoomed))x)",
+            "a real drag down the ruler zooms in (\(rounded(fitted))x -> \(rounded(zoomed))x)",
             zoomed > fitted * 1.2)
         // One doubling for one `pointsPerDoubling` of travel. This is the check
         // that says the `.local` coordinates arrived undistorted: a space that
@@ -295,11 +295,11 @@ extension AcceptanceRun {
         // one — deliberately away from the whole-file floor, which `Viewport`
         // clamps at and where a "did it zoom out" check would pass on any
         // build that merely stopped.
-        await pointerDrag(from: start, to: CGPoint(x: anchorX, y: start.y - travel))
-        let higher = model.zoomFactor
         await pointerDrag(from: start, to: CGPoint(x: anchorX, y: start.y + travel))
+        let higher = model.zoomFactor
+        await pointerDrag(from: start, to: CGPoint(x: anchorX, y: start.y - travel))
         log.check(
-            "dragging the ruler down zooms back out by the same one doubling "
+            "dragging the ruler up zooms back out by the same one doubling "
                 + "(\(rounded(higher))x -> \(rounded(model.zoomFactor))x)",
             higher > zoomed * 1.5 && abs(model.zoomFactor / higher - 0.5) < 0.04)
         model.fitWholeFile()
@@ -354,7 +354,7 @@ extension AcceptanceRun {
         let heldOption = NSEvent.modifierFlags.contains(.option)
         await pointerDrag(
             from: CGPoint(x: anchorX, y: lanes.midY),
-            to: CGPoint(x: anchorX, y: lanes.midY - travel))
+            to: CGPoint(x: anchorX, y: lanes.midY + travel))
         await setModifier(optionKey, flags: .maskAlternate, down: false)
         let optionReason =
             heldOption ? nil : "a synthesised flagsChanged did not reach NSEvent.modifierFlags"

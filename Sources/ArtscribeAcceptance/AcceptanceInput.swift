@@ -38,6 +38,10 @@ extension AcceptanceRun {
         static let nine = Key(25, "9", modifiers: .command)
 
         static let space = Key(49, " ")
+        /// Play from the selection start since Task 18. `Return` is deliberately
+        /// bound to nothing now, and `enter` stays defined so the run can prove
+        /// that.
+        static let shiftSpace = Key(49, " ", modifiers: .shift)
         static let enter = Key(36, "\r")
         static let q = Key(12, "q")
         static let w = Key(13, "w")
@@ -52,6 +56,13 @@ extension AcceptanceRun {
         static let four = Key(21, "4")
 
         static let m = Key(46, "m")
+        /// The selection-move cluster (Task 18), sitting beside `Z`/`X` on the
+        /// bottom row. ⌥C is "ç" and ⌥V is "√" on a US layout, so — exactly as
+        /// for `⌥Z`/`⌥X` — only `charactersIgnoringModifiers` names the key.
+        static let c = Key(8, "c")
+        static let v = Key(9, "v")
+        static let optionC = Key(8, "ç", ignoring: "c", modifiers: .option)
+        static let optionV = Key(9, "√", ignoring: "v", modifiers: .option)
         /// Bound to nothing, anywhere. The control for "did the menu bar really
         /// claim that chord, or does `performKeyEquivalent` say yes to anything?"
         static let unbound = Key(38, "j")
@@ -65,6 +76,8 @@ extension AcceptanceRun {
         static let right = Key(124, "\u{F703}")
         static let optionLeft = Key(123, "\u{F702}", modifiers: .option)
         static let optionRight = Key(124, "\u{F703}", modifiers: .option)
+        static let shiftLeft = Key(123, "\u{F702}", modifiers: .shift)
+        static let shiftRight = Key(124, "\u{F703}", modifiers: .shift)
 
         static let shiftW = Key(13, "W", modifiers: .shift)
         static let shiftQ = Key(12, "Q", modifiers: .shift)

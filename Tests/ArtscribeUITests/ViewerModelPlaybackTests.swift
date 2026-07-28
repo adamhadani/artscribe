@@ -207,7 +207,7 @@ struct ViewerModelPlaybackTests {
 
     // MARK: - Transport
 
-    @Test("Return goes to the selection start, or to zero when there is none")
+    @Test("Shift-Space goes to the selection start, or to zero when there is none")
     func returnToStart() {
         let model = makeModel()
         model.seek(to: 300_000)

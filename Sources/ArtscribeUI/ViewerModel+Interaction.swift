@@ -86,7 +86,9 @@ extension ViewerModel {
             ?? ZoomDrag(
                 start: start,
                 anchorFrame: PixelMapping.frame(atPixel: start.x, in: viewport),
-                startFramesPerPixel: viewport.framesPerPixel)
+                startFramesPerPixel: viewport.framesPerPixel,
+                // Latched with the gesture, not read per event: see `ZoomDrag`.
+                inverted: invertZoomDrag)
         defer { zoomDrag = gesture }
         guard
             let factor = gesture.factor(

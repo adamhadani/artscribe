@@ -56,6 +56,9 @@ struct ArtscribeAppMain: App {
     /// Where the nudge amounts are persisted. The applied values live on the
     /// model — this is only their backing tape (see `NudgeSettings`).
     @State private var nudge = NudgeSettings()
+    /// The zoom direction and the selection-move amounts, persisted the same
+    /// way and for the same reason (see `InteractionSettings`).
+    @State private var interaction = InteractionSettings()
 
     init() {
         // A SwiftPM executable is not an app bundle, so AppKit starts it as an
@@ -73,7 +76,12 @@ struct ArtscribeAppMain: App {
         .defaultSize(width: 1280, height: 720)
         .commands {
             ViewerCommands(model: model, recents: recents)
+            // Edit ▸ the selection actions, Playback ▸ the transport, and Loop
+            // ▸ the signature feature. Declaration order is menu-bar order for
+            // the two `CommandMenu`s, so Loop sits next to Playback.
+            EditCommands(model: model)
             PlaybackCommands(model: model, devices: devices)
+            LoopCommands(model: model)
         }
 
         // The idiomatic route to **Artscribe ▸ Settings…**: this scene is what
@@ -92,6 +100,7 @@ struct ArtscribeAppMain: App {
         model.attach(devices: devices)
         model.attach(recents: recents)
         model.attach(nudge: nudge)
+        model.attach(interaction: interaction)
         // Hands the delegate somewhere to send a file, and replays one that
         // arrived before the scene existed — which is what happens when the app
         // is launched *by* opening a track.

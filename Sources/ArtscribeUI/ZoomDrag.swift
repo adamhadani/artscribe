@@ -4,11 +4,16 @@ import Foundation
 
 /// A vertical drag that zooms, in flight.
 ///
-/// The convention comes from the tools this one sits beside: Ableton Live
+/// The gesture comes from the tools this one sits beside: Ableton Live
 /// documents "click and drag vertically in the beat-time ruler to smoothly
-/// change the zoom level", and Melodyne does the same. Drag up to zoom in,
-/// down to zoom out — which is also the direction the mouse wheel already
-/// zooms here, since the gesture that moves content up zooms in.
+/// change the zoom level", and Melodyne does the same.
+///
+/// **Drag down to zoom in.** Neither of those manuals states which way theirs
+/// runs, so Task 16 picked up-to-zoom-in on internal consistency with the
+/// wheel. The user has since driven it and prefers down; a hand on the trackpad
+/// beats an argument from another app's undocumented behaviour, so down is the
+/// shipped direction and `inverted` — Settings ▸ Playback ▸ *Invert zoom
+/// direction* — puts the old one back without a rebuild.
 ///
 /// Two properties are what make it worth having over the stepped controls that
 /// already exist:
@@ -46,12 +51,21 @@ struct ZoomDrag: Equatable, Sendable {
     /// live during a drag); the gesture then restarts from where the viewport
     /// really is rather than yanking it back to where the drag began.
     var appliedFramesPerPixel: Double
+    /// The user's direction preference, **latched when the gesture began**.
+    /// Read once rather than per event for the same reason `LaneDragMode` is:
+    /// what a gesture means is decided when the mouse goes down, and a value
+    /// that changed underneath it would invert the zoom under the hand.
+    let inverted: Bool
 
-    init(start: CGPoint, anchorFrame: FrameIndex, startFramesPerPixel: Double) {
+    init(
+        start: CGPoint, anchorFrame: FrameIndex, startFramesPerPixel: Double,
+        inverted: Bool = false
+    ) {
         self.start = start
         self.anchorFrame = anchorFrame
         self.startFramesPerPixel = startFramesPerPixel
         self.appliedFramesPerPixel = startFramesPerPixel
+        self.inverted = inverted
     }
 
     /// Points of vertical travel per doubling of zoom. A quarter of a tall
@@ -67,10 +81,18 @@ struct ZoomDrag: Equatable, Sendable {
 
     /// Zoom relative to where the gesture began. Greater than 1 means zoomed
     /// in. `nil` for a position that is not a number.
-    static func cumulativeFactor(fromY startY: Double, toY y: Double) -> Double? {
+    ///
+    /// - Parameter inverted: the user's preference. `false` — the default —
+    ///   means a downward drag zooms in.
+    static func cumulativeFactor(
+        fromY startY: Double, toY y: Double, inverted: Bool = false
+    ) -> Double? {
         guard startY.isFinite, y.isFinite else { return nil }
-        // Top-left origin: dragging up makes `y` smaller, so up is positive.
-        let travel = Swift.max(-maxTravelPoints, Swift.min(maxTravelPoints, startY - y))
+        // Top-left origin: dragging down makes `y` larger, so down is positive.
+        // Inverting negates the travel, which makes the two directions exact
+        // reciprocals of each other rather than merely opposite in sign.
+        let signed = inverted ? startY - y : y - startY
+        let travel = Swift.max(-maxTravelPoints, Swift.min(maxTravelPoints, signed))
         let factor = pow(2, travel / pointsPerDoubling)
         guard factor > 0, factor.isFinite else { return nil }
         return factor
@@ -82,7 +104,8 @@ struct ZoomDrag: Equatable, Sendable {
     /// - Parameter currentFramesPerPixel: the viewport's zoom right now, which
     ///   is what makes the result absolute rather than incremental.
     func factor(atY y: Double, currentFramesPerPixel: Double) -> Double? {
-        guard let cumulative = Self.cumulativeFactor(fromY: start.y, toY: y) else { return nil }
+        guard let cumulative = Self.cumulativeFactor(fromY: start.y, toY: y, inverted: inverted)
+        else { return nil }
         guard currentFramesPerPixel > 0, currentFramesPerPixel.isFinite else { return nil }
         let target = startFramesPerPixel / cumulative
         guard target > 0, target.isFinite else { return nil }

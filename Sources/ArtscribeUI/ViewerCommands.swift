@@ -24,7 +24,7 @@ public enum ViewerActions {
 /// is both correct and honest. Greying out returns in Plan 2 with the real
 /// binding table behind it.
 ///
-/// The View menu's plain letters (`E`, `R`, `Esc`) therefore sit in a nested
+/// The View menu's plain letters (`E`, `R`) therefore sit in a nested
 /// `View` — `ViewItems` — for the one enablement that is not optional: a menu
 /// key equivalent is offered before the key window's first responder, so these
 /// must go quiet while another window (Settings, with its editable fields) is
@@ -57,11 +57,6 @@ public struct ViewerCommands: Commands {
             Divider()
 
             ViewItems(model: model)
-
-            Divider()
-
-            Button("Select All") { model.selectAll() }
-                .keyboardShortcut("a", modifiers: .command)
         }
     }
 }
@@ -86,12 +81,11 @@ struct ViewItems: View {
             // these items, the trackpad, and the overview strip.
             Button("Scroll Left") { model.scrollLeft() }
             Button("Scroll Right") { model.scrollRight() }
-            Button("Clear Selection") { model.clearSelection() }
-                .keyboardShortcut(.escape, modifiers: [])
         }
-        // Escape especially: it dismisses a sheet, cancels a field edit and
-        // closes a menu, and a menu key equivalent would claim it before any of
-        // those. It must only be ours while this window is the one taking keys.
+        // A plain-letter key equivalent is claimed application-wide and offered
+        // before the key window's first responder, so these must only be ours
+        // while this window is the one taking keys. (`Clear Selection` and its
+        // `Esc` moved to Edit in Task 18, under the same guard.)
         .disabled(!keyWindow.documentIsKey)
     }
 }

@@ -46,6 +46,17 @@ struct TransportControlTests {
         }
     }
 
+    /// The bar teaches the keyboard, so a rebinding that misses the bar leaves
+    /// it teaching a key that no longer does anything — the drift this project
+    /// has been bitten by twice. Task 18 moved play-from-start off `Return`,
+    /// and this is the cheap half of keeping the two in step; the expensive
+    /// half is the acceptance run, which reads the menu's *real* key equivalent
+    /// out of AppKit and then presses it.
+    @Test("the play-from-start button teaches the binding the menu carries")
+    func playFromStartTeachesShiftSpace() {
+        #expect(TransportControl.playFromStart.shortcut == "⇧Space")
+    }
+
     @Test("every control teaches its key in the tooltip")
     func tooltipsCarryTheShortcut() {
         for control in TransportControl.allCases {
@@ -204,7 +215,7 @@ struct TransportControlTests {
         #expect(model.loop.range == range)
     }
 
-    @Test("play-from-selection-start goes where Return goes")
+    @Test("play-from-selection-start goes where Shift-Space goes")
     func playFromStartButtonSeeksToTheSelection() {
         let model = makeModel()
         model.dragChanged(startPixel: 200, currentPixel: 520, extending: false)

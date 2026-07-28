@@ -25,33 +25,47 @@ struct ZoomDragTests {
 
     // MARK: - Direction
 
-    /// Drag up to zoom in, down to zoom out — Ableton's beat-time ruler and
-    /// Melodyne both work this way, and it agrees with the wheel already
-    /// wired here (the gesture that moves content up zooms in).
-    @Test("dragging up zooms in and dragging down zooms out")
+    /// **Drag down to zoom in.** Task 16 shipped the opposite, reasoning from
+    /// Ableton's and Melodyne's beat-time rulers (neither manual states a
+    /// direction) and from the wheel. The user has since driven it and prefers
+    /// down; their hand beats the reasoning, so this is the shipped default and
+    /// the old direction is one Settings toggle away.
+    @Test("dragging down zooms in and dragging up zooms out")
     func direction() {
-        #expect(ZoomDrag.cumulativeFactor(fromY: 300, toY: 200).map { $0 > 1 } == true)
-        #expect(ZoomDrag.cumulativeFactor(fromY: 300, toY: 400).map { $0 < 1 } == true)
+        #expect(ZoomDrag.cumulativeFactor(fromY: 300, toY: 400).map { $0 > 1 } == true)
+        #expect(ZoomDrag.cumulativeFactor(fromY: 300, toY: 200).map { $0 < 1 } == true)
     }
 
-    @Test("a drag that has not moved vertically has not zoomed")
+    @Test("the preference flips it back, exactly")
+    func invertedDirection() throws {
+        let downNormal = try #require(ZoomDrag.cumulativeFactor(fromY: 300, toY: 400))
+        let downInverted = try #require(
+            ZoomDrag.cumulativeFactor(fromY: 300, toY: 400, inverted: true))
+        #expect(downInverted < 1)
+        // Not merely "the other way": the same travel must produce exactly the
+        // reciprocal, or the two directions are different gestures.
+        #expect(abs(downNormal * downInverted - 1) < 1e-12)
+    }
+
+    @Test("a drag that has not moved vertically has not zoomed, either way round")
     func identity() {
         #expect(ZoomDrag.cumulativeFactor(fromY: 300, toY: 300) == 1)
+        #expect(ZoomDrag.cumulativeFactor(fromY: 300, toY: 300, inverted: true) == 1)
     }
 
     @Test("a drag of the doubling distance doubles the zoom")
     func oneDoubling() {
-        let up = ZoomDrag.cumulativeFactor(fromY: 300, toY: 300 - ZoomDrag.pointsPerDoubling)
         let down = ZoomDrag.cumulativeFactor(fromY: 300, toY: 300 + ZoomDrag.pointsPerDoubling)
-        #expect(up.map { abs($0 - 2) < 1e-12 } == true)
-        #expect(down.map { abs($0 - 0.5) < 1e-12 } == true)
+        let up = ZoomDrag.cumulativeFactor(fromY: 300, toY: 300 - ZoomDrag.pointsPerDoubling)
+        #expect(down.map { abs($0 - 2) < 1e-12 } == true)
+        #expect(up.map { abs($0 - 0.5) < 1e-12 } == true)
     }
 
-    /// Up then equally down must land exactly back, or a zoom sweep drifts.
+    /// Down then equally up must land exactly back, or a zoom sweep drifts.
     @Test("equal and opposite travel cancels out")
     func symmetry() throws {
-        let up = try #require(ZoomDrag.cumulativeFactor(fromY: 300, toY: 210))
         let down = try #require(ZoomDrag.cumulativeFactor(fromY: 300, toY: 390))
+        let up = try #require(ZoomDrag.cumulativeFactor(fromY: 300, toY: 210))
         #expect(abs(up * down - 1) < 1e-12)
     }
 
@@ -67,7 +81,7 @@ struct ZoomDragTests {
         var previous = try #require(ZoomDrag.cumulativeFactor(fromY: 300, toY: 300))
         for offset in 1...240 {
             let factor = try #require(
-                ZoomDrag.cumulativeFactor(fromY: 300, toY: 300 - Double(offset)))
+                ZoomDrag.cumulativeFactor(fromY: 300, toY: 300 + Double(offset)))
             #expect(factor > previous, "travel of \(offset) points did not move the zoom")
             #expect(abs(factor / previous - step) < 1e-12)
             previous = factor
@@ -89,11 +103,11 @@ struct ZoomDragTests {
         for offset in stride(from: 1.0, through: 200.0, by: 1.0) {
             guard
                 let factor = gesture.factor(
-                    atY: 300 - offset, currentFramesPerPixel: sampled.framesPerPixel)
+                    atY: 300 + offset, currentFramesPerPixel: sampled.framesPerPixel)
             else { continue }
             sampled.zoom(by: factor, anchorFrame: gesture.anchorFrame)
         }
-        if let factor = gesture.factor(atY: 100, currentFramesPerPixel: jumped.framesPerPixel) {
+        if let factor = gesture.factor(atY: 500, currentFramesPerPixel: jumped.framesPerPixel) {
             jumped.zoom(by: factor, anchorFrame: gesture.anchorFrame)
         }
 
@@ -109,7 +123,7 @@ struct ZoomDragTests {
         let before = viewport.framesPerPixel
         let gesture = drag(framesPerPixel: before, anchorFrame: 1_000_000)
 
-        for y in stride(from: 300.0, through: -2000.0, by: -20.0) {
+        for y in stride(from: 300.0, through: 2600.0, by: 20.0) {
             guard
                 let factor = gesture.factor(atY: y, currentFramesPerPixel: viewport.framesPerPixel)
             else { continue }
@@ -117,7 +131,7 @@ struct ZoomDragTests {
         }
         #expect(viewport.framesPerPixel < before)
 
-        for y in stride(from: -2000.0, through: 300.0, by: 20.0) {
+        for y in stride(from: 2600.0, through: 300.0, by: -20.0) {
             guard
                 let factor = gesture.factor(atY: y, currentFramesPerPixel: viewport.framesPerPixel)
             else { continue }
@@ -132,10 +146,10 @@ struct ZoomDragTests {
     /// turns that into a factor of billions in one step.
     @Test("absurd travel is clamped rather than blowing up")
     func clamped() throws {
-        let up = try #require(ZoomDrag.cumulativeFactor(fromY: 300, toY: -1_000_000))
         let down = try #require(ZoomDrag.cumulativeFactor(fromY: 300, toY: 1_000_000))
-        #expect(up.isFinite)
-        #expect(down > 0)
+        let up = try #require(ZoomDrag.cumulativeFactor(fromY: 300, toY: -1_000_000))
+        #expect(down.isFinite)
+        #expect(up > 0)
         #expect(abs(up * down - 1) < 1e-9)
     }
 

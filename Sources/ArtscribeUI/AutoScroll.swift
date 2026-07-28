@@ -44,6 +44,31 @@ public enum AutoScroll {
         return inside ? nil : flip(to: playhead, visible: visible)
     }
 
+    /// The viewport start that brings `frame` onto the page, or `nil` when it
+    /// is already on it.
+    ///
+    /// The same page-flip rule as above, asked about an arbitrary frame rather
+    /// than about the playhead — a selection moved or extended off the visible
+    /// page has to be followed, and following it continuously would reintroduce
+    /// exactly the never-still waveform §6.1 rejects.
+    ///
+    /// It flips towards the edge the frame went out of: something that ran off
+    /// the right lands `leadFraction` in from the right, so what it just passed
+    /// is still visible, and the mirror on the left. Landing it at the left
+    /// edge in both cases would throw away the context on one of them.
+    public static func pageStart(revealing frame: FrameIndex, viewport: Viewport) -> FrameIndex? {
+        let visible = viewport.visibleFrames
+        guard visible > 0, viewport.totalFrames > visible else { return nil }
+        let lead = FrameIndex(leadFraction * Double(visible))
+        if frame < viewport.startFrame {
+            return Swift.max(0, frame - lead)
+        }
+        if frame > viewport.endFrame {
+            return Swift.max(0, frame + lead - visible)
+        }
+        return nil
+    }
+
     private static func flip(to frame: FrameIndex, visible: FrameIndex) -> FrameIndex {
         Swift.max(0, frame - FrameIndex(leadFraction * Double(visible)))
     }

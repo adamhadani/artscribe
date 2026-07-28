@@ -89,6 +89,7 @@ enum AcceptanceRun {
         await checkTrackpad(model: model, log: &log)
         await checkScrollZoom(model: model, log: &log)
         await checkDragZoom(model: model, log: &log)
+        await checkZoomDirection(model: model, log: &log)
         await checkSpeedEmphasis(model: model, log: &log, outputDirectory: outputDirectory)
         await checkFileAndViewMenus(model: model, log: &log)
         // Task 15. The presentation and strobe checks read the menus; the
@@ -109,6 +110,14 @@ enum AcceptanceRun {
         await checkZoomToSelection(model: model, log: &log)
         await settle(seconds: 0.2)
         snapshot(to: "\(outputDirectory)/04-zoom-to-selection.png")
+
+        // Task 18: the selection moves and extends, and the two menus it now
+        // lives in. Deliberately *after* `checkZoomToSelection`, which reads the
+        // selection this leaves cleared — measured, as a ⌘9 check that framed an
+        // empty range.
+        await checkSelectionMovement(model: model, log: &log)
+        await checkEditMenu(model: model, log: &log)
+        await checkLoopMenu(model: model, log: &log)
 
         await checkPlayback(model: model, log: &log, outputDirectory: outputDirectory)
         await settle(seconds: 0.2)

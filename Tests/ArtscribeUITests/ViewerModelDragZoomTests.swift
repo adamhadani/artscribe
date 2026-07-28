@@ -56,26 +56,26 @@ struct ViewerModelDragZoomTests {
 
     // MARK: - A: the time ruler
 
-    @Test("a vertical drag up the ruler zooms in, anchored where it started")
+    @Test("a vertical drag down the ruler zooms in, anchored where it started")
     func rulerDragZoomsIn() {
         let model = makeModel()
         let start = CGPoint(x: 250, y: 12)
         let anchored = PixelMapping.frame(atPixel: 250, in: model.viewport)
 
-        dragRuler(in: model, from: start, toY: 12 - 2 * ZoomDrag.pointsPerDoubling)
+        dragRuler(in: model, from: start, toY: 12 + 2 * ZoomDrag.pointsPerDoubling)
 
         #expect(abs(model.zoomFactor - 4) < 0.05)
         expectFrame(anchored, staysAtPixel: 250, in: model)
     }
 
-    @Test("a vertical drag down the ruler zooms out")
+    @Test("a vertical drag up the ruler zooms out")
     func rulerDragZoomsOut() {
         let model = makeModel()
         model.zoom(by: 16, anchorFrame: Self.totalFrames / 2)
         let before = model.zoomFactor
 
         dragRuler(
-            in: model, from: CGPoint(x: 500, y: 12), toY: 12 + ZoomDrag.pointsPerDoubling)
+            in: model, from: CGPoint(x: 500, y: 12), toY: 12 - ZoomDrag.pointsPerDoubling)
 
         #expect(model.zoomFactor < before)
         #expect(abs(model.zoomFactor - before / 2) < before * 0.02)
@@ -91,7 +91,7 @@ struct ViewerModelDragZoomTests {
         let start = CGPoint(x: 250, y: 12)
 
         for offset in 1...120 {
-            let y = 12 - Double(offset)
+            let y = 12 + Double(offset)
             straight.zoomDragChanged(start: start, current: CGPoint(x: 250, y: y))
             diagonal.zoomDragChanged(
                 start: start, current: CGPoint(x: 250 + Double(offset) * 3, y: y))
@@ -115,7 +115,7 @@ struct ViewerModelDragZoomTests {
         let playhead = model.playhead
         #expect(!selection.isEmpty)
 
-        dragRuler(in: model, from: CGPoint(x: 700, y: 12), toY: -60)
+        dragRuler(in: model, from: CGPoint(x: 700, y: 12), toY: 200)
 
         #expect(model.selection.range == selection)
         #expect(model.playhead == playhead)
@@ -139,10 +139,10 @@ struct ViewerModelDragZoomTests {
 
         for offset in 0...Int(ZoomDrag.pointsPerDoubling) {
             model.laneDragChanged(
-                start: start, current: CGPoint(x: 300, y: 400 - Double(offset)),
+                start: start, current: CGPoint(x: 300, y: 400 + Double(offset)),
                 option: true, shift: false)
         }
-        model.laneDragEnded(start: start, end: CGPoint(x: 300, y: 280), now: 0)
+        model.laneDragEnded(start: start, end: CGPoint(x: 300, y: 520), now: 0)
 
         #expect(abs(model.zoomFactor - 2) < 0.05)
         expectFrame(anchored, staysAtPixel: 300, in: model)
@@ -220,10 +220,10 @@ struct ViewerModelDragZoomTests {
         model.laneDragChanged(start: start, current: start, option: true, shift: false)
         for offset in 1...120 {
             model.laneDragChanged(
-                start: start, current: CGPoint(x: 300 + Double(offset), y: 400 - Double(offset)),
+                start: start, current: CGPoint(x: 300 + Double(offset), y: 400 + Double(offset)),
                 option: false, shift: false)
         }
-        model.laneDragEnded(start: start, end: CGPoint(x: 420, y: 280), now: 0)
+        model.laneDragEnded(start: start, end: CGPoint(x: 420, y: 520), now: 0)
 
         #expect(model.selection.isEmpty)
         #expect(model.zoomFactor > 1.9)
@@ -258,7 +258,7 @@ struct ViewerModelDragZoomTests {
         let model = makeModel()
         let start = CGPoint(x: 400, y: 12)
 
-        dragRuler(in: model, from: start, toY: 12 - ZoomDrag.pointsPerDoubling)
+        dragRuler(in: model, from: start, toY: 12 + ZoomDrag.pointsPerDoubling)
         let afterFirst = model.zoomFactor
 
         // Same start point, so a gesture keyed on it alone would be mistaken
@@ -266,8 +266,79 @@ struct ViewerModelDragZoomTests {
         model.zoomDragChanged(start: start, current: start)
         #expect(abs(model.zoomFactor - afterFirst) < 0.01)
 
-        dragRuler(in: model, from: start, toY: 12 - ZoomDrag.pointsPerDoubling)
+        dragRuler(in: model, from: start, toY: 12 + ZoomDrag.pointsPerDoubling)
         #expect(abs(model.zoomFactor - afterFirst * 2) < afterFirst * 0.05)
+    }
+
+    // MARK: - The direction preference
+
+    /// Task 18: down zooms in by default, and one Settings toggle flips both
+    /// vertical drags — the ruler's and the lanes' ⌥-drag — back to Task 16's
+    /// direction. Driven through the model, because that is where the
+    /// preference is read.
+    @Test("the invert preference turns a downward ruler drag into a zoom out")
+    func invertedRulerDrag() {
+        let model = makeModel()
+        model.zoom(by: 16, anchorFrame: Self.totalFrames / 2)
+        let before = model.zoomFactor
+        model.setInvertZoomDrag(true)
+
+        dragRuler(
+            in: model, from: CGPoint(x: 500, y: 12), toY: 12 + ZoomDrag.pointsPerDoubling)
+
+        #expect(abs(model.zoomFactor - before / 2) < before * 0.02)
+    }
+
+    @Test("the invert preference reaches the Option-drag in the lanes too")
+    func invertedLaneDrag() {
+        let model = makeModel()
+        model.zoom(by: 16, anchorFrame: Self.totalFrames / 2)
+        let before = model.zoomFactor
+        model.setInvertZoomDrag(true)
+
+        let start = CGPoint(x: 300, y: 400)
+        for offset in 0...Int(ZoomDrag.pointsPerDoubling) {
+            model.laneDragChanged(
+                start: start, current: CGPoint(x: 300, y: 400 + Double(offset)),
+                option: true, shift: false)
+        }
+        model.laneDragEnded(start: start, end: CGPoint(x: 300, y: 520), now: 0)
+
+        #expect(abs(model.zoomFactor - before / 2) < before * 0.02)
+    }
+
+    /// A drag already in flight keeps the direction it began with: the
+    /// preference is latched with the gesture, exactly as the lane drag's mode
+    /// is, so nothing can invert under the hand mid-drag.
+    @Test("changing the preference mid-drag does not flip the gesture in flight")
+    func directionIsLatchedForTheGesture() {
+        let model = makeModel()
+        let start = CGPoint(x: 400, y: 12)
+        model.zoomDragChanged(start: start, current: CGPoint(x: 400, y: 60))
+        let afterFirstEvents = model.zoomFactor
+        #expect(afterFirstEvents > 1)
+
+        model.setInvertZoomDrag(true)
+        model.zoomDragChanged(start: start, current: CGPoint(x: 400, y: 120))
+        #expect(model.zoomFactor > afterFirstEvents)
+    }
+
+    /// The scroll wheel follows the same preference, so one window does not
+    /// hold two zoom conventions at once. `TrackpadAction` produces the factor;
+    /// this is the model applying the preference to it.
+    @Test("the invert preference reaches the scroll-wheel zoom")
+    func invertedWheelZoom() {
+        let model = makeModel()
+        model.zoom(by: 16, anchorFrame: Self.totalFrames / 2)
+        let before = model.zoomFactor
+
+        TrackpadAction.zoom(factor: 2, anchor: nil).apply(to: model)
+        #expect(model.zoomFactor > before)
+
+        model.setInvertZoomDrag(true)
+        let inverted = model.zoomFactor
+        TrackpadAction.zoom(factor: 2, anchor: nil).apply(to: model)
+        #expect(model.zoomFactor < inverted)
     }
 
     @Test("a lane drag with no track loaded is a no-op")

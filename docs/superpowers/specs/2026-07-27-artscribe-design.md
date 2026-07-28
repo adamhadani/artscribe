@@ -208,7 +208,7 @@ important detail for a tool whose core use is listening to the same four bars fi
 | ActionID | Default binding | Action |
 |---|---|---|
 | `transport.playPause` | `Space` | Play / pause |
-| `transport.returnToStart` | `Return` | To selection start, else 0 |
+| `transport.returnToStart` | `⇧Space` | To selection start, else 0 |
 | `transport.nudge.back` / `.forward` | `Z` / `X`, `←` / `→` | Nudge **2 s** (configurable) |
 | `transport.nudge.back.fine` / `.forward.fine` | `⇧Z` / `⇧X` | Nudge 50 ms (configurable) |
 | `transport.nudge.back.coarse` / `.forward.coarse` | `⌥Z` / `⌥X`, `⌥←` / `⌥→` | Rewind/skip **10 s** (configurable) |
@@ -224,7 +224,9 @@ important detail for a tool whose core use is listening to the same four bars fi
 | `zoom.out` / `zoom.in` | `E` / `R`, `⌘−` / `⌘=` | Zoom, playhead-anchored |
 | `zoom.fit` | `⌘0` | Fit whole file |
 | `zoom.toSelection` | `⌘9` | Zoom to selection |
-| `selection.extendLeft` / `.extendRight` | `⇧←` / `⇧→` | Extend selection |
+| `selection.extendLeft` / `.extendRight` | `⇧←` / `⇧→` | Extend selection by the normal nudge amount |
+| `selection.moveLeft` / `.moveRight` | `C` / `V` | Move the whole selection **250 ms** (configurable) |
+| `selection.moveLeft.far` / `.moveRight.far` | `⌥C` / `⌥V` | Move the whole selection **2 s** (configurable) |
 | `selection.selectAll` | `⌘A` | Select all |
 | `selection.clear` | `Esc` | Clear selection |
 | `file.open` | `⌘O` | Open… |
@@ -233,6 +235,7 @@ important detail for a tool whose core use is listening to the same four bars fi
 | `volume.up.fine` / `.down.fine` | `⇧↑` / `⇧↓` | Volume ∓1% |
 | `volume.mute` | `M` | Mute, restoring the prior level |
 | `file.openRecent` | — | File ▸ Open Recent, 8 entries, de-duplicated by resolved path |
+| `view.zoomDragDirection` | — | Invert zoom direction; **in Settings ▸ Playback**, and it governs the ruler drag, the ⌥-drag and the wheel alike |
 | `view.theme` | — | Light / Dark / System; **in Settings ▸ Appearance**, consolidated there from the View menu |
 | `help.shortcuts` | `⌘/` | Help sheet |
 | `app.settings` | `⌘,` | Settings — in the **app menu** (Artscribe ▸ Settings…), the macOS convention since Ventura, wired automatically by SwiftUI's `Settings` scene |

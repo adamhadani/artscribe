@@ -178,17 +178,18 @@ extension AcceptanceRun {
         let anchored = PixelMapping.frame(atPixel: anchorX, in: model.viewport)
         let fitted = model.zoomFactor
 
-        // 240 points up: two doublings at the shipped rate. Fed one point at a
-        // time, the way `DragGesture` delivers it.
+        // 240 points down: two doublings at the shipped rate, in the direction
+        // Task 18 made the default. Fed one point at a time, the way
+        // `DragGesture` delivers it.
         for offset in 1...240 {
             model.zoomDragChanged(
-                start: start, current: CGPoint(x: anchorX, y: 12 - Double(offset)))
+                start: start, current: CGPoint(x: anchorX, y: 12 + Double(offset)))
         }
         await settle(seconds: 0.25)
         let landed = model.viewport.pixel(forFrame: anchored)
         let peak = model.zoomFactor
         log.check(
-            "dragging up the ruler zooms in (\(rounded(fitted))x -> \(rounded(peak))x)",
+            "dragging down the ruler zooms in (\(rounded(fitted))x -> \(rounded(peak))x)",
             peak > fitted * 1.5)
         log.check(
             "the ruler drag stays anchored where it began "
@@ -202,12 +203,12 @@ extension AcceptanceRun {
         // the viewport now is, which `ViewerModelDragZoomTests` pins.)
         for offset in stride(from: 239, through: 0, by: -1) {
             model.zoomDragChanged(
-                start: start, current: CGPoint(x: anchorX, y: 12 - Double(offset)))
+                start: start, current: CGPoint(x: anchorX, y: 12 + Double(offset)))
         }
         model.zoomDragEnded()
         await settle(seconds: 0.25)
         log.check(
-            "dragging back down without letting go returns to where it started "
+            "dragging back up without letting go returns to where it started "
                 + "(\(rounded(peak))x -> \(rounded(model.zoomFactor))x)",
             abs(model.zoomFactor - fitted) < fitted * 0.02)
 
@@ -226,11 +227,11 @@ extension AcceptanceRun {
         let fitted = model.zoomFactor
         for offset in 1...240 {
             model.laneDragChanged(
-                start: start, current: CGPoint(x: start.x, y: start.y - Double(offset)),
+                start: start, current: CGPoint(x: start.x, y: start.y + Double(offset)),
                 option: true, shift: false)
         }
         model.laneDragEnded(
-            start: start, end: CGPoint(x: start.x, y: start.y - 240), now: 0)
+            start: start, end: CGPoint(x: start.x, y: start.y + 240), now: 0)
         await settle(seconds: 0.25)
         log.check(
             "Option-drag in the lanes zooms (\(rounded(fitted))x -> "
@@ -245,11 +246,11 @@ extension AcceptanceRun {
         for offset in 1...120 {
             model.laneDragChanged(
                 start: second,
-                current: CGPoint(x: second.x + Double(offset), y: second.y - Double(offset)),
+                current: CGPoint(x: second.x + Double(offset), y: second.y + Double(offset)),
                 option: false, shift: false)
         }
         model.laneDragEnded(
-            start: second, end: CGPoint(x: second.x + 120, y: second.y - 120), now: 0)
+            start: second, end: CGPoint(x: second.x + 120, y: second.y + 120), now: 0)
         log.check(
             "releasing Option mid-drag does not turn the zoom into a selection",
             model.selection.isEmpty && model.zoomFactor > 1.5)

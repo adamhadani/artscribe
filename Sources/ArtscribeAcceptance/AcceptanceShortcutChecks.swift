@@ -25,7 +25,8 @@ extension AcceptanceRun {
     /// contains `  (`" a one-line check with no exceptions to remember.
     @MainActor
     static func checkShortcutPresentation(log: inout Logger) async {
-        for name in ["View", "Playback"] {
+        // Every menu the app puts items into, including the two Task 18 added.
+        for name in ["Edit", "View", "Playback", "Loop"] {
             guard let menu = NSApp.mainMenu?.items.first(where: { $0.title == name })?.submenu
             else {
                 log.check("a \(name) menu exists", false)
@@ -46,7 +47,8 @@ extension AcceptanceRun {
 
     /// The keys that have no printable form, written as a menu writes them.
     private static let keyNames: [String: String] = [
-        " ": "Space", "\r": "↩", "\u{1B}": "⎋", "\u{F700}": "↑", "\u{F701}": "↓"
+        " ": "Space", "\r": "↩", "\u{1B}": "⎋", "\u{F700}": "↑", "\u{F701}": "↓",
+        "\u{F702}": "←", "\u{F703}": "→"
     ]
 
     /// One item's key equivalent as a user would read it off the menu.

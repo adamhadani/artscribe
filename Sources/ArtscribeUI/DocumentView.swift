@@ -104,7 +104,8 @@ public struct DocumentView: View {
     // MARK: - Commands
 
     /// The agreed left-hand cluster (spec §6.2). `⌘`-modified keys belong to the
-    /// menu bar, so anything carrying Command is passed straight through.
+    /// menu bar, so anything carrying Command is passed straight through —
+    /// including `⌘C`/`⌘V`, which stay the standard Edit menu's.
     ///
     /// This is the **only** handler for the unmodified keys. The Playback menu
     /// lists them in its titles rather than claiming them as menu key
@@ -127,19 +128,53 @@ public struct DocumentView: View {
             handleTransport(press)
             || handleVolume(character, press: press)
             || handleNavigation(character, press: press)
+            || handleSelection(character, press: press)
             || handleView(character, press: press)
             || handleSpeed(character, press: press)
             || handleLoop(character)
         return handled ? .handled : .ignored
     }
 
+    /// `Space` plays and pauses; `⇧Space` plays from the start of the selection.
+    ///
+    /// `⇧Space` rather than `Return` since Task 18: it puts the whole transport
+    /// under the left hand, and it says what it does — a variant of the key
+    /// beside it rather than an unrelated one across the keyboard.
+    ///
+    /// **`Return` is now bound to nothing, deliberately.** Leaving it as a
+    /// synonym would mean a live binding that no menu, tooltip or README names,
+    /// which is precisely the drift this project has been bitten by twice. It
+    /// is also the key a future "commit this value" — a go-to-time field, a
+    /// rename — will want, and it is easier to hand out a free key than to take
+    /// back a used one.
     private func handleTransport(_ press: KeyPress) -> Bool {
         switch press.key {
-        case .space: model.togglePlayPause()
-        case .return: model.playFromStart()
+        case .space:
+            if press.modifiers.contains(.shift) {
+                model.playFromStart()
+            } else {
+                model.togglePlayPause()
+            }
         case .escape: model.clearSelection()
         default: return false
         }
+        return true
+    }
+
+    /// `C`/`V` move the whole selection, `⌥C`/`⌥V` move it further — spec
+    /// §6.2's `selection.move` pair.
+    ///
+    /// Handled here as well as on the Edit menu for the reason
+    /// `handleNavigation` records: `NSMenu` matches a key equivalent against
+    /// `charactersIgnoringModifiers`, and what the menu does not claim has to
+    /// have somewhere to land. AppKit offers the event to the menu bar first,
+    /// so a claimed chord never reaches this method and nothing fires twice.
+    private func handleSelection(_ character: String, press: KeyPress) -> Bool {
+        guard character == "c" || character == "v" else { return false }
+        // ⌘C / ⌘V belong to the standard Edit menu; `handle(_:)` has already
+        // passed those through, so this only ever sees the bare and ⌥ forms.
+        let tier: SelectionMoveTier = press.modifiers.contains(.option) ? .aggressive : .gentle
+        model.moveSelection(tier, direction: character == "c" ? .backward : .forward)
         return true
     }
 
@@ -174,18 +209,22 @@ public struct DocumentView: View {
     /// by the menu at all. `⇧Z` is menu-only otherwise, and an unreachable fine
     /// nudge is precisely the silent degradation the spec forbids.
     ///
-    /// `⇧←`/`⇧→` are deliberately left alone. On the arrows ⇧ extends the
-    /// selection (spec §6.2 records why the two clusters differ), so a fine
-    /// nudge there would take a binding that belongs to something else.
+    /// `⇧←`/`⇧→` are **not** a fine nudge: on the arrows ⇧ extends the
+    /// selection (spec §6.2 records why the two clusters differ), and as of
+    /// Task 18 that action exists — it had been documented and unimplemented
+    /// since the design was approved, so the two chords fell through to
+    /// nothing at all.
     private func handleNavigation(_ character: String, press: KeyPress) -> Bool {
         let option = press.modifiers.contains(.option)
         let shift = press.modifiers.contains(.shift)
         switch press.key {
         case .leftArrow, .rightArrow:
-            guard !shift else { return false }
-            model.nudge(
-                option ? .coarse : .normal,
-                direction: press.key == .leftArrow ? .backward : .forward)
+            let direction: NudgeDirection = press.key == .leftArrow ? .backward : .forward
+            guard !shift else {
+                model.extendSelection(direction)
+                return true
+            }
+            model.nudge(option ? .coarse : .normal, direction: direction)
             return true
         default:
             break

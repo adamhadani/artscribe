@@ -16,25 +16,31 @@ import Waveform
 public final class ViewerModel {
 
     // MARK: - Loaded track
+    //
+    // Written by `open(url:)` and its continuations, which live in
+    // `ViewerModel+Loading` — hence `internal(set)` rather than `private(set)`:
+    // Swift's `private` is file-scoped, and the loading pipeline is a file of
+    // its own so this one stays inside the project's 400-line limit. Nothing
+    // outside the module can write them either way.
 
-    public private(set) var fileName: String?
+    public internal(set) var fileName: String?
     /// Held for the lifetime of the loaded track: `DecodedAudio.channel(_:)`
     /// hands out raw pointers into this value's storage.
-    public private(set) var audio: DecodedAudio?
-    public private(set) var pyramid: PeakPyramid?
+    public internal(set) var audio: DecodedAudio?
+    public internal(set) var pyramid: PeakPyramid?
 
-    public private(set) var isLoading = false
-    public private(set) var progress: Double = 0
+    public internal(set) var isLoading = false
+    public internal(set) var progress: Double = 0
     /// Which real stage of `open(url:)` is currently running, shown beside the
     /// progress bar so a long wait says *why*, not merely that it is waiting.
     /// `nil` when nothing is loading. Each case corresponds to genuinely
     /// distinct work — there is no timer-driven guessing here.
-    public private(set) var loadPhase: LoadPhase?
+    public internal(set) var loadPhase: LoadPhase?
     /// Set from `DecodeError.errorDescription`. Shown as an inline banner; the
     /// previously loaded track stays loaded (spec §8, never degrade silently).
-    public private(set) var errorMessage: String?
+    public internal(set) var errorMessage: String?
     /// Seconds from "file chosen" to "waveform rasterised", for the status bar.
-    public private(set) var lastLoadSeconds: Double?
+    public internal(set) var lastLoadSeconds: Double?
 
     public enum LoadPhase: Sendable {
         /// Between `open(url:)` being called and the decoder's first progress
@@ -82,6 +88,15 @@ public final class ViewerModel {
     /// by `attach(nudge:)` at launch — a model built by a unit test therefore
     /// never touches the user's real preferences.
     public internal(set) var nudgeAmounts = NudgeAmounts.defaults
+    /// How far `C`/`V` and `⌥C`/`⌥V` slide the whole selection (spec §6.2).
+    /// Same arrangement as `nudgeAmounts`: the applied value lives here and
+    /// `InteractionSettings` is only its backing tape.
+    public internal(set) var selectionMoveAmounts = SelectionMoveAmounts.defaults
+    /// Whether a vertical drag *up* zooms in. `false` — the shipped default —
+    /// means down zooms in, which is the direction the user asked for after
+    /// driving Task 16's. Governs both vertical drags and the wheel zoom, so
+    /// one window never holds two zoom conventions at once.
+    public internal(set) var invertZoomDrag = false
     /// Output level and mute. Half scale by default, and it survives a load: how
     /// loud you want it is a property of your headphones, not of the file.
     public internal(set) var volume = VolumeState()
@@ -122,6 +137,10 @@ public final class ViewerModel {
     /// Where `nudgeAmounts` is persisted, if the app shell attached a store.
     /// Absent in unit tests, which is what keeps them off `UserDefaults`.
     @ObservationIgnored var nudgeStore: NudgeSettings?
+    /// Where the zoom direction and the selection-move amounts are persisted,
+    /// if the app shell attached a store. Absent in unit tests, which is what
+    /// keeps them off `UserDefaults`.
+    @ObservationIgnored var interactionStore: InteractionSettings?
     @ObservationIgnored let clock = PlayheadClock()
 
     /// Written only by `refresh()` in `ViewerModel+Rendering`, which is why the
@@ -190,11 +209,13 @@ public final class ViewerModel {
     var scale: CGFloat = 2
     var renderedKey: WaveformRenderer.Key?
     var overviewKey: WaveformRenderer.Key?
-    private var loadTask: Task<Void, Never>?
+    /// Module-internal, not private, so `ViewerModel+Loading` can reach it —
+    /// Swift has no stored properties in extensions.
+    var loadTask: Task<Void, Never>?
     /// Identifies the in-flight load. A load cancelled mid-flight can already be
     /// past its cancellation check and merely waiting for the main actor, so the
     /// token — not the `Task`— is what decides whose result is still wanted.
-    private var loadToken = 0
+    var loadToken = 0
     var dragOrigin: Double?
     var lastClick: (pixel: Double, time: Double)?
     /// The vertical drag-to-zoom currently in flight — a bare drag on the time
@@ -230,104 +251,6 @@ public final class ViewerModel {
     static let clickSlopPoints = 3.0
 
     public init() {}
-
-    // MARK: - Loading
-
-    public func open(url: URL) {
-        loadTask?.cancel()
-        errorMessage = nil
-        isLoading = true
-        progress = 0
-        loadPhase = .opening
-        let started = Date()
-        loadToken += 1
-        let token = loadToken
-        let reporter = ProgressReporter { [weak self] value in
-            Task { @MainActor in self?.reportProgress(value, token: token) }
-        }
-
-        // Detached, not a plain `Task`: a detached task never inherits the main
-        // actor, so the decode and the pyramid build are guaranteed to run off
-        // it no matter how nonisolated-async inheritance is configured. The
-        // decoder polls `Task.isCancelled`, so cancelling this stops it early.
-        loadTask = Task.detached(priority: .userInitiated) { [weak self] in
-            do {
-                let loaded = try await TrackLoader.load(
-                    url: url, reporter: reporter,
-                    onPhaseChange: { phase in
-                        Task { @MainActor in self?.setPhase(phase, token: token) }
-                    })
-                try Task.checkCancellation()
-                await self?.adopt(loaded, url: url, startedAt: started, token: token)
-            } catch is CancellationError {
-                await self?.cancelLoading(token: token)
-            } catch DecodeError.cancelled {
-                await self?.cancelLoading(token: token)
-            } catch {
-                await self?.fail(with: TrackLoader.message(for: error), token: token)
-            }
-        }
-    }
-
-    public func dismissError() {
-        errorMessage = nil
-    }
-
-    private func reportProgress(_ value: Double, token: Int) {
-        guard token == loadToken else { return }
-        progress = value
-        // The decoder only calls back once it is actually reading chunks, so
-        // this is the genuine boundary between "opening" and "decoding".
-        loadPhase = .decoding
-    }
-
-    private func setPhase(_ phase: LoadPhase, token: Int) {
-        guard token == loadToken else { return }
-        loadPhase = phase
-    }
-
-    private func adopt(_ loaded: LoadedTrack, url: URL, startedAt: Date, token: Int) {
-        guard token == loadToken else { return }
-        teardownSession()
-        audio = loaded.audio
-        pyramid = loaded.pyramid
-        fileName = url.lastPathComponent
-        generation += 1
-        selection.clear()
-        // Speed and engine deliberately survive a load — they are a working
-        // preference, not a property of the file — but the loop cannot: its
-        // frames mean nothing in a different recording.
-        loop = LoopRegion()
-        playhead = 0
-        reachedEnd = false
-        isLoading = false
-        progress = 1
-        loadPhase = nil
-        viewport = Viewport(totalFrames: loaded.audio.frameCount, widthPixels: lanePointWidth)
-        // Only on success: a file that could not be decoded is not somewhere you
-        // want to be offered a shortcut back to.
-        recents?.note(url)
-        refresh()
-        openSession(for: loaded.audio)
-        // Measured through to the rasterised bitmap, not just the decode, so the
-        // readout answers "how long until I saw the waveform" (spec §1.2).
-        lastLoadSeconds = Date().timeIntervalSince(startedAt)
-    }
-
-    private func cancelLoading(token: Int) {
-        guard token == loadToken else { return }
-        isLoading = false
-        loadPhase = nil
-    }
-
-    /// The decode failed. The previously loaded track is deliberately left
-    /// untouched — a failed open must not throw away what you were working on.
-    private func fail(with message: String, token: Int) {
-        guard token == loadToken else { return }
-        isLoading = false
-        loadPhase = nil
-        errorMessage = message
-    }
 
     // MARK: - Geometry
 

@@ -2,7 +2,13 @@ import ArtscribeKit
 import Playback
 import SwiftUI
 
-/// The **Playback** menu: transport, speed, loop, and output device.
+/// The **Playback** menu: transport, navigation, speed, engine, volume and
+/// output device.
+///
+/// The loop items moved out to `LoopCommands` and the selection items to
+/// `EditCommands` in Task 18. This menu had grown to 36 items and become the
+/// place anything went that had nowhere else; what is left is one identity —
+/// *what is playing, how fast, and where it comes out*.
 ///
 /// It exists because a help sheet is not enough — these belong in the menu where
 /// macOS users look for them, and where their key equivalents are legible without
@@ -35,7 +41,7 @@ public struct PlaybackCommands: Commands {
 /// The transport, speed and loop items.
 ///
 /// **On key equivalents.** Every item carries a real one, including the
-/// unmodified cluster — `Space`, `Return`, `Q`, `W`, `Z`, `X`, `1`–`4`, `A`–`G`.
+/// unmodified cluster — `Space`, `Q`, `W`, `Z`, `X`, `1`–`4`.
 /// `.keyboardShortcut(_:modifiers: [])` is the documented way to declare one
 /// without ⌘, which SwiftUI would otherwise add.
 ///
@@ -77,8 +83,11 @@ struct PlaybackMenu: View {
             .keyboardShortcut(.space, modifiers: [])
             Button("Stop") { model.pause() }
                 .disabled(!model.isPlaying)
+            // ⇧Space, not Return: it keeps the whole transport under the left
+            // hand, next to the Space it is a variant of. `Return` is now bound
+            // to nothing — see `DocumentView.handleTransport`.
             Button("Play from Start") { model.playFromStart() }
-                .keyboardShortcut(.return, modifiers: [])
+                .keyboardShortcut(.space, modifiers: .shift)
 
             Divider()
 
@@ -104,10 +113,6 @@ struct PlaybackMenu: View {
             Divider()
 
             volumeItems
-
-            Divider()
-
-            loopItems
         }
         // One `.disabled` on the group, evaluated inside a `View` body so it
         // actually tracks `hasTrack`. Every action underneath is a guarded no-op
@@ -211,33 +216,6 @@ struct PlaybackMenu: View {
                 set: { isOn in if isOn != model.volume.isMuted { model.toggleMute() } })
         )
         .keyboardShortcut("m", modifiers: [])
-    }
-
-    @ViewBuilder
-    private var loopItems: some View {
-        Button("Set Loop In") { model.setLoopIn() }
-            .keyboardShortcut("a", modifiers: [])
-        Button("Set Loop Out") { model.setLoopOut() }
-            .keyboardShortcut("s", modifiers: [])
-        Toggle(
-            "Loop",
-            isOn: Binding(
-                get: { model.loop.isEnabled },
-                // Compared rather than blindly toggled: a `Binding` set to the
-                // value it already holds must be a no-op, or the item inverts
-                // the state it was asked to confirm.
-                set: { isOn in if isOn != model.loop.isEnabled { model.toggleLoop() } })
-        )
-        .keyboardShortcut("d", modifiers: [])
-        .disabled(model.loop.range.isEmpty && !model.loop.isEnabled)
-        Button("Restart Loop") { model.restartLoop() }
-            .keyboardShortcut("f", modifiers: [])
-            .disabled(model.loop.range.isEmpty)
-        Button("Selection → Loop") { model.loopFromSelection() }
-            .keyboardShortcut("g", modifiers: [])
-            .disabled(model.selection.isEmpty)
-        Button("Clear Loop") { model.clearLoop() }
-            .disabled(model.loop.range.isEmpty)
     }
 }
 

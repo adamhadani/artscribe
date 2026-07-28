@@ -133,7 +133,7 @@ Release, not debug — a debug build decodes roughly four times slower.
 | Key | Action |
 |---|---|
 | `Space` | Play / pause |
-| `Return` | Play from start (of selection, else the file) |
+| `⇧Space` | Play from start (of selection, else the file) |
 | `Q` / `W` | Slower / faster (5%) |
 | `⇧Q` / `⇧W` | Slower / faster (1%) |
 | `1` `2` `3` `4` | 100% / 75% / 50% / 33% |
@@ -151,16 +151,23 @@ Release, not debug — a debug build decodes roughly four times slower.
 | `F` | Restart the loop |
 | `G` | Turn the selection into the loop |
 | `R` / `E` | Zoom in / out, anchored on the playhead |
-| `X` / `Z` | Pan right / left |
+| `Z` / `X` | Nudge the playhead back / forward (2 s, configurable) |
+| `⇧Z` / `⇧X` | Nudge finely (50 ms) — `⌥Z` / `⌥X` rewind and skip (10 s) |
+| `⌘A` | Select the whole file |
+| `⇧←` / `⇧→` | Extend the selection |
+| `C` / `V` | Move the whole selection left / right (250 ms, configurable) |
+| `⌥C` / `⌥V` | Move it further (2 s, configurable) |
 | `⌘0` / `⌘9` | Fit the whole file / zoom to selection |
 | `Esc` | Clear the selection |
 
 Drag in the lanes to select, shift-drag to extend, double-click to select all, click to
 place the playhead. Pinch to zoom, two-finger scroll to pan. Dragging the overview strip
-moves the visible window.
+moves the visible window. **Drag down** on the time ruler — or ⌥-drag in the waveform — to
+zoom in smoothly; Settings ▸ Playback ▸ *Invert zoom direction* reverses that and the scroll
+wheel together.
 
-Everything above also appears in the **Playback** menu with its shortcut, along with output
-device selection.
+Every shortcut above also appears beside its item in the menus — selection in **Edit**,
+looping in **Loop**, the transport, speed, volume and output device in **Playback**.
 
 ## Formats
 

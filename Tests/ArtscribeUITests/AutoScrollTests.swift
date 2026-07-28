@@ -123,4 +123,46 @@ struct AutoScrollTests {
         viewport.scroll(byPixels: Int((Double(start - viewport.startFrame) / 100).rounded()))
         #expect(AutoScroll.pageStart(playhead: 610_000, viewport: viewport, loop: loop) == nil)
     }
+
+    // MARK: - Revealing an arbitrary frame
+    //
+    // What a moved or extended selection uses: the same page-flip rule, asked
+    // about an edge rather than about the playhead.
+
+    @Test("a frame already on the page moves nothing")
+    func revealHolds() {
+        #expect(AutoScroll.pageStart(revealing: 150_000, viewport: zoomed()) == nil)
+        // Both edges count as on the page.
+        #expect(AutoScroll.pageStart(revealing: 100_000, viewport: zoomed()) == nil)
+        #expect(AutoScroll.pageStart(revealing: 200_000, viewport: zoomed()) == nil)
+    }
+
+    @Test("a frame off the left is brought back with room before it")
+    func revealLeft() {
+        #expect(AutoScroll.pageStart(revealing: 50_000, viewport: zoomed()) == 50_000 - lead)
+    }
+
+    /// It flips towards the edge the frame went out of: something that ran off
+    /// the right lands near the right, so what it just passed is still on
+    /// screen. Landing it at the left in both cases would throw that away.
+    @Test("a frame off the right lands near the right edge, not the left")
+    func revealRight() {
+        let start = AutoScroll.pageStart(revealing: 300_000, viewport: zoomed())
+        #expect(start == 300_000 + lead - 100_000)
+        guard let start else { return }
+        #expect(start < 300_000)
+        #expect(start + 100_000 > 300_000)
+    }
+
+    @Test("revealing clamps at the start of the file rather than going negative")
+    func revealClamps() {
+        #expect(AutoScroll.pageStart(revealing: 0, viewport: zoomed()) == 0)
+    }
+
+    /// A whole file that fits on screen has no page to flip to.
+    @Test("nothing to reveal when the whole file is visible")
+    func revealFitted() {
+        let fitted = Viewport(totalFrames: Self.total, widthPixels: 1000)
+        #expect(AutoScroll.pageStart(revealing: 999_999, viewport: fitted) == nil)
+    }
 }

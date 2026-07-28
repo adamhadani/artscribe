@@ -29,6 +29,10 @@ struct AcceptanceMain: App {
     /// that a change applies live, and must not leave the user's real ones
     /// altered.
     @State private var nudge = NudgeSettings(defaults: Self.defaults)
+    /// Also on the acceptance suite, and for the same reason: the run flips the
+    /// zoom direction and edits the move amounts to check that each applies
+    /// live, and must not leave the user's real preferences altered.
+    @State private var interaction = InteractionSettings(defaults: Self.defaults)
 
     private static let defaults =
         UserDefaults(suiteName: "com.artscribe.acceptance") ?? .standard
@@ -53,7 +57,12 @@ struct AcceptanceMain: App {
         .defaultSize(width: 1280, height: 720)
         .commands {
             ViewerCommands(model: model, recents: recents)
+            // Edit ▸ the selection actions, Playback ▸ the transport, and Loop
+            // ▸ the signature feature. Declaration order is menu-bar order for
+            // the two `CommandMenu`s, so Loop sits next to Playback.
+            EditCommands(model: model)
             PlaybackCommands(model: model, devices: devices)
+            LoopCommands(model: model)
         }
 
         Settings {
@@ -66,6 +75,7 @@ struct AcceptanceMain: App {
         model.attach(devices: devices)
         model.attach(recents: recents)
         model.attach(nudge: nudge)
+        model.attach(interaction: interaction)
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
         await AcceptanceRun.runIfRequested(model: model, theme: theme)

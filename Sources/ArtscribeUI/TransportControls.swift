@@ -81,7 +81,8 @@ public enum TransportControl: String, CaseIterable, Sendable, Hashable {
         .nudgeForward: Face(shortcut: "X", title: "Nudge Forward", symbol: "forward.frame.fill"),
         .skip: Face(shortcut: "⌥X", title: "Skip", symbol: "forward.fill"),
         .playFromStart: Face(
-            shortcut: "Return", title: "Play from Selection Start", symbol: "backward.end.fill"),
+            shortcut: "⇧Space", title: "Play from Selection Start",
+            symbol: "backward.end.fill"),
         .loop: Face(shortcut: "D", title: "Loop", symbol: "repeat"),
         .slower: Face(shortcut: "Q", title: "Slower", symbol: "minus"),
         .faster: Face(shortcut: "W", title: "Faster", symbol: "plus"),
