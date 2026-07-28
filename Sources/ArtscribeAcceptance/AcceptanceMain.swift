@@ -25,11 +25,20 @@ struct AcceptanceMain: App {
     /// Open Recent menu. The theme also needs a known starting point.
     @State private var recents = RecentFiles(defaults: Self.defaults)
     @State private var theme = ThemeController(defaults: Self.defaults)
+    /// Also on the acceptance suite: the run edits the nudge amounts to check
+    /// that a change applies live, and must not leave the user's real ones
+    /// altered.
+    @State private var nudge = NudgeSettings(defaults: Self.defaults)
 
     private static let defaults =
         UserDefaults(suiteName: "com.artscribe.acceptance") ?? .standard
 
     init() {
+        // Before anything else, and before any audio graph can exist: an
+        // automated run makes no sound. See `AcceptanceRun.silenceOutput`, which
+        // does this a second time on the run path so a future entry point cannot
+        // lose it.
+        AcceptanceRun.silenceOutput()
         // Same reasoning as `ArtscribeAppMain`: an unbundled SwiftPM executable
         // otherwise starts as an accessory with no menu bar and no keyboard focus.
         NSApplication.shared.setActivationPolicy(.regular)
@@ -43,8 +52,12 @@ struct AcceptanceMain: App {
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
-            ViewerCommands(model: model, theme: theme, recents: recents)
+            ViewerCommands(model: model, recents: recents)
             PlaybackCommands(model: model, devices: devices)
+        }
+
+        Settings {
+            SettingsView(model: model, theme: theme)
         }
     }
 
@@ -52,6 +65,7 @@ struct AcceptanceMain: App {
     private func start() async {
         model.attach(devices: devices)
         model.attach(recents: recents)
+        model.attach(nudge: nudge)
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
         await AcceptanceRun.runIfRequested(model: model, theme: theme)

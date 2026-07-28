@@ -74,6 +74,14 @@ public final class ViewerModel {
 
     public internal(set) var speed = SpeedState()
     public internal(set) var loop = LoopRegion()
+    /// How far `Z`/`X`, `⇧Z`/`⇧X` and `⌥Z`/`⌥X` move (spec §6.2).
+    ///
+    /// The applied value lives here, and `NudgeSettings` is only its backing
+    /// tape: the menu titles and the nudge actions both read this, so there is
+    /// one source of truth. Starts at the shipped defaults and is replaced once
+    /// by `attach(nudge:)` at launch — a model built by a unit test therefore
+    /// never touches the user's real preferences.
+    public internal(set) var nudgeAmounts = NudgeAmounts.defaults
     /// Output level and mute. Half scale by default, and it survives a load: how
     /// loud you want it is a property of your headphones, not of the file.
     public internal(set) var volume = VolumeState()
@@ -111,6 +119,9 @@ public final class ViewerModel {
     /// than at the three call sites that can open a file (menu, drop, the recent
     /// list itself), so a new way in cannot forget to.
     @ObservationIgnored var recents: RecentFiles?
+    /// Where `nudgeAmounts` is persisted, if the app shell attached a store.
+    /// Absent in unit tests, which is what keeps them off `UserDefaults`.
+    @ObservationIgnored var nudgeStore: NudgeSettings?
     @ObservationIgnored let clock = PlayheadClock()
 
     /// Written only by `refresh()` in `ViewerModel+Rendering`, which is why the
@@ -181,8 +192,10 @@ public final class ViewerModel {
     /// Each `E`/`R` press changes zoom by this factor. A half-octave keeps the
     /// key-repeat sweep readable instead of jumping past the detail you want.
     static let zoomStep = 1.4142135623730951
-    /// `Z`/`X` move by a fraction of the visible width, so panning speed follows
-    /// zoom instead of crawling when zoomed in.
+    /// A keyboard pan moves by this fraction of the visible width, so panning
+    /// speed follows zoom instead of crawling when zoomed in. Left on the View
+    /// menu's Scroll items and the trackpad; `Z`/`X` are the nudge keys (spec
+    /// §6.2), and moving the playhead brings the view with it anyway.
     static let panFraction = 0.12
     static let doubleClickSeconds = 0.4
     static let clickSlopPoints = 3.0

@@ -2,6 +2,7 @@ import AppKit
 import ArtscribeKit
 import ArtscribeUI
 import Foundation
+import Playback
 
 /// A scripted drive of the *running* window, used to check the acceptance list
 /// on a machine where no synthetic input can be posted from outside the process
@@ -14,8 +15,31 @@ import Foundation
 /// touch it.
 enum AcceptanceRun {
 
+    /// Set to `1` to actually *hear* an acceptance run. Audible is the explicit
+    /// choice; silence is what you get by not choosing.
+    static let audibleEnvironmentKey = "ARTSCRIBE_ACCEPTANCE_AUDIBLE"
+
+    /// An automated run makes no sound.
+    ///
+    /// Agents launch this binary to check their own work, on a machine that is
+    /// usually in the same room as a person; turning the system volume down is
+    /// not a fix, because the run happens whether or not anyone did. So the
+    /// harness closes `OutputAudibility`'s gate itself, unconditionally, and the
+    /// override has to be typed on purpose.
+    ///
+    /// Called twice — from `AcceptanceMain.init`, which is this binary's first
+    /// line, and again here on the run path before any file is loaded. Both are
+    /// before an `AudioOutput` can exist, and either alone is sufficient; two
+    /// because a single call in an entry point is exactly the kind of thing a
+    /// later refactor drops without noticing.
+    static func silenceOutput() {
+        guard ProcessInfo.processInfo.environment[audibleEnvironmentKey] != "1" else { return }
+        OutputAudibility.shared.silence()
+    }
+
     @MainActor
     static func runIfRequested(model: ViewerModel, theme: ThemeController) async {
+        silenceOutput()
         let args = CommandLine.arguments
         guard let audioPath = value(after: "--acceptance", in: args) else { return }
         let audio = URL(fileURLWithPath: audioPath)
@@ -23,6 +47,12 @@ enum AcceptanceRun {
         let outputDirectory = value(after: "--out", in: args) ?? "."
 
         var log = Logger()
+        // Asserted, not assumed: the whole point is that no run can make a noise
+        // by accident, so the run says whether it can.
+        log.check(
+            "this run cannot reach the speakers", OutputAudibility.shared.isSilenced,
+            unless: ProcessInfo.processInfo.environment[audibleEnvironmentKey] == "1"
+                ? "\(audibleEnvironmentKey)=1 was set, so this run is deliberately audible" : nil)
         await settle(seconds: 1.0)
         // macOS restores a window's saved frame, so pin a known size: otherwise
         // the resize check below shrinks the window a little on every run.
@@ -51,6 +81,8 @@ enum AcceptanceRun {
         await checkScrollZoom(model: model, log: &log)
         await checkSpeedEmphasis(model: model, log: &log, outputDirectory: outputDirectory)
         await checkFileAndViewMenus(model: model, log: &log)
+        await checkNudge(model: model, log: &log)
+        await checkSettings(model: model, theme: theme, log: &log)
         await checkTheme(model: model, theme: theme, log: &log, outputDirectory: outputDirectory)
         await checkSelection(model: model, log: &log)
         await settle(seconds: 0.2)
@@ -172,19 +204,25 @@ enum AcceptanceRun {
         log.check("E returns to whole-file zoom", model.framesPerPixel >= fitted * 0.999)
     }
 
+    /// Panning and its clamps.
+    ///
+    /// Driven through the model rather than through `Z`/`X`: those are spec
+    /// §6.2's nudge keys as of Task 14, and the View menu's Scroll items — which
+    /// call exactly these methods — are what is left of keyboard panning. The
+    /// keys themselves are covered by `checkNudge`.
     @MainActor
     private static func checkPanClamping(model: ViewerModel, log: inout Logger) {
         model.fitWholeFile()
         for _ in 0..<6 { press(.r) }
-        for _ in 0..<10 { press(.x) }
+        for _ in 0..<10 { model.scrollRight() }
         let moved = model.viewport.startFrame
-        log.check("X pans right (startFrame \(moved))", moved > 0)
-        press(.z)
-        log.check("Z pans back left", model.viewport.startFrame < moved)
-        for _ in 0..<40 { press(.z) }
-        log.check("Z clamps at the start", model.viewport.startFrame == 0)
-        for _ in 0..<400 { press(.x) }
-        log.check("X clamps at the end", model.viewport.endFrame == model.totalFrames)
+        log.check("scrolling right pans (startFrame \(moved))", moved > 0)
+        model.scrollLeft()
+        log.check("scrolling left pans back", model.viewport.startFrame < moved)
+        for _ in 0..<40 { model.scrollLeft() }
+        log.check("panning clamps at the start", model.viewport.startFrame == 0)
+        for _ in 0..<400 { model.scrollRight() }
+        log.check("panning clamps at the end", model.viewport.endFrame == model.totalFrames)
         log.check("still zoomed in after clamping", model.viewport.startFrame > 0)
     }
 

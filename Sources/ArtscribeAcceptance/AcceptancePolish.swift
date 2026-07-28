@@ -40,7 +40,13 @@ extension AcceptanceRun {
     }
 
     /// The File and View menus: Open Recent (populated by the file this run
-    /// loaded) and Theme, both read back out of AppKit rather than assumed.
+    /// loaded) and the zoom and selection items, read back out of AppKit rather
+    /// than assumed.
+    ///
+    /// Theme is no longer among them — Task 14 moved it into Settings, and
+    /// `checkSettings` is what confirms it left. The theme's behaviour is
+    /// checked through the controller the Settings control binds to, in
+    /// `checkTheme`.
     @MainActor
     static func checkFileAndViewMenus(model: ViewerModel, log: inout Logger) async {
         await checkRecentMenu(model: model, log: &log)
@@ -51,43 +57,12 @@ extension AcceptanceRun {
             return
         }
         await refreshMenu(view)
-        log.note("View menu", view.items.map(\.title).joined(separator: " | "))
-        guard let theme = view.items.first(where: { $0.title == "Theme" })?.submenu else {
-            log.check("the View menu carries Theme", false)
-            return
-        }
-        await refreshMenu(theme)
-        let options = theme.items.map(\.title)
-        log.note("Theme menu", options.joined(separator: " | "))
-        log.check("Theme offers System, Light and Dark", options == ["System", "Light", "Dark"])
-        log.check(
-            "the current theme is checked",
-            theme.items.first { $0.state == .on }?.title == "Dark")
-
-        // Driven through AppKit, not by setting the preference: this is the
-        // path a user takes, and it is the one where a `Commands` body that
-        // failed to re-evaluate would leave a dead menu item behind.
-        if let light = theme.items.firstIndex(where: { $0.title == "Light" }) {
-            theme.performActionForItem(at: light)
-            await settle(seconds: 0.6)
-            log.check("choosing Light from the menu switches the theme", model.appearance == .light)
-            // Re-fetched, not reused: SwiftUI is free to hand AppKit a whole new
-            // submenu, and a held reference would then report the old one.
-            await refreshMenu(view)
-            let reopened = view.items.first { $0.title == "Theme" }?.submenu
-            if let reopened { await refreshMenu(reopened) }
-            log.note(
-                "Theme states after choosing Light",
-                (reopened?.items.map { "\($0.title)=\($0.state.rawValue)" } ?? []).joined(
-                    separator: " | "))
+        let titles = view.items.map(\.title).filter { !$0.isEmpty }
+        log.note("View menu", titles.joined(separator: " | "))
+        let wanted = ["Fit Whole File", "Zoom to Selection", "Zoom In", "Zoom Out", "Select All"]
+        for expected in wanted {
             log.check(
-                "the checkmark follows the choice",
-                reopened?.items.first { $0.state == .on }?.title == "Light")
-        }
-        if let dark = theme.items.firstIndex(where: { $0.title == "Dark" }) {
-            theme.performActionForItem(at: dark)
-            await settle(seconds: 0.6)
-            log.check("choosing Dark from the menu switches back", model.appearance == .dark)
+                "the View menu carries \(expected)", titles.contains { $0.hasPrefix(expected) })
         }
     }
 

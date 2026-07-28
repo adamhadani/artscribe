@@ -99,9 +99,11 @@ public struct DocumentView: View {
     /// equivalents, for the reason `ViewerCommands` records: a plain-letter key
     /// equivalent is claimed application-wide and flashes the menu bar on every
     /// keystroke, which during a `Q`/`W` speed sweep or an `E`/`R` zoom sweep is
-    /// a strobe. Only the modifier-bearing shortcuts (`⇧Q`, `⇧W`, `⌥E`) are real
-    /// menu key equivalents, and those the menu consumes before this ever sees
-    /// them — so no action can fire twice.
+    /// a strobe. The modifier-bearing shortcuts (`⇧Q`, `⇧W`, `⌥E`, and the nudge
+    /// cluster's `⇧Z`, `⇧X`, `⌥Z`, `⌥X`) are also real menu key equivalents, and
+    /// AppKit offers an event to the menu bar before the window — a claimed
+    /// event never arrives here, so no action fires twice. `⌥←` and `⌥→` are the
+    /// chords no menu item could carry, since an `NSMenuItem` holds exactly one.
     private func handle(_ press: KeyPress) -> KeyPress.Result {
         guard !press.modifiers.contains(.command) else { return .ignored }
         // `press.key.character`, not `press.characters`: with Option held the
@@ -112,6 +114,7 @@ public struct DocumentView: View {
         let handled =
             handleTransport(press)
             || handleVolume(character, press: press)
+            || handleNavigation(character, press: press)
             || handleView(character, press: press)
             || handleSpeed(character, press: press)
             || handleLoop(character)
@@ -145,14 +148,50 @@ public struct DocumentView: View {
         return true
     }
 
+    /// The three nudge tiers (spec §6.2): `Z`/`X` and `←`/`→` by the normal
+    /// amount, `⇧`-modified by the fine one, `⌥`-modified by the coarse one.
+    ///
+    /// The whole cluster is handled here, including the four chords the Playback
+    /// menu also declares as key equivalents — deliberately, and following what
+    /// `⇧Q`/`⇧W`/`⌥E` already do. AppKit offers a key event to the menu bar
+    /// *before* the window, and a claimed event never reaches `onKeyPress`, so
+    /// there is still exactly one fire; what this adds is a path when the menu
+    /// does not claim it. That case is real: measured in the acceptance run,
+    /// `NSMenu` matches these items only against a **lowercase**
+    /// `charactersIgnoringModifiers`, so a `⇧Z` reported as "Z" is not claimed
+    /// by the menu at all. `⇧Z` is menu-only otherwise, and an unreachable fine
+    /// nudge is precisely the silent degradation the spec forbids.
+    ///
+    /// `⇧←`/`⇧→` are deliberately left alone. On the arrows ⇧ extends the
+    /// selection (spec §6.2 records why the two clusters differ), so a fine
+    /// nudge there would take a binding that belongs to something else.
+    private func handleNavigation(_ character: String, press: KeyPress) -> Bool {
+        let option = press.modifiers.contains(.option)
+        let shift = press.modifiers.contains(.shift)
+        switch press.key {
+        case .leftArrow, .rightArrow:
+            guard !shift else { return false }
+            model.nudge(
+                option ? .coarse : .normal,
+                direction: press.key == .leftArrow ? .backward : .forward)
+            return true
+        default:
+            break
+        }
+        guard character == "z" || character == "x" else { return false }
+        // ⌥ before ⇧: the two are separate tiers, and holding both is a typo
+        // rather than a fourth tier.
+        let tier: NudgeTier = option ? .coarse : (shift ? .fine : .normal)
+        model.nudge(tier, direction: character == "z" ? .backward : .forward)
+        return true
+    }
+
     private func handleView(_ character: String, press: KeyPress) -> Bool {
         // ⌥E is the engine toggle, not a zoom — checked before the bare `e`.
         guard !(character == "e" && press.modifiers.contains(.option)) else { return false }
         switch character {
         case "e": model.zoomOut()
         case "r": model.zoomIn()
-        case "z": model.scrollLeft()
-        case "x": model.scrollRight()
         default: return false
         }
         return true

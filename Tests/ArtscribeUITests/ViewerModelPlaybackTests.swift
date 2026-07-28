@@ -1,5 +1,6 @@
 import ArtscribeKit
 import AudioDecode
+import Foundation
 import Observation
 import Testing
 import Waveform
@@ -20,10 +21,10 @@ struct ViewerModelPlaybackTests {
     private static let sampleRate: Double = 44100
     private static let totalFrames: FrameIndex = 441_000  // 10 s
 
-    private func makeModel() -> ViewerModel {
-        let storage = AudioStorage(channels: 1, capacityFrames: Int(Self.totalFrames))
+    private func makeModel(frames: FrameIndex = Self.totalFrames) -> ViewerModel {
+        let storage = AudioStorage(channels: 1, capacityFrames: Int(frames))
         let audio = DecodedAudio(
-            channels: 1, sampleRate: Self.sampleRate, frameCount: Self.totalFrames,
+            channels: 1, sampleRate: Self.sampleRate, frameCount: frames,
             storage: storage)
         let model = ViewerModel()
         model.loadForTesting(audio: audio, pyramid: PeakPyramid.build(audio), widthPixels: 1000)

@@ -190,7 +190,8 @@ extension ViewerModel {
         }
     }
 
-    private func autoScroll() {
+    /// Internal, not private: a nudge follows the playhead through this as well.
+    func autoScroll() {
         guard let start = AutoScroll.pageStart(playhead: playhead, viewport: viewport, loop: loop)
         else { return }
         let delta = Double(start - viewport.startFrame) / viewport.framesPerPixel

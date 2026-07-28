@@ -58,11 +58,22 @@ extension AcceptanceRun {
         static let shiftUp = Key(126, "\u{F700}", modifiers: .shift)
         static let shiftDown = Key(125, "\u{F701}", modifiers: .shift)
 
+        static let left = Key(123, "\u{F702}")
+        static let right = Key(124, "\u{F703}")
+        static let optionLeft = Key(123, "\u{F702}", modifiers: .option)
+        static let optionRight = Key(124, "\u{F703}", modifiers: .option)
+
         static let shiftW = Key(13, "W", modifiers: .shift)
         static let shiftQ = Key(12, "Q", modifiers: .shift)
+        static let shiftZ = Key(6, "Z", modifiers: .shift)
+        static let shiftX = Key(7, "X", modifiers: .shift)
         /// On a US layout ⌥E is the acute-accent dead key, so `characters` is the
         /// combining accent and only `charactersIgnoringModifiers` says "e".
         static let optionE = Key(14, "\u{301}", ignoring: "e", modifiers: .option)
+        /// Same shape as `optionE`: ⌥Z is Ω and ⌥X is ≈ on a US layout, and only
+        /// `charactersIgnoringModifiers` names the key that was pressed.
+        static let optionZ = Key(6, "Ω", ignoring: "z", modifiers: .option)
+        static let optionX = Key(7, "≈", ignoring: "x", modifiers: .option)
     }
 
     @MainActor
@@ -84,6 +95,45 @@ extension AcceptanceRun {
             else { continue }
             NSApp.sendEvent(event)
         }
+    }
+
+    /// The same chord as `NSMenu` wants to see it: key-equivalent matching is
+    /// case-sensitive against `charactersIgnoringModifiers`, and SwiftUI stores
+    /// a shifted letter shortcut as the *lowercase* letter plus a shift mask.
+    static func lowercased(_ key: Key) -> Key {
+        Key(
+            key.code, key.characters,
+            ignoring: key.charactersIgnoringModifiers.lowercased(), modifiers: key.modifiers)
+    }
+
+    /// Offers a chord to the menu bar exactly as `NSApplication` does on a real
+    /// keystroke, and answers whether a menu item claimed it.
+    ///
+    /// Needed because a *synthesised* event does not reach a non-`⌘` menu key
+    /// equivalent in this harness. `⌘9` and `⌘0` fire through `press(…)`;
+    /// `⇧Z`, `⌥Z` and friends do not, and nothing about the app decides that —
+    /// no application here can become active or key (the login session's screen
+    /// is locked), and the routing `sendEvent` does for those chords depends on
+    /// it. The pre-existing `⇧W`/`⌥E` checks never noticed because both of those
+    /// are *also* handled by the window, so one path or the other always fired.
+    /// The nudge cluster's modified chords are menu-only by design, so they need
+    /// the menu asked directly.
+    @MainActor
+    static func offerToMenuBar(_ key: Key) -> Bool {
+        guard let window = NSApp.keyWindow ?? NSApp.windows.first,
+            let event = NSEvent.keyEvent(
+                with: .keyDown,
+                location: .zero,
+                modifierFlags: key.modifiers,
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                characters: key.characters,
+                charactersIgnoringModifiers: key.charactersIgnoringModifiers,
+                isARepeat: false,
+                keyCode: key.code)
+        else { return false }
+        return NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false
     }
 
     /// Vertical position, in window coordinates, that lands inside the waveform
@@ -193,7 +243,15 @@ extension AcceptanceRun {
 
     @MainActor
     static func snapshot(to path: String) {
-        guard let window = NSApp.windows.first, let view = window.contentView,
+        snapshot(NSApp.windows.first, to: path)
+    }
+
+    /// Captures one named window rather than the viewer. `cacheDisplay` draws
+    /// the view itself, so this works with the login session's screen locked —
+    /// a screen grab would not.
+    @MainActor
+    static func snapshot(_ window: NSWindow?, to path: String) {
+        guard let window, let view = window.contentView,
             let representation = view.bitmapImageRepForCachingDisplay(in: view.bounds)
         else { return }
         view.cacheDisplay(in: view.bounds, to: representation)

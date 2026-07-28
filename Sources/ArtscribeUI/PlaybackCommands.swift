@@ -34,9 +34,10 @@ public struct PlaybackCommands: Commands {
 
 /// The transport, speed and loop items.
 ///
-/// **On key equivalents.** Only the modifier-bearing shortcuts (`⇧Q`, `⇧W`, `⌥E`)
-/// are declared as real key equivalents. The unmodified cluster — `Space`,
-/// `Return`, `Q`, `W`, `1`–`4`, `A`–`G` — is shown in the titles instead and
+/// **On key equivalents.** Only the modifier-bearing shortcuts (`⇧Q`, `⇧W`, `⌥E`,
+/// and the navigation cluster's `⇧Z`, `⇧X`, `⌥Z`, `⌥X`) are declared as real key
+/// equivalents. The unmodified cluster — `Space`,
+/// `Return`, `Q`, `W`, `Z`, `X`, `1`–`4`, `A`–`G` — is shown in the titles instead and
 /// handled by `DocumentView`, following the convention `ViewerCommands` set: a
 /// plain-letter menu key equivalent is claimed application-wide and flashes the
 /// menu bar on every keystroke, which during a held `Q`/`W` speed sweep is a
@@ -54,6 +55,10 @@ struct PlaybackMenu: View {
             Button("Stop") { model.pause() }
                 .disabled(!model.isPlaying)
             Button("Play from Start  (Return)") { model.playFromStart() }
+
+            Divider()
+
+            navigationItems
 
             Divider()
 
@@ -82,6 +87,36 @@ struct PlaybackMenu: View {
         // actually tracks `hasTrack`. Every action underneath is a guarded no-op
         // as well, so this is belt and braces rather than the only defence.
         .disabled(!model.hasTrack)
+    }
+
+    /// Spec §6.2's three nudge tiers, with their live amounts in the titles.
+    ///
+    /// The amounts are in the titles rather than only in Settings for two
+    /// reasons: the menu is where you look to find out what a key does, and it
+    /// is the only place a Settings change is visible without pressing the key
+    /// and guessing. They track `model.nudgeAmounts` because this is a `View`.
+    ///
+    /// The same key-equivalent split as the rest of the menu: `⇧Z`/`⇧X` and
+    /// `⌥Z`/`⌥X` are real menu key equivalents, while the unmodified `Z`/`X` and
+    /// the arrows are shown in the titles and handled by `DocumentView`. `⌥←` and
+    /// `⌥→` are named as alternates because an `NSMenuItem` carries exactly one
+    /// key equivalent; the window handles those two.
+    @ViewBuilder
+    private var navigationItems: some View {
+        let fine = NudgeAmounts.label(seconds: model.nudgeAmounts[.fine])
+        let normal = NudgeAmounts.label(seconds: model.nudgeAmounts[.normal])
+        let coarse = NudgeAmounts.label(seconds: model.nudgeAmounts[.coarse])
+
+        Button("Nudge Back \(normal)  (Z / ←)") { model.nudge(.normal, direction: .backward) }
+        Button("Nudge Forward \(normal)  (X / →)") { model.nudge(.normal, direction: .forward) }
+        Button("Nudge Back (Fine) \(fine)") { model.nudge(.fine, direction: .backward) }
+            .keyboardShortcut("Z", modifiers: .shift)
+        Button("Nudge Forward (Fine) \(fine)") { model.nudge(.fine, direction: .forward) }
+            .keyboardShortcut("X", modifiers: .shift)
+        Button("Rewind \(coarse)  (also ⌥←)") { model.nudge(.coarse, direction: .backward) }
+            .keyboardShortcut("z", modifiers: .option)
+        Button("Skip \(coarse)  (also ⌥→)") { model.nudge(.coarse, direction: .forward) }
+            .keyboardShortcut("x", modifiers: .option)
     }
 
     @ViewBuilder

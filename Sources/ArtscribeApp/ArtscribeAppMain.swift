@@ -14,9 +14,12 @@ struct ArtscribeAppMain: App {
     /// every loaded track.
     @State private var recents = RecentFiles()
     /// Light / Dark / System, persisted. Owned here because it is a property of
-    /// the application rather than of the loaded track — and so the Settings
-    /// window (Task 14) can bind to the same object the View menu does.
+    /// the application rather than of the loaded track; the Settings window
+    /// binds to this object.
     @State private var theme = ThemeController()
+    /// Where the nudge amounts are persisted. The applied values live on the
+    /// model — this is only their backing tape (see `NudgeSettings`).
+    @State private var nudge = NudgeSettings()
 
     init() {
         // A SwiftPM executable is not an app bundle, so AppKit starts it as an
@@ -33,8 +36,15 @@ struct ArtscribeAppMain: App {
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
-            ViewerCommands(model: model, theme: theme, recents: recents)
+            ViewerCommands(model: model, recents: recents)
             PlaybackCommands(model: model, devices: devices)
+        }
+
+        // The idiomatic route to **Artscribe ▸ Settings…**: this scene is what
+        // puts the item in the app menu and wires ⌘, to it, so neither is
+        // hand-rolled here.
+        Settings {
+            SettingsView(model: model, theme: theme)
         }
     }
 
@@ -45,6 +55,7 @@ struct ArtscribeAppMain: App {
         // one that is.
         model.attach(devices: devices)
         model.attach(recents: recents)
+        model.attach(nudge: nudge)
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
     }

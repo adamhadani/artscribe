@@ -233,9 +233,17 @@ important detail for a tool whose core use is listening to the same four bars fi
 | `volume.up.fine` / `.down.fine` | `⇧↑` / `⇧↓` | Volume ∓1% |
 | `volume.mute` | `M` | Mute, restoring the prior level |
 | `file.openRecent` | — | File ▸ Open Recent, 8 entries, de-duplicated by resolved path |
-| `view.theme` | — | Light / Dark / System; consolidates into Settings |
+| `view.theme` | — | Light / Dark / System; **in Settings ▸ Appearance**, consolidated there from the View menu |
 | `help.shortcuts` | `⌘/` | Help sheet |
 | `app.settings` | `⌘,` | Settings — in the **app menu** (Artscribe ▸ Settings…), the macOS convention since Ventura, wired automatically by SwiftUI's `Settings` scene |
+
+**A nudge may leave an active loop region.** All three tiers move the playhead freely, loop
+or no loop, matching Transcribe!: the tier you reach for when the phrase starts a beat
+earlier than you set the in point is exactly the one that has to be able to cross the
+boundary. The loop itself is untouched — still set, still enabled — and `F`
+(`loop.restart`) is one key away when you want to be back inside it. Nudging is otherwise
+transport-neutral: it works stopped or playing, and pushes nothing but `seek`, so it never
+starts, stops or restarts playback.
 
 **Note on ⇧, which is deliberately inconsistent between the two nudge bindings.** On the
 arrow keys ⇧ *extends the selection*, following the macOS text-editing convention every Mac

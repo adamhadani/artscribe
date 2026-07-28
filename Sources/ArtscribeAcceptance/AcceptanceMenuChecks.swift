@@ -30,7 +30,10 @@ extension AcceptanceRun {
         for expected in [
             "Play", "Stop", "Play from Start", "Faster", "Slower", "Set Loop In", "Set Loop Out",
             "Loop", "Restart Loop", "Selection", "Output Device",
-            "Volume Up", "Volume Down", "Volume Up (Fine)", "Volume Down (Fine)", "Mute"
+            "Volume Up", "Volume Down", "Volume Up (Fine)", "Volume Down (Fine)", "Mute",
+            // Spec §6.2's three navigation tiers, six items.
+            "Nudge Back", "Nudge Forward", "Nudge Back (Fine)", "Nudge Forward (Fine)",
+            "Rewind", "Skip"
         ] {
             log.check(
                 "the menu carries \(expected)",

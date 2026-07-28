@@ -24,12 +24,10 @@ public enum ViewerActions {
 /// binding table behind it.
 public struct ViewerCommands: Commands {
     private let model: ViewerModel
-    private let theme: ThemeController
     private let recents: RecentFiles
 
-    public init(model: ViewerModel, theme: ThemeController, recents: RecentFiles) {
+    public init(model: ViewerModel, recents: RecentFiles) {
         self.model = model
-        self.theme = theme
         self.recents = recents
     }
 
@@ -53,18 +51,18 @@ public struct ViewerCommands: Commands {
 
             Button("Zoom In  (R)") { model.zoomIn() }
             Button("Zoom Out  (E)") { model.zoomOut() }
-            Button("Scroll Left  (Z)") { model.scrollLeft() }
-            Button("Scroll Right  (X)") { model.scrollRight() }
+            // No key equivalents any more: `Z`/`X` are spec §6.2's nudge keys,
+            // and a nudge brings the view with it through the same page-flip
+            // rule that follows playback, so moving the *view* on its own is
+            // left to these items, the trackpad, and the overview strip.
+            Button("Scroll Left") { model.scrollLeft() }
+            Button("Scroll Right") { model.scrollRight() }
 
             Divider()
 
             Button("Select All") { model.selectAll() }
                 .keyboardShortcut("a", modifiers: .command)
             Button("Clear Selection  (Esc)") { model.clearSelection() }
-
-            Divider()
-
-            ThemeMenu(theme: theme)
         }
     }
 }
@@ -96,32 +94,8 @@ struct RecentFilesMenu: View {
     }
 }
 
-/// Light / Dark / System.
-///
-/// In the **View** menu rather than in Settings, for now: it changes how this
-/// window looks, which is what the View menu is for, and the app has no Settings
-/// scene yet. When one arrives (Task 14) the control moves by pointing a
-/// `@Bindable` at the same `ThemeController` and deleting this — no state moves
-/// with it, because none of it lives here.
-///
-/// A nested `View`, not items written straight into the `Commands` body, for the
-/// reason `PlaybackCommands` documents at length: a `Commands` body is not
-/// re-evaluated when an `@Observable` changes, so the checkmarks would go stale.
-struct ThemeMenu: View {
-    let theme: ThemeController
-
-    var body: some View {
-        Menu("Theme") {
-            ForEach(ThemePreference.allCases) { option in
-                // Radio behaviour, as in the output-device menu: turning an item
-                // on selects it, and turning the current one off would leave
-                // nothing selected, so it is ignored.
-                Toggle(
-                    option.label,
-                    isOn: Binding(
-                        get: { theme.preference == option },
-                        set: { isOn in if isOn { theme.preference = option } }))
-            }
-        }
-    }
-}
+// The theme control used to live here, as `View ▸ Theme`. Task 13 parked it
+// there because the app had no Settings window yet; Task 14 built one and moved
+// it, which is what it was parked for. No state moved with it — it always lived
+// in `ThemeController`, and `SettingsView` points a `@Bindable` at the same
+// object this menu was reading.
