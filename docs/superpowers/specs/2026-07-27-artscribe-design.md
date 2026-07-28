@@ -208,7 +208,7 @@ important detail for a tool whose core use is listening to the same four bars fi
 | ActionID | Default binding | Action |
 |---|---|---|
 | `transport.playPause` | `Space` | Play / pause |
-| `transport.returnToStart` | `⇧Space` | To selection start, else 0 |
+| `transport.returnToStart` | `⇧Space` | To the selection start; else an **active** loop's in point; else 0 |
 | `transport.nudge.back` / `.forward` | `Z` / `X`, `←` / `→` | Nudge **2 s** (configurable) |
 | `transport.nudge.back.fine` / `.forward.fine` | `⇧Z` / `⇧X` | Nudge 50 ms (configurable) |
 | `transport.nudge.back.coarse` / `.forward.coarse` | `⌥Z` / `⌥X`, `⌥←` / `⌥→` | Rewind/skip **10 s** (configurable) |
@@ -264,7 +264,7 @@ zoom is the only one that anchors on the playhead.
 | Left-drag | Lanes | Select a passage. **The core gesture — not negotiable** |
 | ⇧ left-drag | Lanes | Extend the selection, keeping its anchor |
 | Click | Lanes | Place the playhead, clear the selection |
-| Double-click | Lanes | Select all |
+| Double-click | Lanes | Place the playhead there **and play from it** — never re-routed to a selection or loop start (`⌘A` remains Select All) |
 | **⌥ left-drag, vertically** | **Lanes** | **Zoom, smooth and continuous, anchored at the drag's start** |
 | **Left-drag, vertically** | **Time ruler** | **The same zoom, with no modifier — Ableton's and Melodyne's ruler convention** |
 | Click / drag | Overview strip | Centre the viewport there |

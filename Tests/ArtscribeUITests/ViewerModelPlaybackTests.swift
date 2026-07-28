@@ -207,21 +207,6 @@ struct ViewerModelPlaybackTests {
 
     // MARK: - Transport
 
-    @Test("Shift-Space goes to the selection start, or to zero when there is none")
-    func returnToStart() {
-        let model = makeModel()
-        model.seek(to: 300_000)
-        model.returnToStart()
-        #expect(model.playhead == 0)
-
-        model.dragChanged(startPixel: 200, currentPixel: 200, extending: false)
-        model.dragChanged(startPixel: 200, currentPixel: 500, extending: false)
-        let start = model.selection.range.start
-        model.seek(to: 300_000)
-        model.returnToStart()
-        #expect(model.playhead == start)
-    }
-
     @Test("seeking clamps into the file")
     func seekClamps() {
         let model = makeModel()

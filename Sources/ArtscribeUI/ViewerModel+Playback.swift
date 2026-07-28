@@ -238,19 +238,24 @@ extension ViewerModel {
         transport.request(false, now: ProcessInfo.processInfo.systemUptime)
     }
 
-    /// `⇧Space` (`Return` until Task 18). To the selection start, else the file
-    /// start, and plays from there — the transcriber's most-used key, because it
-    /// is how you hear the same phrase again.
+    /// `⇧Space` (`Return` until Task 18). To the selection start, else the loop's
+    /// in point, else the file start — and plays from there. The transcriber's
+    /// most-used key, because it is how you hear the same phrase again.
     public func playFromStart() {
         guard hasTrack else { return }
         returnToStart()
         play()
     }
 
-    /// The seek half of `⇧Space`, without playing. The name predates the rebind.
+    /// The seek half of `⇧Space`, without playing, and bound on its own as well —
+    /// which is why the precedence lives here rather than in `playFromStart`. The
+    /// name predates the rebind.
+    ///
+    /// See `PlaybackStart` for the rule and for why an *active* loop is the one
+    /// that counts.
     public func returnToStart() {
         guard hasTrack else { return }
-        seek(to: selection.isEmpty ? 0 : selection.range.start)
+        seek(to: PlaybackStart.target(selection: selection, loop: loop))
     }
 
     /// The single place the playhead moves by user action. Both halves matter:

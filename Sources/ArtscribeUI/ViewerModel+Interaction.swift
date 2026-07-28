@@ -152,7 +152,7 @@ extension ViewerModel {
     /// A zoom drag must **not** fall through to `dragEnded`: an ⌥-drag that
     /// never really moved would otherwise be read as a click, seek the playhead
     /// and throw the selection away — and two of them as a double-click, which
-    /// selects the whole file.
+    /// starts playing.
     ///
     /// With no latched mode this behaves exactly as it did before ⌥-drag
     /// existed, so an end that somehow arrives without a preceding change still
@@ -243,8 +243,30 @@ extension ViewerModel {
     }
 
     /// Ends a drag. A drag that never really moved is a click: it places the
-    /// playhead and clears the selection, and two of them in quick succession
-    /// select the whole file.
+    /// playhead and clears the selection, and two of them in quick succession do
+    /// that **and start playing from there**.
+    ///
+    /// Double-click was Select All until Task 22. `⌘A` still is, so nothing was
+    /// lost — only the gesture was reassigned, to the thing a transcriber
+    /// actually wants from pointing at a spot twice.
+    ///
+    /// It plays from the click point and from nowhere else. In particular it is
+    /// **not** routed through `PlaybackStart`, which is what `⇧Space` uses: that
+    /// rule picks a start when the user has not named one, and a double-click
+    /// names one. Aiming it at a selection or a loop's in point would make the
+    /// pointer land somewhere the finger did not.
+    ///
+    /// The playhead is placed before playing, so `play`'s end-of-file rewind sees
+    /// the clicked position rather than the one being left behind.
+    ///
+    /// What it does *not* override is `PlaybackEngine`'s loop containment: a
+    /// double-click outside an active loop still gets pulled into the region,
+    /// because the loop is an explicit, visible, persistent setting and the click
+    /// is a transient one. Silently clearing or disabling a loop as a side effect
+    /// of a click would destroy state the user set on purpose and can only
+    /// restore by hand, and making this the one gesture that escapes the loop
+    /// would put back exactly the "two competing rules" feel Task 22 A removed.
+    /// The playhead visibly snaps into the region, and `D` turns looping off.
     ///
     /// The `dragOrigin` reset here is a courtesy, not the correctness
     /// mechanism — see `dragChanged`, which recovers on its own if this never
@@ -256,14 +278,13 @@ extension ViewerModel {
             lastClick = nil
             return
         }
-        if isSecondClick(at: endPixel, now: now) {
-            lastClick = nil
-            selectAll()
-            return
-        }
-        lastClick = (endPixel, now)
+        // Cleared, not advanced: consuming it is what stops a third click from
+        // chaining into another double-click.
+        let isDouble = isSecondClick(at: endPixel, now: now)
+        lastClick = isDouble ? nil : (endPixel, now)
         seek(to: PixelMapping.frame(atPixel: endPixel, in: viewport))
         selection.clear()
+        if isDouble { play() }
     }
 
     private func isSecondClick(at pixel: Double, now: Double) -> Bool {

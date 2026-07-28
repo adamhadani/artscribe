@@ -81,7 +81,9 @@ public enum TransportControl: String, CaseIterable, Sendable, Hashable {
         .nudgeForward: Face(shortcut: "X", title: "Nudge Forward", symbol: "forward.frame.fill"),
         .skip: Face(shortcut: "⌥X", title: "Skip", symbol: "forward.fill"),
         .playFromStart: Face(
-            shortcut: "⇧Space", title: "Play from Selection Start",
+            // Not "from Selection Start": since Task 22 it also aims at an
+            // active loop's in point when there is no selection.
+            shortcut: "⇧Space", title: "Play from Start",
             symbol: "backward.end.fill"),
         .loop: Face(shortcut: "D", title: "Loop", symbol: "repeat"),
         .slower: Face(shortcut: "Q", title: "Slower", symbol: "minus"),

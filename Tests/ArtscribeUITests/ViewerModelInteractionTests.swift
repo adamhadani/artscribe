@@ -140,13 +140,66 @@ struct ViewerModelInteractionTests {
         #expect(model.selection.range == expected)
     }
 
-    @Test("two clicks in quick succession, close together, select the whole file")
-    func doubleClickSelectsAll() {
+    /// These tests have no audio session (`loadForTesting` leaves it nil), so
+    /// `play()` cannot latch to playing — it reports "there is no audio output"
+    /// instead. That notice is therefore the model-level evidence that playback
+    /// was *asked for*, and nothing else in the click path raises one. The
+    /// audible half is driven for real by the acceptance run.
+    private func playWasRequested(_ model: ViewerModel) -> Bool {
+        model.playbackNotice != nil
+    }
+
+    @Test("a single click places the playhead without starting playback")
+    func singleClickDoesNotPlay() {
+        let model = makeModel()
+        model.dragEnded(startPixel: 300, endPixel: 300, now: 0)
+
+        #expect(model.playhead == PixelMapping.frame(atPixel: 300, in: model.viewport))
+        #expect(!playWasRequested(model))
+    }
+
+    /// Task 22 B: the gesture used to be Select All, which `⌘A` still is.
+    @Test("two clicks in quick succession, close together, play from the click point")
+    func doubleClickPlaysFromTheClickPoint() {
         let model = makeModel()
         model.dragEnded(startPixel: 300, endPixel: 300, now: 0)
         model.dragEnded(startPixel: 301, endPixel: 301, now: 0.1)
 
-        #expect(model.selection.range == FrameRange(start: 0, count: Self.totalFrames))
+        #expect(model.playhead == PixelMapping.frame(atPixel: 301, in: model.viewport))
+        #expect(playWasRequested(model))
+        // Emphatically not the old behaviour.
+        #expect(model.selection.range != FrameRange(start: 0, count: Self.totalFrames))
+        #expect(model.selection.isEmpty)
+    }
+
+    /// How B composes with A. `⇧Space` now aims at the selection start, else an
+    /// active loop's in point — but a double-click is an *explicit* cursor
+    /// placement and must play from where the finger landed, so it must not be
+    /// routed through that precedence.
+    ///
+    /// The selection is re-made between the two clicks because the first click
+    /// clears it, exactly as `⌘A` between two clicks would: what is under test is
+    /// the state `dragEnded` sees when it decides.
+    @Test("a double-click plays from the click point, not the selection or loop start")
+    func doubleClickIgnoresTheSelectionAndLoopStart() {
+        let model = makeModel()
+        model.seek(to: 200_000)
+        model.setLoopIn()
+        model.seek(to: 900_000)
+        model.setLoopOut()
+        model.toggleLoop()
+        #expect(model.loop.isActive)
+
+        model.dragEnded(startPixel: 600, endPixel: 600, now: 0)
+        model.selectAll()
+        #expect(!model.selection.isEmpty)
+        model.dragEnded(startPixel: 600, endPixel: 600, now: 0.1)
+
+        let clicked = PixelMapping.frame(atPixel: 600, in: model.viewport)
+        #expect(clicked != model.loop.range.start)
+        #expect(clicked != 0)
+        #expect(model.playhead == clicked)
+        #expect(playWasRequested(model))
     }
 
     @Test("a second click after the double-click window is a plain click, not a double-click")
@@ -156,7 +209,8 @@ struct ViewerModelInteractionTests {
         model.dragEnded(startPixel: 300, endPixel: 300, now: 1.0)
 
         #expect(model.selection.isEmpty)
-        #expect(model.selection.range != FrameRange(start: 0, count: Self.totalFrames))
+        #expect(model.playhead == PixelMapping.frame(atPixel: 300, in: model.viewport))
+        #expect(!playWasRequested(model))
     }
 
     @Test("a second click too far away is a plain click, not a double-click")
@@ -167,19 +221,22 @@ struct ViewerModelInteractionTests {
 
         #expect(model.selection.isEmpty)
         #expect(model.playhead == PixelMapping.frame(atPixel: 500, in: model.viewport))
+        #expect(!playWasRequested(model))
     }
 
-    @Test("three clicks: the third does not chain into another select-all")
+    @Test("three clicks: the third does not chain into a second play")
     func thirdClickDoesNotChain() {
         let model = makeModel()
         model.dragEnded(startPixel: 300, endPixel: 300, now: 0)
         model.dragEnded(startPixel: 300, endPixel: 300, now: 0.1)
-        #expect(model.selection.range == FrameRange(start: 0, count: Self.totalFrames))
+        #expect(playWasRequested(model))
 
-        // The double-click consumes `lastClick`, so an immediate third click
-        // is just a plain click, not a third selectAll toggle back off.
-        model.dragEnded(startPixel: 300, endPixel: 300, now: 0.15)
-        #expect(model.selection.isEmpty)
+        // The double-click consumes `lastClick`, so an immediate third click is
+        // just a plain click: it places the playhead and does not play again.
+        model.dismissPlaybackNotice()
+        model.dragEnded(startPixel: 320, endPixel: 320, now: 0.15)
+        #expect(model.playhead == PixelMapping.frame(atPixel: 320, in: model.viewport))
+        #expect(!playWasRequested(model))
     }
 
     @Test("dragEnded is a no-op with no track loaded")

@@ -133,7 +133,7 @@ Release, not debug — a debug build decodes roughly four times slower.
 | Key | Action |
 |---|---|
 | `Space` | Play / pause |
-| `⇧Space` | Play from start (of selection, else the file) |
+| `⇧Space` | Play from start — of the selection, else of an active loop, else of the file |
 | `Q` / `W` | Slower / faster (5%) |
 | `⇧Q` / `⇧W` | Slower / faster (1%) |
 | `1` `2` `3` `4` | 100% / 75% / 50% / 33% |
@@ -160,8 +160,9 @@ Release, not debug — a debug build decodes roughly four times slower.
 | `⌘0` / `⌘9` | Fit the whole file / zoom to selection |
 | `Esc` | Clear the selection |
 
-Drag in the lanes to select, shift-drag to extend, double-click to select all, click to
-place the playhead. Pinch to zoom, two-finger scroll to pan. Dragging the overview strip
+Drag in the lanes to select, shift-drag to extend, click to place the playhead, double-click
+to place it and play from there (`⌘A` is still Select All). Pinch to zoom, two-finger scroll
+to pan. Dragging the overview strip
 moves the visible window. **Drag down** on the time ruler — or ⌥-drag in the waveform — to
 zoom in smoothly; Settings ▸ Playback ▸ *Invert zoom direction* reverses that and the scroll
 wheel together.

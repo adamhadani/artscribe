@@ -123,6 +123,12 @@ enum AcceptanceRun {
         await settle(seconds: 0.2)
         snapshot(to: "\(outputDirectory)/07-playback.png")
 
+        // Task 22. Both need an audio graph, so they sit after `checkPlayback`
+        // rather than beside the other pointer checks; the double-click one also
+        // needs the window to still be key, which it re-asserts for itself.
+        await checkStartPrecedence(model: model, log: &log)
+        await checkDoubleClickPlays(model: model, log: &log)
+
         await checkResize(model: model, log: &log)
         await settle(seconds: 0.3)
         snapshot(to: "\(outputDirectory)/05-resized.png")
