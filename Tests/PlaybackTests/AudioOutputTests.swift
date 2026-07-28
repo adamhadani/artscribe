@@ -299,6 +299,67 @@ func theLatencyTheGraphAddsIsMeasuredNotAssumed() throws {
     #expect(frameBefore >= 1000 && frameBefore < 1500)
 }
 
+// MARK: - Silence
+
+/// The guarantee an automated run depends on: with `OutputAudibility` closed,
+/// what leaves the graph is exactly zero — not "quiet", not "attenuated".
+///
+/// Measured through the same real graph the hardware uses, and against a control
+/// with the gate open, so a test that could not fail (because the fixture was
+/// silent anyway, or because the engine never played) is ruled out by the
+/// control's own assertion.
+///
+/// The gate is process-wide and this test flips it. That is safe here and only
+/// here: every test in this file is `@MainActor` and every one of them renders
+/// synchronously, so no other test can observe the gate between the two lines
+/// that close and reopen it. The `defer` reopens it even if an expectation
+/// throws.
+@MainActor
+@Test(.enabled(if: hasOutputDevice)) func aSilencedGraphEmitsExactlyZero() throws {
+    let audio = makeAudio(channels: 2, sampleRate: 44100, frames: 44100) { _, i in
+        Float(sin(2 * Double.pi * 440 * Double(i) / 44100))
+    }
+
+    let (controlEngine, controlRing) = playingEngine(audio)
+    let control = try AudioOutput(engine: controlEngine, sampleRate: 44100, channels: 2)
+    let audible = try renderOffline(control, at: 44100, channels: 2, frames: 8192)
+    #expect(audible[0].contains { abs($0) > 0.1 }, "the control never made a sound to silence")
+
+    defer { OutputAudibility.shared.allowAudibleOutput() }
+    OutputAudibility.shared.silence()
+    #expect(OutputAudibility.shared.isSilenced)
+
+    let (engine, ring) = playingEngine(audio)
+    let output = try AudioOutput(engine: engine, sampleRate: 44100, channels: 2)
+    let rendered = try renderOffline(output, at: 44100, channels: 2, frames: 8192)
+    #expect(rendered[0].count == 8192)
+    for channel in rendered {
+        #expect(channel.allSatisfy { $0 == 0 }, "a silenced graph emitted a non-zero sample")
+    }
+
+    // And the engine still ran: the position advanced, which is what keeps the
+    // acceptance harness's playhead checks meaningful while it is muted.
+    #expect(engine.currentFrame > 0)
+    // The mixer is untouched, so the volume control still reads back the value
+    // the user asked for rather than the silencing.
+    output.setVolume(0.4)
+    #expect(abs(output.volume - 0.4) < 0.001)
+    _ = (ring, controlRing)
+}
+
+@MainActor
+@Test func theSilenceGateIsOffByDefaultAndCanBeClosedAndReopened() {
+    // The product app must be audible unless something explicitly says otherwise.
+    #expect(OutputAudibility.shared.isSilenced == false)
+    defer { OutputAudibility.shared.allowAudibleOutput() }
+    OutputAudibility.shared.silence()
+    #expect(OutputAudibility.shared.isSilenced)
+    OutputAudibility.shared.silence()
+    #expect(OutputAudibility.shared.isSilenced, "closing the gate twice must not reopen it")
+    OutputAudibility.shared.allowAudibleOutput()
+    #expect(OutputAudibility.shared.isSilenced == false)
+}
+
 @MainActor
 @Test(.enabled(if: hasOutputDevice)) func stoppingAnOutputThatNeverStartedIsANoOp() throws {
     let audio = makeAudio(channels: 2, sampleRate: 44100, frames: 4410) { _, _ in 0 }

@@ -13,11 +13,24 @@ import Synchronization
 @MainActor
 public final class AudioOutput: AudioOutputDeviceSink {
 
-    /// Counters the render thread publishes and the main actor polls. A separate
-    /// object because the render block must capture it without touching `self`
-    /// (which is main-actor isolated) and without ARC traffic.
-    fileprivate final class Diagnostics: Sendable {
+    /// Everything the render block needs that is not the engine: the counters it
+    /// publishes for the main actor to poll, and the silence gate it reads.
+    ///
+    /// A separate object because the render block must capture it without
+    /// touching `self` (which is main-actor isolated) and without ARC traffic —
+    /// and one object rather than two so the capture list stays short.
+    ///
+    /// `audibility` is `unowned(unsafe)` for the same reason the block's own
+    /// captures are: reading a strong reference from the render thread is
+    /// retain/release traffic, which spec §5 forbids. It points at a process-wide
+    /// singleton, so there is nothing for it to dangle against.
+    fileprivate final class RenderContext: Sendable {
         let layoutMismatches = Atomic<UInt64>(0)
+        unowned(unsafe) let audibility: OutputAudibility
+
+        init(audibility: OutputAudibility) {
+            self.audibility = audibility
+        }
     }
 
     /// Internal rather than private so the tests can drive this exact graph in
@@ -27,7 +40,7 @@ public final class AudioOutput: AudioOutputDeviceSink {
     private let sourceNode: AVAudioSourceNode
     private let engine: PlaybackEngine
     private let format: AVAudioFormat
-    private let diagnostics = Diagnostics()
+    private let context = RenderContext(audibility: OutputAudibility.shared)
     /// Preallocated so the render block never allocates.
     private let channelPointers: UnsafeMutablePointer<UnsafeMutablePointer<Float>?>
     private var configurationObserver: (any NSObjectProtocol)?
@@ -61,7 +74,7 @@ public final class AudioOutput: AudioOutputDeviceSink {
         sourceNode = AVAudioSourceNode(
             format: format,
             renderBlock: Self.makeRenderBlock(
-                engine: engine, diagnostics: diagnostics, channels: channels, into: pointers))
+                engine: engine, context: context, channels: channels, into: pointers))
 
         avEngine.attach(sourceNode)
         avEngine.connect(sourceNode, to: avEngine.mainMixerNode, format: format)
@@ -85,10 +98,10 @@ public final class AudioOutput: AudioOutputDeviceSink {
     /// that owns this block and cannot outlive it, because `deinit` stops the
     /// engine (tearing the block down) before releasing either.
     private static func makeRenderBlock(
-        engine: PlaybackEngine, diagnostics: Diagnostics, channels: Int,
+        engine: PlaybackEngine, context: RenderContext, channels: Int,
         into pointers: UnsafeMutablePointer<UnsafeMutablePointer<Float>?>
     ) -> AVAudioSourceNodeRenderBlock {
-        { [unowned(unsafe) engine, unowned(unsafe) diagnostics] _, _, frameCount, rawList in
+        { [unowned(unsafe) engine, unowned(unsafe) context] _, _, frameCount, rawList in
             let buffers = UnsafeMutableAudioBufferListPointer(rawList)
             let frames = Int(frameCount)
 
@@ -111,7 +124,7 @@ public final class AudioOutput: AudioOutputDeviceSink {
                         memset(data, 0, Int(buffers[i].mDataByteSize))
                     }
                 }
-                diagnostics.layoutMismatches.wrappingAdd(1, ordering: .relaxed)
+                context.layoutMismatches.wrappingAdd(1, ordering: .relaxed)
                 return noErr
             }
 
@@ -119,6 +132,19 @@ public final class AudioOutput: AudioOutputDeviceSink {
                 pointers[i] = buffers[i].mData?.assumingMemoryBound(to: Float.self)
             }
             _ = engine.render(into: pointers, frames: frames)
+
+            // The silence gate (see `OutputAudibility`). Deliberately *after* the
+            // render: the engine still advances, so the position it publishes is
+            // still real time and every position-based check still measures the
+            // real render thread — only the samples are discarded. This node is
+            // the graph's one signal source, so zeros here are silence at the DAC.
+            if context.audibility.isSilenced {
+                for i in 0..<channels {
+                    if let channel = pointers[i] {
+                        memset(channel, 0, frames * MemoryLayout<Float>.size)
+                    }
+                }
+            }
             return noErr
         }
     }
@@ -235,7 +261,7 @@ public final class AudioOutput: AudioOutputDeviceSink {
     /// behind the per-channel mapping is wrong on this system, and the block in
     /// question was filled with silence rather than corrupted.
     public var renderLayoutMismatchCount: UInt64 {
-        diagnostics.layoutMismatches.load(ordering: .relaxed)
+        context.layoutMismatches.load(ordering: .relaxed)
     }
 
     public func clearNotice() { notice = nil }

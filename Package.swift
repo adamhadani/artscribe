@@ -97,9 +97,12 @@ let package = Package(
         // The scripted acceptance harness (see `AcceptanceRun.swift`). A
         // separate executable so it never ships inside `ArtscribeApp`: the
         // product binary should be just the app.
+        // `Playback` is declared rather than picked up transitively through
+        // `ArtscribeUI`: the harness closes `OutputAudibility`'s silence gate
+        // itself, so it depends on that module for real.
         .executableTarget(
             name: "ArtscribeAcceptance",
-            dependencies: ["ArtscribeUI"],
+            dependencies: ["ArtscribeUI", "Playback"],
             swiftSettings: sharedSwiftSettings
         )
     ]

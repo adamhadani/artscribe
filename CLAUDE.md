@@ -43,6 +43,24 @@ did, so it notifies every time. `transport.poll(…)` on the display link theref
 just as often, and the Output Device submenu never survived long enough for AppKit's submenu-open
 delay to elapse. Poll a copy; write it back only if it moved.
 
+**An automated run must never make a sound.** Agents launch this app to check their own
+work, on a machine that is usually in a room with a person in it; turning the system volume
+down does not help, because the run happens whether or not anyone remembered. So it is
+enforced in the audio graph, not by convention: `OutputAudibility` (in `Playback`) is a
+process-wide gate that `AudioOutput`'s render block reads, and when it is closed the block
+zeroes its output **after** `PlaybackEngine.render` has run. The engine still advances, so
+every position-based check still measures the real render thread; `mainMixerNode.outputVolume`
+is untouched, so the volume checks still read back the value the user's control asked for.
+
+- `ArtscribeAcceptance` closes the gate itself, twice — in `AcceptanceMain.init` and again
+  in `AcceptanceRun.runIfRequested` — and the run asserts `OutputAudibility.shared.isSilenced`
+  as its first check. **Do not make this an opt-in flag.**
+- To hear an acceptance run on purpose: `ARTSCRIBE_ACCEPTANCE_AUDIBLE=1`.
+- To silence any other Artscribe binary — `ArtscribeApp`, `artscribe-cli` — export
+  `ARTSCRIBE_SILENT=1`. **Launch the app this way when verifying a change.**
+- Verified by `aSilencedGraphEmitsExactlyZero`, which renders the real graph offline and
+  asserts every sample is exactly 0 against a control that is not.
+
 **Plan code is not pre-verified.** Reviews found well over a dozen genuine defects in
 plan-authored code, including three separate silent-truncation bugs. Treat code in a plan as
 a proposal to check, not an answer.
