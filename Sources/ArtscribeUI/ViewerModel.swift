@@ -178,6 +178,9 @@ public final class ViewerModel {
     /// instead of hard-coding a layout.
     @ObservationIgnored public internal(set) var laneFrame: CGRect = .zero
     @ObservationIgnored public internal(set) var overviewFrame: CGRect = .zero
+    /// Where the time ruler landed, for the same reason as the two above: a
+    /// real pointer has to be aimed at its 24 points to drive the zoom drag.
+    @ObservationIgnored public internal(set) var rulerFrame: CGRect = .zero
     /// Where each transport button landed, in the same coordinates, for the same
     /// reason: the acceptance run clicks the real button rather than guessing at
     /// a layout. `@ObservationIgnored` like the others — nothing draws from it,
@@ -202,10 +205,18 @@ public final class ViewerModel {
     /// would invalidate the window sixty times a second for nothing. The redraw
     /// a drag really does need comes from the viewport it moves.
     @ObservationIgnored var zoomDrag: ZoomDrag?
-    /// What the left-drag in flight in the lanes was decided to mean, latched
-    /// at mouse-down together with the point it began at. See
+    /// Where the left-drag in flight in the lanes began, which is what
+    /// identifies one gesture across its events. `@ObservationIgnored` for the
+    /// same reason as `zoomDrag`: nothing draws from it.
+    @ObservationIgnored var laneDragStart: CGPoint?
+    /// What that drag was decided to mean, latched at mouse-down. See
     /// `laneDragChanged` for why it cannot be re-read per event.
-    @ObservationIgnored var laneDrag: (start: CGPoint, mode: LaneDragMode)?
+    ///
+    /// Observed, unlike its companion above, because the pointer cursor follows
+    /// it: an ⌥-drag that outlives the ⌥ that started it has to keep saying
+    /// "zoom". Written exactly twice per gesture — mouse-down and mouse-up —
+    /// not once per event, so it costs two body evaluations, not sixty a second.
+    var laneDragMode: LaneDragMode?
 
     /// Each `E`/`R` press changes zoom by this factor. A half-octave keeps the
     /// key-repeat sweep readable instead of jumping past the detail you want.
@@ -354,6 +365,10 @@ public final class ViewerModel {
 
     public func setOverviewFrame(_ frame: CGRect) {
         overviewFrame = frame
+    }
+
+    public func setRulerFrame(_ frame: CGRect) {
+        rulerFrame = frame
     }
 
     public func setTransportFrame(_ frame: CGRect, for control: TransportControl) {

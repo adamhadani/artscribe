@@ -280,6 +280,22 @@ lane drag *means* is decided when the mouse goes down and held for the gesture's
 modifier pressed or released halfway through can never silently convert a selection into a
 zoom or the reverse.
 
+**Pointer affordances.** None of the drags above is visible, and an affordance nobody can
+see is not one, so the cursor names what the region under it can do. Three shapes, and no
+more — a cursor that changed everywhere would stop meaning anything:
+
+| Region | Cursor | What it says |
+|---|---|---|
+| Time ruler | `rowResize` (up/down arrows) | This can be dragged, and vertically |
+| Waveform lanes | `rectSelection` (crosshair) | Drag out a passage |
+| Waveform lanes, ⌥ held | `zoomIn` (magnifier) | This drag changes the zoom |
+
+Everything else — the overview strip, the transport bar, the status bar — keeps the ordinary
+arrow. The lanes' cursor follows ⌥ **live**, changing under a pointer that has not moved, so
+the modifier is discoverable before the user has committed to a drag rather than after. Once
+a drag is in flight the *latch* wins over the modifier: an ⌥-drag that outlives the ⌥ that
+began it keeps the magnifier, because it is still zooming.
+
 ### 6.3 Bindings
 
 `BindingTable` maps `InputBinding` → `ActionID` and is `Codable` to JSON in Application

@@ -70,6 +70,15 @@ enum AcceptanceRun {
         checkStructure(model: model, log: &log)
         snapshot(to: "\(outputDirectory)/01-loaded.png")
 
+        // Task 17, and deliberately early. The same gestures Task 16 could only
+        // reach through the model, this time as real pointer events into
+        // SwiftUI's own machinery, plus the cursors that advertise them. Both
+        // need a key window and a pointer this process can aim; a run lasts
+        // minutes on a machine somebody else may be using, and by the time the
+        // playback checks are done neither is reliably still true.
+        await checkPointerGestures(model: model, log: &log)
+        await checkPointerAffordances(model: model, log: &log)
+
         checkZoomAnchor(model: model, log: &log)
         await settle(seconds: 0.2)
         snapshot(to: "\(outputDirectory)/02-zoomed.png")

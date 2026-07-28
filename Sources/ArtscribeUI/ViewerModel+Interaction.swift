@@ -57,6 +57,12 @@ extension ViewerModel {
 
     // MARK: - Drag to zoom
 
+    /// How far the drag-to-zoom travels per doubling. Published so the
+    /// acceptance run can assert the *rate* a real pointer drag produces rather
+    /// than its direction alone: a `.local` coordinate space that arrived
+    /// scaled or offset would still zoom, and only the number catches it.
+    public static var zoomDragPointsPerDoubling: Double { ZoomDrag.pointsPerDoubling }
+
     /// A vertical drag that zooms, smoothly and continuously: bare on the time
     /// ruler, ⌥-modified in the waveform lanes. See `ZoomDrag` for the maths
     /// and the direction, and for why the natural-scrolling preference does not
@@ -121,11 +127,12 @@ extension ViewerModel {
     public func laneDragChanged(start: CGPoint, current: CGPoint, option: Bool, shift: Bool) {
         guard hasTrack else { return }
         let mode: LaneDragMode
-        if let live = laneDrag, live.start == start {
-            mode = live.mode
+        if laneDragStart == start, let live = laneDragMode {
+            mode = live
         } else {
             mode = LaneDragMode(option: option, shift: shift)
-            laneDrag = (start, mode)
+            laneDragStart = start
+            laneDragMode = mode
             // A new gesture never continues the previous one's zoom, even when
             // the two began at the same point.
             zoomDrag = nil
@@ -149,8 +156,9 @@ extension ViewerModel {
     /// existed, so an end that somehow arrives without a preceding change still
     /// runs the click logic.
     public func laneDragEnded(start: CGPoint, end: CGPoint, now: Double) {
-        let mode = laneDrag?.mode
-        laneDrag = nil
+        let mode = laneDragMode
+        laneDragStart = nil
+        laneDragMode = nil
         switch mode {
         case .zoom:
             zoomDragEnded()

@@ -12,6 +12,14 @@ struct WaveformLanesView: View {
     let model: ViewerModel
     @Environment(\.palette) private var palette
     @Environment(\.displayScale) private var displayScale
+    /// Whether ⌥ is down *right now*, which is what makes the cursor change
+    /// under a stationary pointer rather than only on entry.
+    ///
+    /// Fed by `onModifierKeysChanged`, which reports the combined state of
+    /// every attached keyboard and fires on the change itself — not on hover,
+    /// and not on a drag. It flips twice per press of ⌥, so the two body
+    /// evaluations it costs are two per keystroke, not two per frame.
+    @State private var optionHeld = false
 
     /// Everything the overlay draw needs, read once at body level and handed
     /// down to the `Canvas` closure as a single value — not read piecemeal
@@ -64,6 +72,21 @@ struct WaveformLanesView: View {
             .allowsHitTesting(false)
         }
         .contentShape(.rect)
+        // The lanes carry three drag behaviours and, until now, advertised
+        // none of them. The crosshair says a passage can be dragged out; ⌥
+        // turns it into a magnifier, and back, with the pointer standing still.
+        // The scheme and its reasons are in `PointerAffordance`.
+        .pointerStyle(
+            PointerAffordance.over(
+                .waveformLanes, optionHeld: optionHeld, laneDrag: model.laneDragMode
+            ).pointerStyle
+        )
+        // Not `NSEvent.modifierFlags` polled from the gesture: that is only
+        // read when an event arrives, and the whole point here is the frame in
+        // which nothing is happening except a thumb on ⌥.
+        .onModifierKeysChanged(mask: .option) { _, now in
+            optionHeld = now.contains(.option)
+        }
         .gesture(dragGesture)
         // The frame, not just the size: a scroll event arrives at the window, so
         // pointer-anchored zoom needs to know where this lane sits in it.

@@ -9,6 +9,10 @@ struct TimeRulerView: View {
 
     private static let majorTickHeight: Double = 9
     private static let minorTickHeight: Double = 4
+    /// Constant, because the ruler's zoom drag needs no modifier and there is
+    /// no other gesture here to be in flight.
+    private static let pointerAffordance = PointerAffordance.over(
+        .timeRuler, optionHeld: false, laneDrag: nil)
 
     var body: some View {
         // Read at body level, not inside the `Canvas` closure: SwiftUI's
@@ -59,7 +63,19 @@ struct TimeRulerView: View {
         }
         .frame(height: 24)
         .contentShape(.rect)
+        // A drag nobody can see is not an affordance. The ruler's answer takes
+        // neither a modifier nor a gesture in flight, but it is asked through
+        // the same function as the lanes' so the scheme lives in one place.
+        .pointerStyle(Self.pointerAffordance.pointerStyle)
         .gesture(zoomDragGesture)
+        // Reported for the same reason the lanes report theirs: so a pointer
+        // aimed at the ruler is aimed at where the ruler actually is. Nothing
+        // draws from it.
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .global)
+        } action: {
+            model.setRulerFrame($0)
+        }
     }
 
     /// Drag vertically to zoom, smoothly, anchored where the drag began — the
