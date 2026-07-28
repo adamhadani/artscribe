@@ -60,6 +60,24 @@ struct ShortcutKeyboardView: View {
     /// against one reading of the available space rather than fighting for it.
     private static let legendHeight: Double = 46
 
+    /// How much of the pane's leftover height goes **above** the board.
+    ///
+    /// The board is fifteen units across and six rows of 0.92 down — a 2.7:1
+    /// object — so in any pane narrower than about 2.7 times its height it is
+    /// *width*-bound and cannot fill the height however much is offered. That
+    /// leftover has to go somewhere. Top-aligning put all of it in one band
+    /// along the bottom, which is the fault this fixes: it reads as content that
+    /// ran out rather than as margin. Splitting it evenly fixes that and
+    /// introduces its own problem — at 1100×660 it left 95 pt of nothing between
+    /// the header and the top row, and a pane whose content starts a third of
+    /// the way down looks equally wrong.
+    ///
+    /// A third above and two thirds below is the ordinary optical centre: the
+    /// board sits high in its pane, as a titled thing does, and neither edge
+    /// carries the whole remainder. The divider is what lets a reader trade
+    /// width for height and shrink the remainder itself.
+    private static let topShareOfSlack: Double = 0.34
+
     var body: some View {
         // One `GeometryReader` over both, not one each: the board's height falls
         // out of `unit`, so the legend can sit directly under it instead of
@@ -67,10 +85,9 @@ struct ShortcutKeyboardView: View {
         // in between — which is what two nested readers gave, and it looked
         // like a layout bug rather than a design.
         GeometryReader { geometry in
+            let boxHeight = max(0, geometry.size.height - Self.legendHeight - 12)
             let metrics = KeyboardMetrics(
-                size: CGSize(
-                    width: geometry.size.width,
-                    height: max(0, geometry.size.height - Self.legendHeight - 12)))
+                size: CGSize(width: geometry.size.width, height: boxHeight))
             VStack(alignment: .leading, spacing: 12) {
                 VStack(spacing: KeyboardMetrics.gap) {
                     ForEach(Array(KeyboardLayout.rows.enumerated()), id: \.offset) { _, row in
@@ -86,6 +103,7 @@ struct ShortcutKeyboardView: View {
                 legend
                 Spacer(minLength: 0)
             }
+            .padding(.top, max(0, boxHeight - metrics.boardHeight) * Self.topShareOfSlack)
         }
     }
 

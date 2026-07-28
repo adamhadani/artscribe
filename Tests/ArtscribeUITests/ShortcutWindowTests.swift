@@ -247,6 +247,104 @@ struct ShortcutWindowTests {
         }
     }
 
+    // MARK: - The split between the two panes
+
+    /// The divider must not be draggable into a state the window cannot draw.
+    ///
+    /// This is the testable half of the rebalance: a stored width from a wide
+    /// window arriving at a narrow one is exactly the case that would otherwise
+    /// crush the keyboard to nothing, and it happens on the next launch rather
+    /// than under anyone's hand.
+    @Test("the divider cannot crush either pane")
+    func theSplitKeepsBothPanesUsable() {
+        for total in [760.0, 900, 1100, 1320, 1600, 2400] {
+            for asked in [-500.0, 0, 100, 260, 340, 900, 5000] {
+                let list = ShortcutSplit.listWidth(preferred: asked, totalWidth: total)
+                let keyboard = total - ShortcutSplit.dividerWidth - list
+                #expect(
+                    list >= ShortcutSplit.minimumListWidth,
+                    "\(asked) at \(total) left the list \(list) pt wide")
+                #expect(
+                    keyboard >= ShortcutSplit.minimumKeyboardWidth,
+                    "\(asked) at \(total) left the keyboard \(keyboard) pt wide")
+            }
+        }
+    }
+
+    /// Inside the range, what was asked for is what is given — otherwise the
+    /// divider would not follow the pointer.
+    @Test("a width both panes can afford is honoured exactly")
+    func theSplitHonoursAnAffordableWidth() {
+        #expect(ShortcutSplit.listWidth(preferred: 340, totalWidth: 1320) == 340)
+        #expect(ShortcutSplit.listWidth(preferred: 520, totalWidth: 1320) == 520)
+        #expect(ShortcutSplit.listWidth(preferred: 260, totalWidth: 760) == 260)
+        // And clamped, not ignored, when it is not affordable: 760 − 1 − 430.
+        #expect(ShortcutSplit.listWidth(preferred: 520, totalWidth: 760) == 329)
+    }
+
+    /// A layout pass can propose a width of zero on the way to the real one. A
+    /// negative frame is a crash, so the degenerate case is shared out rather
+    /// than clamped into a contradiction.
+    @Test("a width too small for both minimums never produces a negative pane")
+    func theSplitSurvivesAWidthTooSmallForIt() {
+        for total in [0.0, 1, 120, 400, 690] {
+            let list = ShortcutSplit.listWidth(preferred: 340, totalWidth: total)
+            #expect(list >= 0, "\(total) gave the list \(list) pt")
+            #expect(list <= max(0, total - ShortcutSplit.dividerWidth), "\(total) overflowed")
+        }
+    }
+
+    /// The window's own minimum has to leave room for both pane minimums, or
+    /// the clamp above would be unsatisfiable at the smallest size a user can
+    /// actually drag the window to. Three constants in two files that have to
+    /// agree, which is precisely what nobody re-checks after changing one.
+    @Test("the window's minimum width leaves room for both pane minimums")
+    @MainActor
+    func theWindowMinimumFitsBothPanes() {
+        #expect(
+            ShortcutSplit.minimumKeyboardWidth + ShortcutSplit.minimumListWidth
+                + ShortcutSplit.dividerWidth <= ShortcutWindow.minimumWidth)
+        #expect(ShortcutSplit.defaultListWidth >= ShortcutSplit.minimumListWidth)
+    }
+
+    // MARK: - Knowing there is more list below
+
+    /// The fault this fixes: the list was already in a bounded, scrollable
+    /// `ScrollView` and gave no sign of it. These are the two edges the fade is
+    /// drawn from.
+    @Test("a list taller than its pane says so at the bottom, and only there")
+    func theListReportsMoreBelowWhenItOverflows() {
+        let atTop = ShortcutListEdges(
+            offset: 0, topInset: 0, bottomInset: 0, containerHeight: 617, contentHeight: 2160)
+        #expect(atTop.hasMoreBelow)
+        #expect(!atTop.hasMoreAbove)
+
+        let midway = ShortcutListEdges(
+            offset: 900, topInset: 0, bottomInset: 0, containerHeight: 617, contentHeight: 2160)
+        #expect(midway.hasMoreBelow)
+        #expect(midway.hasMoreAbove)
+
+        let atBottom = ShortcutListEdges(
+            offset: 1543, topInset: 0, bottomInset: 0, containerHeight: 617, contentHeight: 2160)
+        #expect(!atBottom.hasMoreBelow)
+        #expect(atBottom.hasMoreAbove)
+    }
+
+    /// A two-item filter result must not sit under a fade for ever. The
+    /// exactly-fits case is the one floating point makes awkward.
+    @Test("a list that fits its pane claims neither edge")
+    func theListReportsNothingWhenItFits() {
+        let exact = ShortcutListEdges(
+            offset: 0, topInset: 0, bottomInset: 0, containerHeight: 617, contentHeight: 617)
+        #expect(!exact.hasMoreAbove)
+        #expect(!exact.hasMoreBelow)
+
+        let short = ShortcutListEdges(
+            offset: 0, topInset: 0, bottomInset: 0, containerHeight: 617, contentHeight: 120)
+        #expect(!short.hasMoreAbove)
+        #expect(!short.hasMoreBelow)
+    }
+
     // MARK: - Colour
 
     /// Colour is how the keyboard is read at a glance, so a category with no

@@ -135,7 +135,11 @@ struct ArtscribeAppMain: App {
             ShortcutWindow(context: context, theme: theme)
                 .openShortcutWindow(shortcuts)
         }
-        .defaultSize(width: 1100, height: 660)
+        // Wider and shorter than the 1100×660 it opened at first. The keyboard
+        // is a 2.7:1 object that can only grow taller by growing wider, so a
+        // tall default spent a third of the left pane on nothing; at this shape
+        // the board very nearly fills its half. See `ShortcutSplit`.
+        .defaultSize(width: 1320, height: 620)
         .windowResizability(.contentMinSize)
 
         // The idiomatic route to **Artscribe ▸ Settings…**: this scene is what

@@ -128,6 +128,8 @@ extension AcceptanceRun {
             "the waveform keeps its full width (\(before) → \(during) px)", during == before)
         snapshot(window, to: "\(outputDirectory)/20-shortcut-window.png")
 
+        checkListScrolls(window, log: &log, outputDirectory: outputDirectory)
+
         // The layers, driven for real: pinning ⌥⇧ must change what the keyboard
         // is asked to draw, and the resolution rule must prefer a held modifier.
         shortcuts.pin([.option, .shift])
@@ -178,6 +180,78 @@ extension AcceptanceRun {
         log.check(
             "the waveform is still the width it was (\(model.viewport.widthPixels) px)",
             model.viewport.widthPixels == before)
+    }
+
+    /// The right-hand list, at a deliberately small window, measured rather
+    /// than looked at.
+    ///
+    /// The user's report was that the list "overflows and just cuts off", and
+    /// the fix turned on what that actually was: the list was *already* in a
+    /// `ScrollView` bounded to its pane, and the only thing missing was any sign
+    /// of it. So the check that matters is the pair — the clip is the height of
+    /// the pane (not of the content, which would be a real overflow), **and**
+    /// the document really moves when it is scrolled. A single "there is an
+    /// NSScrollView" assertion would have passed before the fix too.
+    ///
+    /// The window is shrunk to 820×470 first, near its 760×460 minimum, because
+    /// that is where a clipping bug lives and it is not far off the size the
+    /// user hit this at.
+    @MainActor
+    private static func checkListScrolls(
+        _ window: NSWindow, log: inout Logger, outputDirectory: String
+    ) {
+        let restore = window.frame
+        window.setContentSize(NSSize(width: 820, height: 470))
+        window.layoutIfNeeded()
+        guard let scroll = firstScrollView(in: window.contentView) else {
+            log.check("the list is in a scroll view", false)
+            window.setFrame(restore, display: true)
+            return
+        }
+        let content = scroll.documentView?.frame.height ?? 0
+        let visible = scroll.documentVisibleRect.height
+        log.check("the list is in a scroll view", true)
+        log.check(
+            "at 820×470 the list is clipped to the pane, not to the window "
+                + "(\(Int(visible)) px of \(Int(content)))",
+            visible > 0 && visible < content && visible <= window.frame.height)
+        snapshot(window, to: "\(outputDirectory)/24-shortcut-small.png")
+
+        // Driven to the end three times rather than once. The list is a
+        // `LazyVStack`, so the document's height is an *estimate* that firms up
+        // as rows are realised — a single scroll to the height read beforehand
+        // stopped 265 px short of the real end, and reported a failure that was
+        // the harness's arithmetic rather than the window's.
+        for _ in 0..<3 {
+            let end = (scroll.documentView?.frame.height ?? 0) - scroll.documentVisibleRect.height
+            scroll.contentView.scroll(to: CGPoint(x: 0, y: max(0, end)))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            window.layoutIfNeeded()
+        }
+        let settled = scroll.documentVisibleRect
+        let settledContent = scroll.documentView?.frame.height ?? 0
+        log.check(
+            "its last row can be reached without resizing the window "
+                + "(\(Int(settled.maxY)) px of \(Int(settledContent)))",
+            settled.origin.y > 0 && settled.maxY >= settledContent - 1)
+        snapshot(window, to: "\(outputDirectory)/25-shortcut-small-scrolled.png")
+
+        scroll.contentView.scroll(to: .zero)
+        scroll.reflectScrolledClipView(scroll.contentView)
+        window.setFrame(restore, display: true)
+        window.layoutIfNeeded()
+    }
+
+    /// The first `NSScrollView` in a view tree. SwiftUI's `ScrollView` is backed
+    /// by one on macOS, and the list is the only scrolling thing in this window.
+    @MainActor
+    private static func firstScrollView(in view: NSView?) -> NSScrollView? {
+        guard let view else { return nil }
+        if let scroll = view as? NSScrollView { return scroll }
+        for subview in view.subviews {
+            if let found = firstScrollView(in: subview) { return found }
+        }
+        return nil
     }
 
     @MainActor

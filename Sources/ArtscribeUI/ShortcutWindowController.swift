@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 /// The shortcut window's state, and the one way to open it.
@@ -42,7 +43,37 @@ public final class ShortcutWindowController {
     /// every view that can open the window depend on the act of installing it.
     @ObservationIgnored public var present: (@MainActor () -> Void)?
 
-    public init() {}
+    private static let listWidthKey = "shortcutWindow.listWidth"
+
+    @ObservationIgnored private let defaults: UserDefaults
+
+    /// The width the reader dragged the divider to — **is** persisted, unlike
+    /// the filter and the pinned layer above.
+    ///
+    /// The difference is deliberate rather than an inconsistency. Those two are
+    /// a *view* of the keymap that should reset every time the window opens;
+    /// this is furniture, in the same class as the window frame that
+    /// `setFrameAutosaveName` already remembers a line away from here. A reader
+    /// who widened the list to fit "Move Loop Out Right (Far) 2 s" on one line
+    /// has to do it again on every launch otherwise.
+    ///
+    /// Stored raw and clamped at use (`ShortcutSplit.listWidth`), so a value
+    /// saved against a wide window cannot crush the keyboard on a narrow one.
+    public var listWidth: Double {
+        didSet {
+            guard listWidth != oldValue else { return }
+            defaults.set(listWidth, forKey: Self.listWidthKey)
+        }
+    }
+
+    /// - Parameter defaults: injectable for the same reason `ThemeController`'s
+    ///   is — a test and the acceptance harness get their own suite instead of
+    ///   rewriting the split the user left the real app in.
+    public init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let stored = defaults.object(forKey: Self.listWidthKey) as? Double
+        listWidth = stored ?? ShortcutSplit.defaultListWidth
+    }
 
     /// `⌘/`, and **View ▸ Keyboard Shortcuts**.
     ///

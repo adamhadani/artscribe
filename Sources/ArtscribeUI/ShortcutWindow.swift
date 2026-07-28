@@ -33,6 +33,18 @@ public struct ShortcutWindow: View {
     /// the whole keyboard.
     @State private var held: KeyModifiers = []
     @State private var modifiers = ModifierMonitor()
+    /// The list width at the instant the divider was grabbed. `nil` when it is
+    /// not being dragged — a `DragGesture`'s translation is cumulative, so the
+    /// starting width has to be remembered rather than accumulated, or the
+    /// divider accelerates away from the pointer.
+    @State private var dragOrigin: Double?
+
+    /// Small enough to fit beside a browser on a laptop, wide enough that the
+    /// keyboard is legible at the default split. Hoisted out of the `frame`
+    /// modifier so `theWindowMinimumLeavesRoomForBothMinimums` can check the
+    /// constants against each other.
+    public static let minimumWidth: Double = 760
+    public static let minimumHeight: Double = 460
 
     public init(context: MenuContext, theme: ThemeController) {
         self.context = context
@@ -51,28 +63,36 @@ public struct ShortcutWindow: View {
         return VStack(spacing: 0) {
             header(query: $shortcuts.query)
             Rectangle().fill(palette.rule.color()).frame(height: 1)
-            HStack(spacing: 0) {
-                ShortcutKeyboardView(
-                    layer: layer, query: shortcuts.query, appearance: appearance
-                )
-                .padding(14)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // Spec §12 and the brief: Reduce Motion turns the layer
-                // cross-fade off rather than shortening it. A keyboard that
-                // repaints eight keys at once is exactly the kind of movement
-                // the setting exists for.
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.12), value: layer)
+            // One reader over the whole split. The list's width is *computed*
+            // rather than expressed as a min/ideal/max frame, because the
+            // divider has to be somewhere the reader put it and a flexible
+            // frame cannot be dragged.
+            GeometryReader { geometry in
+                let listWidth = ShortcutSplit.listWidth(
+                    preferred: shortcuts.listWidth, totalWidth: geometry.size.width)
+                HStack(spacing: 0) {
+                    ShortcutKeyboardView(
+                        layer: layer, query: shortcuts.query, appearance: appearance
+                    )
+                    .padding(14)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // Spec §12 and the brief: Reduce Motion turns the layer
+                    // cross-fade off rather than shortening it. A keyboard that
+                    // repaints eight keys at once is exactly the kind of movement
+                    // the setting exists for.
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.12), value: layer)
 
-                Rectangle().fill(palette.rule.color()).frame(width: 1)
+                    divider(totalWidth: geometry.size.width)
 
-                ShortcutListView(
-                    context: context, query: shortcuts.query, appearance: appearance
-                )
-                .frame(minWidth: 250, idealWidth: 310, maxWidth: 380)
-                .background(palette.panel.color())
+                    ShortcutListView(
+                        context: context, query: shortcuts.query, appearance: appearance
+                    )
+                    .frame(width: listWidth)
+                    .background(palette.panel.color())
+                }
             }
         }
-        .frame(minWidth: 760, minHeight: 460)
+        .frame(minWidth: Self.minimumWidth, minHeight: Self.minimumHeight)
         .background(palette.background.color())
         .environment(\.palette, palette)
         .preferredColorScheme(theme.colorScheme)
@@ -88,6 +108,54 @@ public struct ShortcutWindow: View {
             modifiers.stop()
             held = []
         }
+    }
+
+    // MARK: - The divider
+
+    /// The hairline between the panes, and the handle for moving it.
+    ///
+    /// It is **one point wide in layout and nine points wide to the pointer**:
+    /// an overlay carries the hit area, so widening the grab target costs the
+    /// panes no width and leaves no gutter in the background colour where the
+    /// seam should be. The cursor changes on hover, which is the only thing that
+    /// says the divider moves at all.
+    ///
+    /// Why it can be moved: the keyboard is a 2.7:1 object that only grows
+    /// taller by growing wider, so at a tall window there is height under it
+    /// that nothing in this window can fill — and how much of the width to spend
+    /// buying that height back, versus on a list wide enough to read a long
+    /// action and its chord on one line, is a judgement about the reader's
+    /// screen, not one this file can make for them.
+    private func divider(totalWidth: Double) -> some View {
+        Rectangle()
+            .fill(palette.rule.color())
+            .frame(width: ShortcutSplit.dividerWidth)
+            .overlay {
+                Color.clear
+                    .frame(width: 9)
+                    .contentShape(Rectangle())
+                    // SwiftUI's own pointer style, as the ruler and the lanes
+                    // already use — not an `NSCursor.push()`/`pop()` pair, which
+                    // has to be balanced by hand and is not if the pointer
+                    // leaves while a drag is still running.
+                    .pointerStyle(.columnResize)
+                    .gesture(
+                        DragGesture(minimumDistance: 1)
+                            .onChanged { value in
+                                let origin = dragOrigin ?? shortcuts.listWidth
+                                if dragOrigin == nil { dragOrigin = origin }
+                                // Dragging left widens the list: it is the pane
+                                // on the right, so its width grows as the
+                                // divider's x falls.
+                                shortcuts.listWidth = ShortcutSplit.listWidth(
+                                    preferred: origin - value.translation.width,
+                                    totalWidth: totalWidth)
+                            }
+                            .onEnded { _ in dragOrigin = nil }
+                    )
+            }
+            .accessibilityElement()
+            .accessibilityLabel("Divider between the keyboard and the list")
     }
 
     // MARK: - Chrome
@@ -144,6 +212,12 @@ public struct ShortcutWindow: View {
             Text(held.isEmpty ? "Hold ⇧ ⌥ ⌘ — or pick a layer" : "Holding")
                 .font(Typography.readoutSmall)
                 .foregroundStyle(held.isEmpty ? palette.dimmed.color() : palette.accent.color())
+                // One line, and the first thing to give way. Without this the
+                // hint wrapped to five lines at the window's minimum width and
+                // took a third of the header with it — measured at 760×460,
+                // where the header grew from 43 pt to 84.
+                .lineLimit(1)
+                .layoutPriority(-1)
             Picker("Layer", selection: layerSelection) {
                 ForEach(ShortcutLayers.available, id: \.rawValue) { modifiers in
                     Text(ShortcutLayers.title(modifiers)).tag(modifiers)

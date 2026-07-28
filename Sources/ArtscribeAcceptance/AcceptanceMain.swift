@@ -39,9 +39,10 @@ struct AcceptanceMain: App {
     /// read-only to check the spec §7 fallback, and must not leave sessions in
     /// the user's real Application Support.
     @State private var sessions = SessionStore(fallbackDirectory: Self.sessionFallbackDirectory)
-    /// The shortcut window's state. Nothing of it is persisted, so unlike the
-    /// five above it needs no acceptance-only defaults suite.
-    @State private var shortcuts = ShortcutWindowController()
+    /// Also on the acceptance suite: the filter and the pinned layer are not
+    /// persisted, but the divider position is, and a run that drags it must not
+    /// leave the user's real shortcut window resplit.
+    @State private var shortcuts = ShortcutWindowController(defaults: Self.defaults)
 
     private var context: MenuContext {
         MenuContext(model: model, recents: recents, devices: devices, shortcuts: shortcuts)
@@ -86,7 +87,7 @@ struct AcceptanceMain: App {
             ShortcutWindow(context: context, theme: theme)
                 .openShortcutWindow(shortcuts)
         }
-        .defaultSize(width: 1100, height: 660)
+        .defaultSize(width: 1320, height: 620)
         .windowResizability(.contentMinSize)
 
         Settings {
