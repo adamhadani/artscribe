@@ -95,11 +95,20 @@ struct ArtscribeAppMain: App {
     /// opens it. Application state like the rest of these: the window outlives
     /// every loaded track and is closable independently of the document.
     @State private var shortcuts = ShortcutWindowController()
+    /// Task 21's Practice window: the closure that opens it. Application state
+    /// like the rest of these.
+    @State private var practice = PracticeWindowController()
+    /// Where the practice ramp's schedule is persisted. The applied schedule
+    /// lives on the model — this is only its backing tape (see
+    /// `PracticeSettings`), exactly as `nudge` is for the nudge amounts.
+    @State private var practiceSettings = PracticeSettings()
 
     /// Everything the menus and the window dispatch through, built once. See
-    /// `MenuContext` for why it is one value rather than four parameters.
+    /// `MenuContext` for why it is one value rather than five parameters.
     private var context: MenuContext {
-        MenuContext(model: model, recents: recents, devices: devices, shortcuts: shortcuts)
+        MenuContext(
+            model: model, recents: recents, devices: devices, shortcuts: shortcuts,
+            practice: practice)
     }
 
     init() {
@@ -115,6 +124,7 @@ struct ArtscribeAppMain: App {
                 .frame(minWidth: 720, minHeight: 420)
                 .task { start() }
                 .openShortcutWindow(shortcuts)
+                .openPracticeWindow(practice)
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
@@ -134,12 +144,27 @@ struct ArtscribeAppMain: App {
         Window("Keyboard Shortcuts", id: ShortcutWindowController.windowID) {
             ShortcutWindow(context: context, theme: theme)
                 .openShortcutWindow(shortcuts)
+                .openPracticeWindow(practice)
         }
         // Wider and shorter than the 1100×660 it opened at first. The keyboard
         // is a 2.7:1 object that can only grow taller by growing wider, so a
         // tall default spent a third of the left pane on nothing; at this shape
         // the board very nearly fills its half. See `ShortcutSplit`.
         .defaultSize(width: 1320, height: 620)
+        .windowResizability(.contentMinSize)
+
+        // Task 21's Practice hub — the ramping loop. A window of its own for a
+        // sharper version of Task 25's reason: this is a thing you watch the
+        // waveform while using, and a panel inside the document could only exist
+        // by taking width from the surface the loop is drawn on.
+        Window("Practice", id: PracticeWindowController.windowID) {
+            PracticeWindow(context: context, theme: theme)
+                .openShortcutWindow(shortcuts)
+                .openPracticeWindow(practice)
+        }
+        // A tall, narrow utility window: three fields and a readout, meant to
+        // sit beside the document rather than in front of it.
+        .defaultSize(width: 340, height: 400)
         .windowResizability(.contentMinSize)
 
         // The idiomatic route to **Artscribe ▸ Settings…**: this scene is what
@@ -160,6 +185,7 @@ struct ArtscribeAppMain: App {
         model.attach(nudge: nudge)
         model.attach(interaction: interaction)
         model.attach(sessions: sessions)
+        model.attach(practice: practiceSettings)
         // Hands the delegate somewhere to send a file, and replays one that
         // arrived before the scene existed — which is what happens when the app
         // is launched *by* opening a track.

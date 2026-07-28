@@ -275,6 +275,8 @@ away from being back inside it.
 | `file.openRecent` | — | File ▸ Open Recent, 8 entries, de-duplicated by resolved path |
 | `view.zoomDragDirection` | — | Invert zoom direction; **in Settings ▸ Playback**, and it governs the ruler drag, the ⌥-drag and the wheel alike |
 | `view.theme` | — | Light / Dark / System; **in Settings ▸ Appearance**, consolidated there from the View menu |
+| `practice.show` | `⌘P` | Open the **Practice** window — the ramping loop (Task 21). A separate, resizable window whose frame is remembered, closable on its own, for a sharper version of `help.shortcuts`'s reason: it is watched *alongside* the waveform, so it must cost the waveform no width. `⌘P` is free — this app has no Print command |
+| `practice.ramp.toggle` | `⌥P` | Start / stop the speed ramp, in **Loop ▸ Speed Ramp**, without leaving the waveform. Pairs with the window's `⌘P` on the same letter: `⌘` opens the thing, `⌥` runs it |
 | `help.shortcuts` | `⌘/` | Open the **Keyboard Shortcuts** window — a separate, resizable window whose frame is remembered, closable on its own. Not a toggle: it has a close button and answers ⌘W |
 | `app.settings` | `⌘,` | Settings — in the **app menu** (Artscribe ▸ Settings…), the macOS convention since Ventura, wired automatically by SwiftUI's `Settings` scene |
 
@@ -305,6 +307,32 @@ the one you are hearing. Settings edits both at once.
 point past the out point hands over to the other edge and keeps going. The keyboard calls
 the same function the drag does, so the two cannot drift. A whole-loop move clamps as a
 unit at either end of the file, keeping its length rather than shrinking against the wall.
+
+**The Practice hub (Task 21), and the three decisions inside it.** The ramping loop is
+stated as *start speed*, *end speed* and *number of repetitions*, and the per-repetition
+delta is computed — not as "add a fixed percentage each pass", which was the first form of
+the idea. The three-number form is strictly better because it is stated in the terms the
+practice session actually has: where I start, where I need to get to, and how long I am
+prepared to spend. The delta divides by `repetitions − 1`, so both endpoints are played;
+dividing by `repetitions` would give a last pass at 95% and never reach the tempo the whole
+exercise aimed at. An **end below the start** is a first-class case — practising by
+progressively slowing down is a real thing musicians do — so nothing in the schedule assumes
+ascent.
+
+It **advances on the loop wrap, never on a timer**. A timer needs a duration derived from
+the loop length and the speed ratio, and this is the one feature that changes both of those
+underneath itself. The wrap is read out of the audible position the UI already polls, so no
+new channel crosses the render-thread boundary (§5). The detector requires the *middle* of
+the loop to have been visited between wraps as well as a backward jump: a ratio change
+briefly mis-scales the engine's in-flight backlog, which makes the reported position step
+back over the boundary it has just crossed, and without that condition one lap is counted as
+two. Measured, at 50% → 75% on a four-second loop — see `LoopWrapTracker`.
+
+At the end it **holds the final speed and leaves the transport running**. A ramp is a speed
+automation, not a transport: it does not own the play state, it was very likely started while
+something was already playing, and the end of a ramp is the moment you have arrived at the
+passage, at tempo, in the loop — which is what the exercise was for. The completion is stated
+in the window rather than left to be inferred from a speed that stopped changing.
 
 **Note on ⇧, which is deliberately inconsistent between the two nudge bindings.** On the
 arrow keys ⇧ *extends the selection*, following the macOS text-editing convention every Mac

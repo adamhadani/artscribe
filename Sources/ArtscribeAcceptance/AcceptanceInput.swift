@@ -90,6 +90,11 @@ extension AcceptanceRun {
         /// `charactersIgnoringModifiers` names the key that was pressed.
         static let optionZ = Key(6, "Ω", ignoring: "z", modifiers: .option)
         static let optionX = Key(7, "≈", ignoring: "x", modifiers: .option)
+        /// Task 21's practice ramp. Same shape again: ⌥P is π on a US layout.
+        static let optionP = Key(35, "π", ignoring: "p", modifiers: .option)
+        /// ⌘P opens the Practice window. A ⌘ chord, so unlike the two above it
+        /// really does reach the menu bar through `press(…)`.
+        static let commandP = Key(35, "p", modifiers: .command)
 
         /// The loop-move cluster (Task 24). `⇧` + the loop row moves an edge —
         /// `A S` the in point, `D F` the out point — and `⇧C`/`⇧V` move the

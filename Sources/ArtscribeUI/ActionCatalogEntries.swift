@@ -6,8 +6,9 @@
 /// the separators go, and nothing else about the arrangement.
 extension ActionCatalog {
     static let allEntries: [ActionEntry] =
-        transportEntries + navigationEntries + loopEntries + loopMoveEntries + speedEntries
-        + volumeEntries + selectionEntries + viewEntries + fileEntries + applicationEntries
+        transportEntries + navigationEntries + loopEntries + loopMoveEntries + practiceEntries
+        + speedEntries + volumeEntries + selectionEntries + viewEntries + fileEntries
+        + applicationEntries
 
     // MARK: - Playback ▸ transport
 
@@ -197,7 +198,38 @@ extension ActionCatalog {
         ActionEntry(.viewScrollRight, "Scroll Right", .view, menu: .view, enablement: .documentKey),
         ActionEntry(
             .helpShortcuts, "Keyboard Shortcuts", .view,
-            chords: [.key("/", .command)], menu: .view)
+            chords: [.key("/", .command)], menu: .view),
+        // Task 21's Practice hub. In **View**, beside Keyboard Shortcuts,
+        // because what this item does is open a window — the ramp itself is in
+        // the Loop menu, where the feature belongs. `⌘P` is free: this app has
+        // no Print command and never will, since there is nothing here to print.
+        ActionEntry(
+            .practiceShow, "Practice", .view,
+            chords: [.key("p", .command)], menu: .view,
+            note: "The ramping loop — practise a passage from slow to tempo")
+    ]
+
+    // MARK: - Loop ▸ the practice ramp
+
+    /// Start and stop the ramp without leaving the waveform.
+    ///
+    /// A `.toggle`, so the item shows whether a ramp is running rather than
+    /// having to switch its own title between two verbs — the checkmark is what
+    /// macOS already uses to say "this mode is on".
+    ///
+    /// In the **Loop** menu rather than beside its window in View: this is the
+    /// signature feature's newest half, `LoopCommands` was built with room for
+    /// it, and a ramp is a thing done to a loop.
+    ///
+    /// `⌥P` pairs with the window's `⌘P` on the same letter — `⌘` opens the
+    /// thing, `⌥` runs it — which is the only mnemonic available for a feature
+    /// whose name begins with a letter the loop row does not contain. `P` was
+    /// unbound on every layer before this.
+    static let practiceEntries: [ActionEntry] = [
+        ActionEntry(
+            .practiceRampToggle, "Speed Ramp", .loop,
+            chords: [.key("p", .option)], menu: .loop, enablement: .trackLoop, kind: .toggle,
+            note: "Set it up in the Practice window (⌘P)")
     ]
 
     // MARK: - File

@@ -15,17 +15,23 @@ public struct MenuContext {
     /// it — the View menu item and `⌘/` — arrive through `ActionInvoker`, so it
     /// has to be reachable from here.
     public let shortcuts: ShortcutWindowController
+    /// The Practice window's opener, here for exactly the same reason as
+    /// `shortcuts`: `View ▸ Practice` and `⌘P` both arrive through
+    /// `ActionInvoker`, which is not a view and so cannot reach `openWindow`.
+    public let practice: PracticeWindowController
 
     public init(
         model: ViewerModel,
         recents: RecentFiles,
         devices: OutputDeviceController,
-        shortcuts: ShortcutWindowController
+        shortcuts: ShortcutWindowController,
+        practice: PracticeWindowController
     ) {
         self.model = model
         self.recents = recents
         self.devices = devices
         self.shortcuts = shortcuts
+        self.practice = practice
     }
 }
 
@@ -75,6 +81,10 @@ public enum ActionInvoker {
         switch id {
         case .loopToggle: return model.loop.isEnabled
         case .volumeMute: return model.volume.isMuted
+        // Checked while a ramp is *running*. A completed one is unchecked, which
+        // is the right reading: the ramp is over, and clicking the item starts a
+        // fresh one from the top.
+        case .practiceRampToggle: return model.ramp.isRunning
         default:
             guard let ratio = presetRatio(id) else { return nil }
             return SpeedStepping.isActive(preset: ratio, ratio: model.speed.ratio)

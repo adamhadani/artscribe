@@ -79,6 +79,10 @@ public enum ActionID: String, CaseIterable, Hashable, Sendable {
     case viewScrollLeft = "view.scrollLeft"
     case viewScrollRight = "view.scrollRight"
     case helpShortcuts = "help.shortcuts"
+    case practiceShow = "practice.show"
+
+    // Practice — the ramping loop (Task 21)
+    case practiceRampToggle = "practice.ramp.toggle"
 
     // File and session
     case fileOpen = "file.open"

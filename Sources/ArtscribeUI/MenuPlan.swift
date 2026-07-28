@@ -93,6 +93,7 @@ public enum MenuPlan {
         .action(.viewScrollLeft),
         .action(.viewScrollRight),
         .separator,
+        .action(.practiceShow),
         .action(.helpShortcuts)
     ]
 
@@ -136,6 +137,11 @@ public enum MenuPlan {
         .separator,
         .action(.loopFromSelection),
         .action(.loopClear),
+        .separator,
+        // Task 21. Its own block: it is the only item here that runs over time
+        // rather than editing the region, and it is set up in a window of its
+        // own (View ▸ Practice).
+        .action(.practiceRampToggle),
         .separator,
         .action(.loopMoveInLeft),
         .action(.loopMoveInRight),

@@ -51,6 +51,16 @@ public struct SpeedState: Equatable, Sendable, Codable {
         setRatio(ratio + delta)
     }
 
+    /// The range invariant, reachable from outside.
+    ///
+    /// Public so `RampSchedule` can enforce *this* type's bounds rather than
+    /// restating 0.10 and 2.00 a second time: the practice ramp's endpoints are
+    /// speeds, and a ramp that could be built out of speeds the transport cannot
+    /// hold would be a second definition of the range waiting to drift from this
+    /// one. A non-finite value answers 1.0, exactly as it does on the way in
+    /// through `init` and `setRatio`.
+    public static func clamped(_ ratio: Double) -> Double { clamp(ratio) }
+
     private static func clamp(_ v: Double) -> Double {
         guard v.isFinite else { return 1.0 }
         return Swift.min(maxRatio, Swift.max(minRatio, v))

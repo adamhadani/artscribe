@@ -44,7 +44,10 @@ extension ActionInvoker {
         .loopMoveLeft: loopMove(.whole, .gentle, .backward),
         .loopMoveRight: loopMove(.whole, .gentle, .forward),
         .loopMoveLeftFar: loopMove(.whole, .aggressive, .backward),
-        .loopMoveRightFar: loopMove(.whole, .aggressive, .forward)
+        .loopMoveRightFar: loopMove(.whole, .aggressive, .forward),
+        // Task 21. Start/stop only — the schedule is edited in the Practice
+        // window, and the ramp itself lives on the model (`ViewerModel+Practice`).
+        .practiceRampToggle: { $0.model.toggleRamp() }
     ]
 
     private static func loopMove(
@@ -93,7 +96,8 @@ extension ActionInvoker {
         .zoomToSelection: { $0.model.zoomToSelection() },
         .viewScrollLeft: { $0.model.scrollLeft() },
         .viewScrollRight: { $0.model.scrollRight() },
-        .helpShortcuts: { $0.shortcuts.show() }
+        .helpShortcuts: { $0.shortcuts.show() },
+        .practiceShow: { $0.practice.show() }
     ]
 
     /// Cut, Copy and Paste are sent down the responder chain by hand, because

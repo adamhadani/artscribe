@@ -100,6 +100,11 @@ public final class ViewerModel {
     /// Output level and mute. Half scale by default, and it survives a load: how
     /// loud you want it is a property of your headphones, not of the file.
     public internal(set) var volume = VolumeState()
+    /// The Practice hub's ramping loop (Task 21): the schedule the user set up,
+    /// and where in it the run has got to. The schedule half is replaced once by
+    /// `attach(practice:)` at launch, exactly as `nudgeAmounts` is; the run half
+    /// is never restored (see `PracticeSettings`).
+    public internal(set) var ramp = SpeedRamp()
     /// Spec §8 in the transport: an output that could not be opened, a route
     /// change, a stall, or a rejected command. Shown as an inline banner, never a
     /// modal, and never cleared by anything but the user.
@@ -194,6 +199,14 @@ public final class ViewerModel {
     /// if the app shell attached a store. Absent in unit tests, which is what
     /// keeps them off `UserDefaults`.
     @ObservationIgnored var interactionStore: InteractionSettings?
+    /// Where the practice ramp's schedule is persisted, on the same terms as the
+    /// two above.
+    @ObservationIgnored var practiceStore: PracticeSettings?
+    /// Turns the polled playhead into the loop-wrap events that move the practice
+    /// ramp on (`ViewerModel+Practice`). `@ObservationIgnored`: nothing draws
+    /// from it and it is written every display refresh, so observing it would
+    /// invalidate the window 60×/s — the `_modify` trap `pollTransport` records.
+    @ObservationIgnored var wrapTracker = LoopWrapTracker()
     @ObservationIgnored let clock = PlayheadClock()
 
     /// Written only by `refresh()` in `ViewerModel+Rendering`, which is why the
@@ -380,6 +393,7 @@ public final class ViewerModel {
         selection.clear()
         loop = LoopRegion()
         playhead = 0
+        wrapTracker.reset()
         reachedEnd = false
         viewport = Viewport(totalFrames: audio.frameCount, widthPixels: widthPixels)
     }

@@ -38,6 +38,7 @@ extension AcceptanceRun {
         case session
         case window
         case catalog
+        case practice
 
         /// One line, for `--list`. This is the only documentation of what a
         /// group covers that someone selecting one will actually read, so it
@@ -62,6 +63,8 @@ extension AcceptanceRun {
             case .session: "the .artscribe sidecar: save, reopen, corruption, read-only fallback"
             case .window: "window resize, and the banner a file that cannot be decoded raises"
             case .catalog: "the menu bar against ActionCatalog, and the shortcut window (⌘/)"
+            case .practice:
+                "the Practice window (⌘P), and a speed ramp advancing on real loop wraps"
             }
         }
 
@@ -70,7 +73,10 @@ extension AcceptanceRun {
         /// and between them they are most of a full run's wall clock.
         var isSlow: Bool {
             switch self {
-            case .playback, .start: true
+            // `practice` plays a four-second loop three times over, at half
+            // speed to start with; there is no way to watch a ramp advance on
+            // real wraps that does not take real time.
+            case .playback, .start, .practice: true
             default: false
             }
         }
@@ -100,6 +106,7 @@ extension AcceptanceRun {
             case .session: 50
             case .window: 4
             case .catalog: 200
+            case .practice: 28
             }
         }
     }

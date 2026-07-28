@@ -17,7 +17,7 @@ make bootstrap
 make app && open .build/xcode/Build/Products/Release/Artscribe.app
 ```
 
-Not yet built: markers, pitch shift, spectrum analysis, MIDI input, the practice hub, and
+Not yet built: markers, pitch shift, spectrum analysis, MIDI input, and
 stem separation — which has been researched in depth but deliberately not started, in
 `docs/superpowers/research/2026-07-28-stem-separation.md`. See the plan under
 `docs/superpowers/plans/`.
@@ -164,6 +164,8 @@ Release, not debug — a debug build decodes roughly four times slower.
 | `⇧A` `⇧S` / `⇧D` `⇧F` | Move the loop's in / out point (add `⌥` for the bigger step) |
 | `⇧C` / `⇧V` | Move the whole loop, keeping its length |
 | `⌘S` / `⇧⌘S` | Save the session sidecar / save it elsewhere |
+| `⌘P` | Open the Practice window — the ramping loop |
+| `⌥P` | Start / stop the speed ramp |
 | `⌘/` | Open the keyboard shortcut window |
 | `⌘,` | Settings — nudge and move amounts, zoom direction, theme |
 
@@ -173,6 +175,41 @@ to pan. Dragging the overview strip
 moves the visible window. **Drag down** on the time ruler — or ⌥-drag in the waveform — to
 zoom in smoothly; Settings ▸ Playback ▸ *Invert zoom direction* reverses that and the scroll
 wheel together.
+
+### The Practice hub
+
+Press `⌘P` — or **View ▸ Practice** — for a separate window that plays your loop over and
+over while the speed climbs, so you can take a passage from slow to tempo without touching
+anything.
+
+Give it three numbers and it works out the rest:
+
+* **Start speed**, **end speed** and **number of repetitions**. The default is 50% → 100%
+  over ten passes; the per-repetition step is computed and shown under the fields. Both
+  endpoints are played, so ten repetitions from 50% to 100% is nine steps of 5.6%, not ten.
+* **An end speed below the start speed ramps down**, which is a real way to practise — you
+  take something you can just about play at tempo and slow it down to hear what your fingers
+  are actually doing.
+* **Start speed equal to end speed** drills one tempo for a set number of passes.
+
+While it runs the window shows which repetition you are on, the speed you are hearing, and
+how many are left. **It advances when the loop comes round, not on a timer** — a timer would
+drift the moment the loop length or the speed changed underneath it, and the ramp changes the
+speed on purpose.
+
+When the last repetition finishes the ramp **holds the final speed and keeps playing**. It
+does not stop you: a ramp is a speed automation, not a transport, and the end of one is the
+moment you have arrived at the passage, at tempo, in the loop — which is what the whole
+exercise was for. The window says *Ramp complete — holding 100%* so it is not a silent
+ending.
+
+A ramp needs a loop. With none set, the window says so and names the keys that fix it (`A`
+and `S`, or `G` from a selection) rather than offering a Start button that would do nothing.
+Starting a ramp switches looping on for you if the region is set but disabled.
+
+Like the shortcut window it is a separate window rather than a panel, and for a sharper
+reason: this is a thing you watch the waveform while using, so it must cost the waveform no
+width.
 
 ### The shortcut window
 

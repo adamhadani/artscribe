@@ -225,6 +225,16 @@ extension AcceptanceRun {
                 outputDirectory: run.outputDirectory)
         }
 
+        // Task 21's Practice hub. Deliberately after `catalog`, for the same
+        // reason `catalog` is late: it opens a second window and takes the
+        // keyboard focus with it. It plays real audio, so it also has to come
+        // after everything that measures a stationary playhead.
+        if log.running(.practice) {
+            await checkPracticeHub(
+                model: model, theme: theme, context: context, log: &log,
+                outputDirectory: run.outputDirectory)
+        }
+
         // Deliberately last. It puts a text field into the window's responder
         // chain, and a field left there swallows every later keystroke — which
         // is exactly what happened the first time it ran earlier in the run.

@@ -70,6 +70,7 @@ extension ViewerModel {
         degradation = DegradationCounts()
         isResampling = false
         lastRateCheck = 0
+        wrapTracker.reset()
     }
 
     private func startClock() {
@@ -140,6 +141,11 @@ extension ViewerModel {
         // and a stationary playhead must not redraw the window sixty times a
         // second while the engine is stalled or paused mid-drain.
         if frame != playhead { playhead = frame }
+        // The practice ramp's only clock: a loop wrap is read out of this same
+        // position stream rather than timed (`LoopWrapTracker` says why a timer
+        // cannot work here). Unconditional rather than gated on a running ramp,
+        // so the baseline is always current.
+        notePlayhead(frame)
         autoScroll()
     }
 
@@ -265,6 +271,11 @@ extension ViewerModel {
         guard hasTrack else { return }
         let target = Swift.max(0, Swift.min(frame, totalFrames))
         playhead = target
+        // A deliberate jump is shaped exactly like a loop wrap and is not one:
+        // `F`, or a nudge back into the loop, must not count as a repetition of
+        // the practice ramp. Dropped here, at the single path every user seek
+        // takes, so the detector needs no opinion about seeks.
+        wrapTracker.reset()
         reachedEnd = target >= totalFrames
         session?.push(.seek(target))
     }
@@ -281,6 +292,10 @@ extension ViewerModel {
             SpeedStepping.stepped(speed, by: isFine ? SpeedStepping.fine : SpeedStepping.coarse))
     }
 
+    /// **Set the speed to a given ratio**, quantised and clamped. Named after
+    /// the `1`–`4` keys, its first caller; it is the general path, and Task 21's
+    /// practice ramp is its second caller for exactly that reason — a ramp with
+    /// its own `setTimeRatio` would be a second way to reach the render thread.
     public func setSpeedPreset(_ ratio: Double) {
         var next = speed
         next.setRatio(SpeedStepping.quantise(ratio))
@@ -371,6 +386,10 @@ extension ViewerModel {
     func applyLoop(_ next: LoopRegion) {
         guard next != loop else { return }
         loop = next
+        // The geometry the wrap detector measures against has just changed, so
+        // its remembered position is from a different region: a loop dragged
+        // shorter under a running ramp would otherwise report a phantom wrap.
+        wrapTracker.reset()
         // Takes effect on the next pass, not this one: the engine wraps at the
         // boundary it is fed, and never resets the stretcher there (spec §5.1).
         session?.push(.setLoop(loop.range, loop.isEnabled))

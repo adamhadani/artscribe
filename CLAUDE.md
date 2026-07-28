@@ -33,18 +33,19 @@ It is the acceptance equivalent of `swift test --filter <Target>` during the loo
 
 | Run | Wall clock | Against a full run |
 |---|---|---|
-| everything | **134 s** | — |
-| `--quick` (drops `playback`, `start`) | 96 s | 1.4× |
-| `--only transport` | 13.3 s | 10× |
-| `--only menu` | 6.2 s | 22× |
-| `--only selection` | 4.6 s | 29× |
-| `--only loop` | 3.4 s | **40×** |
+| everything | **165 s** | — |
+| `--quick` (drops `playback`, `start`, `practice`) | 96 s | 1.7× |
+| `--only transport` | 13.3 s | 12× |
+| `--only practice` | 23 s | 7× |
+| `--only menu` | 6.2 s | 27× |
+| `--only selection` | 4.6 s | 36× |
+| `--only loop` | 3.4 s | **48×** |
 
 Measured on 2026-07-28, release build, the same 108 MB FLAC each time. The floor is about
 3 s: the load and the window checks in front of the first group always run. `--quick` is the
-weakest of these — the two slow groups are only 39 s of the 134 — so prefer `--only`.
+weakest of these — the three slow groups are only 65 s of the 165 — so prefer `--only`.
 
-- `--list` prints the sixteen groups, what each covers, and roughly how many checks it
+- `--list` prints the seventeen groups, what each covers, and roughly how many checks it
   carries. Use it rather than reading `AcceptanceGroups.swift`.
 - `--only` and `--skip` take comma-separated names and compose — `--only` chooses the field,
   `--skip` narrows it, `--quick` drops the slow groups from whatever is left.

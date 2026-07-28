@@ -43,9 +43,17 @@ struct AcceptanceMain: App {
     /// persisted, but the divider position is, and a run that drags it must not
     /// leave the user's real shortcut window resplit.
     @State private var shortcuts = ShortcutWindowController(defaults: Self.defaults)
+    /// Task 21's Practice window. The controller holds no persisted state; the
+    /// ramp schedule it edits is on the acceptance suite below, for the same
+    /// reason as everything else here — a run must not leave the user's real
+    /// practice ramp reconfigured.
+    @State private var practice = PracticeWindowController()
+    @State private var practiceSettings = PracticeSettings(defaults: Self.defaults)
 
     private var context: MenuContext {
-        MenuContext(model: model, recents: recents, devices: devices, shortcuts: shortcuts)
+        MenuContext(
+            model: model, recents: recents, devices: devices, shortcuts: shortcuts,
+            practice: practice)
     }
 
     static let sessionFallbackDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -71,6 +79,7 @@ struct AcceptanceMain: App {
                 .frame(minWidth: 720, minHeight: 420)
                 .task { await start() }
                 .openShortcutWindow(shortcuts)
+                .openPracticeWindow(practice)
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
@@ -86,8 +95,17 @@ struct AcceptanceMain: App {
         Window("Keyboard Shortcuts", id: ShortcutWindowController.windowID) {
             ShortcutWindow(context: context, theme: theme)
                 .openShortcutWindow(shortcuts)
+                .openPracticeWindow(practice)
         }
         .defaultSize(width: 1320, height: 620)
+        .windowResizability(.contentMinSize)
+
+        Window("Practice", id: PracticeWindowController.windowID) {
+            PracticeWindow(context: context, theme: theme)
+                .openShortcutWindow(shortcuts)
+                .openPracticeWindow(practice)
+        }
+        .defaultSize(width: 340, height: 400)
         .windowResizability(.contentMinSize)
 
         Settings {
@@ -102,6 +120,7 @@ struct AcceptanceMain: App {
         model.attach(nudge: nudge)
         model.attach(interaction: interaction)
         model.attach(sessions: sessions)
+        model.attach(practice: practiceSettings)
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
         await AcceptanceRun.runIfRequested(model: model, theme: theme, context: context)
