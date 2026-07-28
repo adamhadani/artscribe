@@ -62,17 +62,10 @@ public enum SelectionMoveTier: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// How the Edit menu names the two items for this tier.
-    ///
-    /// The amount goes in the title for the same two reasons the nudge items
-    /// carry theirs: the menu is where you look to find out what a key does,
-    /// and it is the only place a Settings change is visible without pressing
-    /// the key and guessing.
-    public func menuTitle(direction: NudgeDirection, seconds: Double) -> String {
-        let way = direction == .backward ? "Left" : "Right"
-        let far = self == .aggressive ? " (Far)" : ""
-        return "Move Selection \(way)\(far) \(NudgeAmounts.label(seconds: seconds))"
-    }
+    // How the Edit menu names these items used to be spelled out here, as
+    // `menuTitle(direction:seconds:)`. The words now live on the catalog row —
+    // one place a title can be changed — and `ActionTitle` appends the live
+    // amount. See `ActionCatalog`.
 }
 
 /// The two amounts, in seconds, with the validation on the way in.

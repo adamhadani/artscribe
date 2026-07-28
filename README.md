@@ -159,6 +159,10 @@ Release, not debug — a debug build decodes roughly four times slower.
 | `⌥C` / `⌥V` | Move it further (2 s, configurable) |
 | `⌘0` / `⌘9` | Fit the whole file / zoom to selection |
 | `Esc` | Clear the selection |
+| `⇧A` `⇧S` / `⇧D` `⇧F` | Move the loop's in / out point (add `⌥` for the bigger step) |
+| `⇧C` / `⇧V` | Move the whole loop, keeping its length |
+| `⌘S` / `⇧⌘S` | Save the session sidecar / save it elsewhere |
+| `⌥⌘I` / `⌘/` | Show or hide the side panel / open it on the shortcut reference |
 
 Drag in the lanes to select, shift-drag to extend, click to place the playhead, double-click
 to place it and play from there (`⌘A` is still Select All). Pinch to zoom, two-finger scroll
@@ -166,6 +170,17 @@ to pan. Dragging the overview strip
 moves the visible window. **Drag down** on the time ruler — or ⌥-drag in the waveform — to
 zoom in smoothly; Settings ▸ Playback ▸ *Invert zoom direction* reverses that and the scroll
 wheel together.
+
+### The shortcut reference
+
+Press `⌘/` for a side panel listing every shortcut, grouped by what it does and showing the
+nudge and move amounts you currently have set. `⌥⌘I` shows and hides the panel without
+changing its page; both are in the **View** menu. Drag its inner edge to resize it, and it
+stays where you left it between launches.
+
+It is generated from the same `ActionCatalog` the menus and the keyboard are built from, so
+it cannot fall out of step with what the keys actually do — see `Sources/ArtscribeUI/
+ActionCatalog.swift`, and `ActionCatalogTests` for the test that enforces it.
 
 Every shortcut above also appears beside its item in the menus — selection in **Edit**,
 looping in **Loop**, the transport, speed, volume and output device in **Playback**.

@@ -28,8 +28,16 @@ In:
 - Selection by keyboard and mouse drag
 - Seamless, sample-accurate A/B looping
 - Speed 10–200%, pitch preserved, with a Studio/Fast engine switch
-- Collapsible inspector showing speed, loop points, and active engine
-- Full menu-bar coverage plus a help sheet generated from the live binding table
+- Collapsible inspector — built in Task 20, with the **shortcut reference** as its first
+  page and the Practice hub as its second. It does **not** show speed, loop points and
+  active engine as originally written here: `StatusBarView` shows all three (speed
+  emphasised when it is not 100%, the engine label beside it, loop state tinted when
+  active) and the transport bar shows two of them as controls, so that page would have
+  duplicated what is already on screen. This line was written before either existed. If
+  the inspector wants content beyond Shortcuts and Practice, the genuinely
+  non-duplicative candidate is **precise numeric entry** — typing `1:23.456` for a loop
+  point instead of dragging to it — plus file info
+- Full menu-bar coverage plus a shortcut reference generated from the live action catalog
 - Per-file session persistence via a visible `.artscribe` sidecar
 
 Explicitly out (see §11):
@@ -100,7 +108,7 @@ UI (via `Waveform`) and the render thread read it; neither mutates it.
 | `TimeStretch` | `TimeStretcher` protocol; `RubberBandStretcher` (R3/R2) | CRubberBand | — |
 | `Playback` | `PlaybackEngine` (headless), `CommandRing`, `AudioOutput` | ArtscribeKit, TimeStretch | AVFAudio (edge only) |
 | `InputBindings` | `Action`, `ActionID`, `InputEvent`, `BindingTable`, `ActionDispatcher`, `KeyboardSource` | ArtscribeKit | AppKit (key events) |
-| `ArtscribeUI` | `TimelineLane`, `WaveformLane`, `OverviewStrip`, `Ruler`, `Transport`, `Inspector`, `HelpSheet` | all of the above | SwiftUI |
+| `ArtscribeUI` | `TimelineLane`, `WaveformLane`, `OverviewStrip`, `Ruler`, `Transport`, `Inspector`, `ShortcutReference` | all of the above | SwiftUI |
 
 **Boundary rule:** dependencies point one way, left to right in the table. `ArtscribeKit`
 imports nothing. `Playback` must not import `ArtscribeUI`. Anything that would require an
@@ -240,7 +248,7 @@ away from being back inside it.
 | `speed.down.fine` / `speed.up.fine` | `⇧Q` / `⇧W` | ∓1% |
 | `speed.preset.100/75/50/33` | `1` / `2` / `3` / `4` | Speed presets |
 | `speed.engineToggle` | `⌥E` | Studio ⇄ Fast |
-| `zoom.out` / `zoom.in` | `E` / `R`, `⌘−` / `⌘=` | Zoom, playhead-anchored |
+| `zoom.out` / `zoom.in` | `E` / `R` | Zoom, playhead-anchored. `⌘−` / `⌘=` were listed here and never built; they are **not** bound, and the catalog rather than this table is now the record of what is |
 | `zoom.fit` | `⌘0` | Fit whole file |
 | `zoom.toSelection` | `⌘9` | Zoom to selection |
 | `selection.extendLeft` / `.extendRight` | `⇧←` / `⇧→` | Extend selection by the normal nudge amount |
@@ -249,14 +257,19 @@ away from being back inside it.
 | `selection.selectAll` | `⌘A` | Select all |
 | `selection.clear` | `Esc` | Clear selection |
 | `file.open` | `⌘O` | Open… |
-| `view.toggleInspector` | `⌥⌘I` | Toggle inspector |
+| `view.toggleInspector` | `⌥⌘I` | Show / hide the inspector |
+| `transport.stop` | — | Playback ▸ Stop. Menu only: `Space` already pauses, and a third way to say it would be a key spent on nothing |
+| `loop.clear` | — | Loop ▸ Clear Loop. Menu only |
+| `view.scrollLeft` / `.scrollRight` | — | View ▸ Scroll. Menu only: `Z`/`X` are the nudge keys and a nudge brings the view with it, so moving the view alone is left to these, the trackpad and the overview strip |
+| `file.save` / `file.saveAs` | `⌘S` / `⇧⌘S` | Write the sidecar; write it somewhere else (§7.1) |
+| `edit.cut` / `.copy` / `.paste` | `⌘X` / `⌘C` / `⌘V` | The standard pasteboard chords, re-declared because Artscribe **replaces** the standard group. They exist for the numeric fields in Settings |
 | `volume.up` / `.down` | `↑` / `↓` | Volume ∓5%, linear in amplitude, default 0.5 |
 | `volume.up.fine` / `.down.fine` | `⇧↑` / `⇧↓` | Volume ∓1% |
 | `volume.mute` | `M` | Mute, restoring the prior level |
 | `file.openRecent` | — | File ▸ Open Recent, 8 entries, de-duplicated by resolved path |
 | `view.zoomDragDirection` | — | Invert zoom direction; **in Settings ▸ Playback**, and it governs the ruler drag, the ⌥-drag and the wheel alike |
 | `view.theme` | — | Light / Dark / System; **in Settings ▸ Appearance**, consolidated there from the View menu |
-| `help.shortcuts` | `⌘/` | Help sheet |
+| `help.shortcuts` | `⌘/` | Open the inspector's **Shortcuts** page (and close it again if that page is already showing) |
 | `app.settings` | `⌘,` | Settings — in the **app menu** (Artscribe ▸ Settings…), the macOS convention since Ventura, wired automatically by SwiftUI's `Settings` scene |
 
 **A nudge may leave an active loop region.** All three tiers move the playhead freely, loop
@@ -343,7 +356,21 @@ began it keeps the magnifier, because it is still zooming.
 `BindingTable` maps `InputBinding` → `ActionID` and is `Codable` to JSON in Application
 Support, user-editable. `InputBinding` is an enum with a `keyChord` case in the MVP; MIDI
 note and CC cases are added later without touching `Action`, `ActionDispatcher`, or the
-help sheet.
+shortcut reference.
+
+**Its foundation exists as of Task 20 and rebinding does not.** `ActionCatalog` is one
+list of (`ActionID`, title, category, default chords, menu placement) that the menu
+builders, the window's key handler and the shortcut reference all read; `MenuPlan`
+describes the menu bar as data and the menus render it. A shortcut therefore cannot be
+changed in one place and left stale in another, and `ActionCatalogTests` asserts that
+every catalog action appears in exactly one menu and that no menu item exists outside the
+catalog. What is still deferred is the *rebinding* — a persisted `BindingTable` replacing
+the fixed reverse index in `KeyBindings`, and nothing else.
+
+**There is no separate modal help sheet, and there should not be one.** §6.2 listed
+`help.shortcuts` as one and it was never built; the collapsible inspector supersedes it.
+Two overlapping shortcut surfaces is exactly the arrangement that lets one of them drift.
+`⌘/` keeps its binding and opens the inspector's Shortcuts page.
 
 ---
 
@@ -400,7 +427,7 @@ The rule is **never degrade silently**.
 |---|---|
 | Unsupported or corrupt file | Inline banner in the window with the real reason; the previously loaded file stays loaded. Not a modal alert |
 | Very large file | Decode with progress and cancel. Above ~1.5 GB decoded, warn with the actual figure and let the user choose |
-| Sidecar not writable | Fall back to Application Support; indicate the fallback in the inspector |
+| Sidecar not writable | Fall back to Application Support; indicate the fallback in the inspector's chrome, on every page, as a standing indicator that cannot be dismissed while the condition holds |
 | Stretcher init failure | R3 → R2 → 1.0× passthrough, each step **visibly** indicated in the transport bar |
 | Audio device / route change | Reconfigure the engine, preserving position and speed |
 

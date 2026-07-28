@@ -38,7 +38,9 @@ enum AcceptanceRun {
     }
 
     @MainActor
-    static func runIfRequested(model: ViewerModel, theme: ThemeController) async {
+    static func runIfRequested(
+        model: ViewerModel, theme: ThemeController, context: MenuContext
+    ) async {
         silenceOutput()
         let args = CommandLine.arguments
         guard let audioPath = value(after: "--acceptance", in: args) else { return }
@@ -154,6 +156,13 @@ enum AcceptanceRun {
         if let badFile { await checkBadFile(model: model, url: badFile, log: &log) }
         await settle(seconds: 0.3)
         snapshot(to: "\(outputDirectory)/06-error-banner.png")
+
+        // Task 20. Deliberately after every pointer check: it changes the
+        // window's layout, and the lane coordinates those checks aim at are
+        // computed from the width the inspector is about to take.
+        await checkInspector(
+            model: model, inspector: context.inspector, context: context, log: &log,
+            outputDirectory: outputDirectory)
 
         // Deliberately last. It puts a text field into the window's responder
         // chain, and a field left there swallows every later keystroke — which

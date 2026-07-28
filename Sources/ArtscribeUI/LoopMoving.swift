@@ -18,25 +18,10 @@ public enum LoopMoveTarget: String, CaseIterable, Identifiable, Sendable {
 
     public var id: String { rawValue }
 
-    /// How the Loop menu names the two items for this target.
-    ///
-    /// The amount goes in the title for the same reason the nudge and
-    /// selection-move items carry theirs: the menu is where you look to find out
-    /// what a key does, and it is the only place a Settings change is visible
-    /// without pressing the key and guessing.
-    public func menuTitle(
-        direction: NudgeDirection, tier: SelectionMoveTier, seconds: Double
-    ) -> String {
-        let what: String
-        switch self {
-        case .inPoint: what = "Loop In"
-        case .outPoint: what = "Loop Out"
-        case .whole: what = "Loop"
-        }
-        let way = direction == .backward ? "Left" : "Right"
-        let far = tier == .aggressive ? " (Far)" : ""
-        return "Move \(what) \(way)\(far) \(NudgeAmounts.label(seconds: seconds))"
-    }
+    // How the Loop menu names these twelve items used to be spelled out here,
+    // as `menuTitle(direction:tier:seconds:)`. The words now live on the
+    // catalog rows — one place a title can be changed — and `ActionTitle`
+    // appends the live amount. See `ActionCatalog`.
 }
 
 /// Where a loop-move lands.

@@ -91,6 +91,15 @@ struct ArtscribeAppMain: App {
     /// like the rest of these: it outlives every loaded track, and it holds
     /// nothing but where the read-only-volume fallback lives.
     @State private var sessions = SessionStore()
+    /// Whether the side panel is open and which page it is on (spec §2, §6.2).
+    /// Application state like the rest of these: it outlives every loaded track.
+    @State private var inspector = InspectorController()
+
+    /// Everything the menus and the window dispatch through, built once. See
+    /// `MenuContext` for why it is one value rather than four parameters.
+    private var context: MenuContext {
+        MenuContext(model: model, recents: recents, devices: devices, inspector: inspector)
+    }
 
     init() {
         // A SwiftPM executable is not an app bundle, so AppKit starts it as an
@@ -101,19 +110,19 @@ struct ArtscribeAppMain: App {
 
     var body: some Scene {
         Window("Artscribe", id: "viewer") {
-            ViewerWindow(model: model, theme: theme)
+            ViewerWindow(context: context, theme: theme)
                 .frame(minWidth: 720, minHeight: 420)
                 .task { start() }
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
-            ViewerCommands(model: model, recents: recents)
+            ViewerCommands(context: context)
             // Edit ▸ the selection actions, Playback ▸ the transport, and Loop
             // ▸ the signature feature. Declaration order is menu-bar order for
             // the two `CommandMenu`s, so Loop sits next to Playback.
-            EditCommands(model: model)
-            PlaybackCommands(model: model, devices: devices)
-            LoopCommands(model: model)
+            EditCommands(context: context)
+            PlaybackCommands(context: context)
+            LoopCommands(context: context)
         }
 
         // The idiomatic route to **Artscribe ▸ Settings…**: this scene is what

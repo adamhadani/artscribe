@@ -1,13 +1,15 @@
-import ArtscribeKit
 import SwiftUI
 
 /// The viewer window.
 ///
 /// Keyboard handling lives here rather than in the lanes so the bindings work
-/// wherever the pointer is. It is deliberately a flat `switch` for now: Plan 2
-/// replaces it with the real `BindingTable`.
+/// wherever the pointer is. It resolves a press against `ActionCatalog` — the
+/// same table the menu bar is built from — so a chord cannot mean one thing
+/// here and another there. Spec §6.3's rebindable `BindingTable` replaces the
+/// fixed table behind `KeyBindings`, and nothing else.
 public struct DocumentView: View {
-    private let model: ViewerModel
+    private let context: MenuContext
+    private var model: ViewerModel { context.model }
     @FocusState private var hasKeyboardFocus: Bool
     @State private var trackpad = TrackpadMonitor()
     /// The window's modified dot, proxy icon and close prompt. Built once, from
@@ -24,15 +26,20 @@ public struct DocumentView: View {
     /// the resolving and always passes something concrete.
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(model: ViewerModel) {
-        self.model = model
-        _chrome = State(initialValue: DocumentWindowChrome(model: model))
+    public init(context: MenuContext) {
+        self.context = context
+        _chrome = State(initialValue: DocumentWindowChrome(model: context.model))
     }
 
     private var appearance: Appearance { colorScheme == .dark ? .dark : .light }
 
     public var body: some View {
-        VStack(spacing: 0) {
+        // `@Bindable`, not a hand-rolled `Binding` over the same property: the
+        // inspector's divider writes back through this binding from inside
+        // AppKit's split-item collapse animation, and the idiomatic projection
+        // is the one SwiftUI knows how to schedule.
+        @Bindable var inspector = context.inspector
+        return VStack(spacing: 0) {
             TitleBarView(model: model) { ViewerActions.open(model) }
 
             if let message = model.errorMessage {
@@ -80,6 +87,20 @@ public struct DocumentView: View {
             StatusBarView(model: model)
         }
         .background(Palette.of(appearance).background.color())
+        // Spec §2 and §6.2's collapsible inspector, built at last in Task 20.
+        //
+        // SwiftUI's own `.inspector`, not a hand-rolled panel: it is the native
+        // trailing-sidebar idiom, it collapses and resizes with the divider the
+        // system draws, and AppKit remembers its width across launches.
+        //
+        // Collapsing hands the width straight back to the waveform without any
+        // help from here: the lanes' `onGeometryChange` sees the new size and
+        // `ViewerModel.setLaneSize` re-runs `Viewport.resize` and re-rasterises
+        // the bitmap, which is the same path a window resize already took.
+        .inspector(isPresented: $inspector.isPresented) {
+            InspectorView(context: context)
+                .inspectorColumnWidth(min: 260, ideal: 320, max: 460)
+        }
         // Tells `KeyWindowTracker` which window the transport belongs to. That
         // is what lets the menus' plain-letter key equivalents stand down while
         // Settings — which has editable fields — is the key window.
@@ -129,219 +150,37 @@ public struct DocumentView: View {
 
     // MARK: - Commands
 
-    /// The agreed left-hand cluster (spec §6.2). `⌘`-modified keys belong to the
-    /// menu bar, so anything carrying Command is passed straight through —
-    /// including `⌘C`/`⌘V`, which stay the standard Edit menu's.
+    /// The agreed left-hand cluster (spec §6.2), resolved through the one
+    /// catalog the menus are also built from.
     ///
-    /// This is the **only** handler for the unmodified keys. The Playback menu
-    /// lists them in its titles rather than claiming them as menu key
-    /// equivalents, for the reason `ViewerCommands` records: a plain-letter key
-    /// equivalent is claimed application-wide and flashes the menu bar on every
-    /// keystroke, which during a `Q`/`W` speed sweep or an `E`/`R` zoom sweep is
-    /// a strobe. The modifier-bearing shortcuts (`⇧Q`, `⇧W`, `⌥E`, and the nudge
-    /// cluster's `⇧Z`, `⇧X`, `⌥Z`, `⌥X`) are also real menu key equivalents, and
-    /// AppKit offers an event to the menu bar before the window — a claimed
-    /// event never arrives here, so no action fires twice. `⌥←` and `⌥→` are the
-    /// chords no menu item could carry, since an `NSMenuItem` holds exactly one.
-    private func handle(_ press: KeyPress) -> KeyPress.Result {
-        guard !press.modifiers.contains(.command) else { return .ignored }
-        // `press.key.character`, not `press.characters`: with Option held the
-        // latter is the dead-key composition ("´" for ⌥E on a US layout), which
-        // no switch over letters could match. Lowercased so a shifted letter
-        // still matches its own case.
-        let character = String(press.key.character).lowercased()
-        let handled =
-            handleTransport(press)
-            || handleVolume(character, press: press)
-            || handleNavigation(character, press: press)
-            || handleSelection(character, press: press)
-            || handleView(character, press: press)
-            || handleSpeed(character, press: press)
-            || handleLoopMove(character, press: press)
-            || handleLoop(character, press: press)
-        return handled ? .handled : .ignored
-    }
-
-    /// `Space` plays and pauses; `⇧Space` plays from the start of the selection.
+    /// This used to be eight `handle…` methods whose `switch`es spelled out
+    /// `"z"`, `"x"`, `"a"`…`"g"` beside the menus that declared the same keys —
+    /// the second of three places a shortcut lived, and the one no test could
+    /// see. It is now a lookup: `KeyBindings` reverses `ActionCatalog`, and
+    /// `ActionInvoker` runs the same closure the menu item runs.
     ///
-    /// `⇧Space` rather than `Return` since Task 18: it puts the whole transport
-    /// under the left hand, and it says what it does — a variant of the key
-    /// beside it rather than an unrelated one across the keyboard.
+    /// `⌘`-modified keys belong to the menu bar, so anything carrying Command
+    /// is passed straight through — including `⌘C`/`⌘V`, which stay the
+    /// standard Edit menu's. AppKit offers an event to the menu bar before the
+    /// window, so a claimed event never arrives here and no action fires twice;
+    /// what this provides is a path for the chords `NSMenu` refuses to match,
+    /// which is every ⇧-letter and the `⌥←`/`⌥→` alternates no `NSMenuItem`
+    /// could carry alongside `⌥Z`/`⌥X`.
     ///
-    /// **`Return` is now bound to nothing, deliberately.** Leaving it as a
-    /// synonym would mean a live binding that no menu, tooltip or README names,
-    /// which is precisely the drift this project has been bitten by twice. It
+    /// **`Return` is bound to nothing, deliberately.** Leaving it as a synonym
+    /// for `⇧Space` would mean a live binding that no menu, tooltip or README
+    /// names, which is precisely the drift this project has been bitten by. It
     /// is also the key a future "commit this value" — a go-to-time field, a
     /// rename — will want, and it is easier to hand out a free key than to take
     /// back a used one.
-    private func handleTransport(_ press: KeyPress) -> Bool {
-        switch press.key {
-        case .space:
-            if press.modifiers.contains(.shift) {
-                model.playFromStart()
-            } else {
-                model.togglePlayPause()
-            }
-        case .escape: model.clearSelection()
-        default: return false
-        }
-        return true
-    }
-
-    /// `C`/`V` move the whole selection, `⌥C`/`⌥V` move it further — spec
-    /// §6.2's `selection.move` pair.
-    ///
-    /// Handled here as well as on the Edit menu for the reason
-    /// `handleNavigation` records: `NSMenu` matches a key equivalent against
-    /// `charactersIgnoringModifiers`, and what the menu does not claim has to
-    /// have somewhere to land. AppKit offers the event to the menu bar first,
-    /// so a claimed chord never reaches this method and nothing fires twice.
-    private func handleSelection(_ character: String, press: KeyPress) -> Bool {
-        guard character == "c" || character == "v" else { return false }
-        // ⇧C / ⇧V move the *loop*, not the selection (`handleLoopMove`), so they
-        // have to fall through rather than being swallowed here.
-        guard !press.modifiers.contains(.shift) else { return false }
-        // ⌘C / ⌘V belong to the standard Edit menu; `handle(_:)` has already
-        // passed those through, so this only ever sees the bare and ⌥ forms.
-        let tier: SelectionMoveTier = press.modifiers.contains(.option) ? .aggressive : .gentle
-        model.moveSelection(tier, direction: character == "c" ? .backward : .forward)
-        return true
-    }
-
-    /// `↑`/`↓` ∓5%, `⇧↑`/`⇧↓` ∓1%, `M` mute.
-    ///
-    /// The vertical arrows are free: spec §6.2 binds only `←`/`→` (nudge) and
-    /// `⇧←`/`⇧→` (extend selection), so this creates no double-binding and
-    /// leaves the whole left-hand cluster alone.
-    private func handleVolume(_ character: String, press: KeyPress) -> Bool {
-        let fine = press.modifiers.contains(.shift)
-        switch press.key {
-        case .upArrow: model.volumeUp(fine: fine)
-        case .downArrow: model.volumeDown(fine: fine)
-        default:
-            guard character == "m" else { return false }
-            model.toggleMute()
-        }
-        return true
-    }
-
-    /// The three nudge tiers (spec §6.2): `Z`/`X` and `←`/`→` by the normal
-    /// amount, `⇧`-modified by the fine one, `⌥`-modified by the coarse one.
-    ///
-    /// The whole cluster is handled here, including the four chords the Playback
-    /// menu also declares as key equivalents — deliberately, and following what
-    /// `⇧Q`/`⇧W`/`⌥E` already do. AppKit offers a key event to the menu bar
-    /// *before* the window, and a claimed event never reaches `onKeyPress`, so
-    /// there is still exactly one fire; what this adds is a path when the menu
-    /// does not claim it. That case is real: measured in the acceptance run,
-    /// `NSMenu` matches these items only against a **lowercase**
-    /// `charactersIgnoringModifiers`, so a `⇧Z` reported as "Z" is not claimed
-    /// by the menu at all. `⇧Z` is menu-only otherwise, and an unreachable fine
-    /// nudge is precisely the silent degradation the spec forbids.
-    ///
-    /// `⇧←`/`⇧→` are **not** a fine nudge: on the arrows ⇧ extends the
-    /// selection (spec §6.2 records why the two clusters differ), and as of
-    /// Task 18 that action exists — it had been documented and unimplemented
-    /// since the design was approved, so the two chords fell through to
-    /// nothing at all.
-    private func handleNavigation(_ character: String, press: KeyPress) -> Bool {
-        let option = press.modifiers.contains(.option)
-        let shift = press.modifiers.contains(.shift)
-        switch press.key {
-        case .leftArrow, .rightArrow:
-            let direction: NudgeDirection = press.key == .leftArrow ? .backward : .forward
-            guard !shift else {
-                model.extendSelection(direction)
-                return true
-            }
-            model.nudge(option ? .coarse : .normal, direction: direction)
-            return true
-        default:
-            break
-        }
-        guard character == "z" || character == "x" else { return false }
-        // ⌥ before ⇧: the two are separate tiers, and holding both is a typo
-        // rather than a fourth tier.
-        let tier: NudgeTier = option ? .coarse : (shift ? .fine : .normal)
-        model.nudge(tier, direction: character == "z" ? .backward : .forward)
-        return true
-    }
-
-    private func handleView(_ character: String, press: KeyPress) -> Bool {
-        // ⌥E is the engine toggle, not a zoom — checked before the bare `e`.
-        guard !(character == "e" && press.modifiers.contains(.option)) else { return false }
-        switch character {
-        case "e": model.zoomOut()
-        case "r": model.zoomIn()
-        default: return false
-        }
-        return true
-    }
-
-    private func handleSpeed(_ character: String, press: KeyPress) -> Bool {
-        let fine = press.modifiers.contains(.shift)
-        switch character {
-        case "q": model.slower(fine: fine)
-        case "w": model.faster(fine: fine)
-        case "e" where press.modifiers.contains(.option): model.toggleStretchEngine()
-        case "1", "2", "3", "4":
-            guard let index = Int(character) else { return false }
-            model.setSpeedPreset(SpeedStepping.presets[index - 1])
-        default: return false
-        }
-        return true
-    }
-
-    /// `⇧A`/`⇧S` and `⇧D`/`⇧F` move the loop's in and out points; `⇧C`/`⇧V`
-    /// move the whole region. `⌥` added to any of them takes the bigger step —
-    /// spec §6.2's `loop.move` actions. See `LoopItems.moveItems` for why these
-    /// keys.
-    ///
-    /// Handled here as well as on the Loop menu for the reason `handleNavigation`
-    /// records, and it is not belt-and-braces in this case: `NSMenu` matches a key
-    /// equivalent against a **lowercase** `charactersIgnoringModifiers`, so a `⇧A`
-    /// reported as "A" is never claimed by the menu. Without this method the twelve
-    /// items would draw their shortcuts and none of them would fire.
-    private func handleLoopMove(_ character: String, press: KeyPress) -> Bool {
-        guard press.modifiers.contains(.shift) else { return false }
-        let move: (LoopMoveTarget, NudgeDirection)
-        switch character {
-        case "a": move = (.inPoint, .backward)
-        case "s": move = (.inPoint, .forward)
-        case "d": move = (.outPoint, .backward)
-        case "f": move = (.outPoint, .forward)
-        case "c": move = (.whole, .backward)
-        case "v": move = (.whole, .forward)
-        default: return false
-        }
-        let tier: SelectionMoveTier = press.modifiers.contains(.option) ? .aggressive : .gentle
-        model.moveLoop(move.0, tier, direction: move.1)
-        return true
-    }
-
-    /// `A`/`S` set the loop points, `D` toggles it, `F` restarts it, `G` copies the
-    /// selection into it.
-    ///
-    /// The modifier check is deliberate rather than incidental. This method used to
-    /// ignore modifiers entirely, which quietly made `⇧A`, `⌥A`, `⌃A` and every other
-    /// variant of all five letters a live binding that no menu, README or spec named
-    /// — exactly the drift this project has been bitten by twice. `⇧` now means "move
-    /// this edge" and `⌥` on its own claims nothing here, so both fall through.
-    /// `⌃` is left alone: nothing binds it, and refusing it would make the plain
-    /// actions unreachable for anyone whose hand rests on the key.
-    private func handleLoop(_ character: String, press: KeyPress) -> Bool {
-        guard !press.modifiers.contains(.shift), !press.modifiers.contains(.option) else {
-            return false
-        }
-        switch character {
-        case "a": model.setLoopIn()
-        case "s": model.setLoopOut()
-        case "d": model.toggleLoop()
-        case "f": model.restartLoop()
-        case "g": model.loopFromSelection()
-        default: return false
-        }
-        return true
+    private func handle(_ press: KeyPress) -> KeyPress.Result {
+        // `press.key.character`, not `press.characters`: with Option held the
+        // latter is the dead-key composition ("´" for ⌥E on a US layout), which
+        // no binding could match.
+        let chord = KeyChord.fromPress(character: press.key.character, modifiers: press.modifiers)
+        guard let action = KeyBindings.windowAction(for: chord) else { return .ignored }
+        ActionInvoker.perform(action, context)
+        return .handled
     }
 }
 

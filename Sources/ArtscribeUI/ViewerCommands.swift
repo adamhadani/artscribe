@@ -2,6 +2,9 @@ import SwiftUI
 
 /// Actions the menu bar and the window share, so a command has exactly one
 /// implementation regardless of how it was invoked.
+///
+/// The two that need a panel live here; everything else dispatches through
+/// `ActionInvoker`.
 public enum ViewerActions {
     @MainActor
     public static func open(_ model: ViewerModel) {
@@ -36,99 +39,40 @@ public enum ViewerActions {
     }
 }
 
-/// The menu bar. Every item carries a real key equivalent, right-aligned and
-/// drawn by the system — including the unmodified ones, which Task 15 stopped
-/// spelling into titles (`"Zoom In  (R)"`). `DocumentView` keeps its handlers
-/// for the keys the menu does not claim; AppKit offers an event to the menu bar
-/// first, so nothing fires twice.
+/// **File** and **View**.
 ///
-/// Nothing here uses `.disabled(…)`. A `Commands` body is not re-evaluated when
-/// an `@Observable` model changes the way a `View` body is, so a state-dependent
-/// enablement goes stale: ⌘9 measurably stopped firing after a selection was
-/// made because the item was still marked disabled from launch. Every action
-/// below is already a guarded no-op in `ViewerModel`, so an always-enabled item
-/// is both correct and honest. Greying out returns in Plan 2 with the real
-/// binding table behind it.
+/// Neither this menu nor any other lists its own items any more: every title,
+/// key equivalent and enablement comes from `ActionCatalog` by way of
+/// `MenuPlan`, so a shortcut cannot be changed here and left stale in the
+/// window's key handler or in the inspector's shortcut reference. See
+/// `ActionCatalogTests` for the guard.
 ///
-/// The View menu's plain letters (`E`, `R`) therefore sit in a nested
-/// `View` — `ViewItems` — for the one enablement that is not optional: a menu
-/// key equivalent is offered before the key window's first responder, so these
-/// must go quiet while another window (Settings, with its editable fields) is
-/// key. See `KeyWindowTracker`.
+/// Both groups are `CommandGroup`s into menus macOS already builds, never
+/// `CommandMenu`s of the same name: a `CommandMenu("View")` sits *beside* the
+/// View menu SwiftUI creates for the window, and the menu bar ends up with two.
 public struct ViewerCommands: Commands {
-    private let model: ViewerModel
-    private let recents: RecentFiles
+    private let context: MenuContext
 
-    public init(model: ViewerModel, recents: RecentFiles) {
-        self.model = model
-        self.recents = recents
+    public init(context: MenuContext) {
+        self.context = context
     }
 
     public var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("Open…") { ViewerActions.open(model) }
-                .keyboardShortcut("o", modifiers: .command)
-            RecentFilesMenu(model: model, recents: recents)
+            MenuItems(section: .fileOpen, context: context)
         }
 
         // Session persistence (spec §7) in the place every Mac user looks for
         // it. `.saveItem` is the standard group, so these land under Open Recent
         // with the separator the system draws, and ⌘S / ⇧⌘S are the system's own
         // shortcuts rather than ones invented here.
-        //
-        // Always enabled, for the reason recorded above: a `Commands` body does
-        // not re-evaluate when the model changes, so a state-dependent
-        // `.disabled` goes stale and stops the shortcut firing for good. Both
-        // actions are guarded no-ops with no track loaded.
         CommandGroup(replacing: .saveItem) {
-            Button("Save") { model.saveSession() }
-                .keyboardShortcut("s", modifiers: .command)
-            Button("Save As…") { ViewerActions.saveAs(model) }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
+            MenuItems(section: .fileSave, context: context)
         }
 
-        // Into the *standard* View menu rather than a second one of our own: a
-        // `CommandMenu("View")` sits beside the menu SwiftUI already creates for
-        // the window, and the menu bar ends up with two of them.
         CommandGroup(after: .toolbar) {
-            Button("Fit Whole File") { model.fitWholeFile() }
-                .keyboardShortcut("0", modifiers: .command)
-            Button("Zoom to Selection") { model.zoomToSelection() }
-                .keyboardShortcut("9", modifiers: .command)
-
-            Divider()
-
-            ViewItems(model: model)
+            MenuItems(section: .view, context: context)
         }
-    }
-}
-
-/// The View menu's unmodified keys, in a `View` so their enablement is live.
-///
-/// `⌘`-modified items stay in the `Commands` body above, always enabled: they
-/// cannot collide with typing, so they need nothing from here.
-struct ViewItems: View {
-    let model: ViewerModel
-    private let keyWindow = KeyWindowTracker.shared
-
-    var body: some View {
-        Group {
-            Button("Zoom In") { model.zoomIn() }
-                .keyboardShortcut("r", modifiers: [])
-            Button("Zoom Out") { model.zoomOut() }
-                .keyboardShortcut("e", modifiers: [])
-            // No key equivalents: `Z`/`X` are spec §6.2's nudge keys, and a
-            // nudge brings the view with it through the same page-flip rule
-            // that follows playback, so moving the *view* on its own is left to
-            // these items, the trackpad, and the overview strip.
-            Button("Scroll Left") { model.scrollLeft() }
-            Button("Scroll Right") { model.scrollRight() }
-        }
-        // A plain-letter key equivalent is claimed application-wide and offered
-        // before the key window's first responder, so these must only be ours
-        // while this window is the one taking keys. (`Clear Selection` and its
-        // `Esc` moved to Edit in Task 18, under the same guard.)
-        .disabled(!keyWindow.documentIsKey)
     }
 }
 
@@ -138,6 +82,9 @@ struct ViewItems: View {
 /// A nested `View` for the same reason as the theme and device menus: a
 /// `Commands` body does not re-evaluate when an `@Observable` changes, so a list
 /// written straight into one would still show whatever was recent at launch.
+///
+/// Its items are file names rather than actions, which is why `MenuPlan` calls
+/// it a `dynamicSubmenu` and the drift guard does not ask the catalog about it.
 struct RecentFilesMenu: View {
     let model: ViewerModel
     let recents: RecentFiles

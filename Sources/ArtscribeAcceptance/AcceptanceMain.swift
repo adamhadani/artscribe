@@ -39,6 +39,13 @@ struct AcceptanceMain: App {
     /// read-only to check the spec §7 fallback, and must not leave sessions in
     /// the user's real Application Support.
     @State private var sessions = SessionStore(fallbackDirectory: Self.sessionFallbackDirectory)
+    /// Also on the acceptance suite: the run opens and closes the inspector,
+    /// and must not leave the user's real app with a panel they did not open.
+    @State private var inspector = InspectorController(defaults: Self.defaults)
+
+    private var context: MenuContext {
+        MenuContext(model: model, recents: recents, devices: devices, inspector: inspector)
+    }
 
     static let sessionFallbackDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
         .appendingPathComponent("artscribe-acceptance-sessions", isDirectory: true)
@@ -59,19 +66,19 @@ struct AcceptanceMain: App {
 
     var body: some Scene {
         Window("Artscribe (acceptance)", id: "viewer") {
-            ViewerWindow(model: model, theme: theme)
+            ViewerWindow(context: context, theme: theme)
                 .frame(minWidth: 720, minHeight: 420)
                 .task { await start() }
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
-            ViewerCommands(model: model, recents: recents)
+            ViewerCommands(context: context)
             // Edit ▸ the selection actions, Playback ▸ the transport, and Loop
             // ▸ the signature feature. Declaration order is menu-bar order for
             // the two `CommandMenu`s, so Loop sits next to Playback.
-            EditCommands(model: model)
-            PlaybackCommands(model: model, devices: devices)
-            LoopCommands(model: model)
+            EditCommands(context: context)
+            PlaybackCommands(context: context)
+            LoopCommands(context: context)
         }
 
         Settings {
@@ -88,6 +95,6 @@ struct AcceptanceMain: App {
         model.attach(sessions: sessions)
         NSApplication.shared.activate()
         NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
-        await AcceptanceRun.runIfRequested(model: model, theme: theme)
+        await AcceptanceRun.runIfRequested(model: model, theme: theme, context: context)
     }
 }

@@ -15,16 +15,16 @@ import SwiftUI
 /// but leaves the `\.colorScheme` environment on the last explicit scheme, so
 /// the chrome goes light while everything Artscribe draws stays dark.
 public struct ViewerWindow: View {
-    private let model: ViewerModel
+    private let context: MenuContext
     private let theme: ThemeController
 
-    public init(model: ViewerModel, theme: ThemeController) {
-        self.model = model
+    public init(context: MenuContext, theme: ThemeController) {
+        self.context = context
         self.theme = theme
     }
 
     public var body: some View {
-        DocumentView(model: model)
+        DocumentView(context: context)
             .preferredColorScheme(theme.colorScheme)
             // The menu bar and the open panel are AppKit's and do not follow
             // `preferredColorScheme`; this keeps them in step.
