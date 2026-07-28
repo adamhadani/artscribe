@@ -163,12 +163,12 @@ enum Typography {
     static let fileName = Font.system(size: 13, weight: .medium)
     static let bannerBody = Font.system(size: 12, weight: .regular)
     /// A shortcut drawn as a key cap. Monospaced so `⇧Space` and `⌥⇧A` line up
-    /// down the right-hand edge of the reference the way they do in a menu.
+    /// down the right-hand edge of the list the way they do in a menu.
     static let keyCap = Font.system(size: 10.5, weight: .semibold, design: .monospaced)
-    /// The name of an action in the shortcut reference. Proportional, unlike
+    /// The name of an action in the shortcut window. Proportional, unlike
     /// almost everything else here: this is prose to be read, not a value to be
     /// compared against the one above it.
-    static let inspectorRow = Font.system(size: 12, weight: .regular)
+    static let actionName = Font.system(size: 12, weight: .regular)
 }
 
 /// A short uppercase field label, spaced out like the legend on a piece of studio

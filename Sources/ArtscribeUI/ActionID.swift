@@ -78,7 +78,6 @@ public enum ActionID: String, CaseIterable, Hashable, Sendable {
     case zoomToSelection = "zoom.toSelection"
     case viewScrollLeft = "view.scrollLeft"
     case viewScrollRight = "view.scrollRight"
-    case viewToggleInspector = "view.toggleInspector"
     case helpShortcuts = "help.shortcuts"
 
     // File and session

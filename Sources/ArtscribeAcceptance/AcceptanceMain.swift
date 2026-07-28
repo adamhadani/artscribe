@@ -39,12 +39,12 @@ struct AcceptanceMain: App {
     /// read-only to check the spec §7 fallback, and must not leave sessions in
     /// the user's real Application Support.
     @State private var sessions = SessionStore(fallbackDirectory: Self.sessionFallbackDirectory)
-    /// Also on the acceptance suite: the run opens and closes the inspector,
-    /// and must not leave the user's real app with a panel they did not open.
-    @State private var inspector = InspectorController(defaults: Self.defaults)
+    /// The shortcut window's state. Nothing of it is persisted, so unlike the
+    /// five above it needs no acceptance-only defaults suite.
+    @State private var shortcuts = ShortcutWindowController()
 
     private var context: MenuContext {
-        MenuContext(model: model, recents: recents, devices: devices, inspector: inspector)
+        MenuContext(model: model, recents: recents, devices: devices, shortcuts: shortcuts)
     }
 
     static let sessionFallbackDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -69,6 +69,7 @@ struct AcceptanceMain: App {
             ViewerWindow(context: context, theme: theme)
                 .frame(minWidth: 720, minHeight: 420)
                 .task { await start() }
+                .openShortcutWindow(shortcuts)
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
@@ -80,6 +81,13 @@ struct AcceptanceMain: App {
             PlaybackCommands(context: context)
             LoopCommands(context: context)
         }
+
+        Window("Keyboard Shortcuts", id: ShortcutWindowController.windowID) {
+            ShortcutWindow(context: context, theme: theme)
+                .openShortcutWindow(shortcuts)
+        }
+        .defaultSize(width: 1100, height: 660)
+        .windowResizability(.contentMinSize)
 
         Settings {
             SettingsView(model: model, theme: theme)

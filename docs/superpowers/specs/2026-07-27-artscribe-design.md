@@ -28,16 +28,23 @@ In:
 - Selection by keyboard and mouse drag
 - Seamless, sample-accurate A/B looping
 - Speed 10–200%, pitch preserved, with a Studio/Fast engine switch
-- Collapsible inspector — built in Task 20, with the **shortcut reference** as its first
-  page and the Practice hub as its second. It does **not** show speed, loop points and
-  active engine as originally written here: `StatusBarView` shows all three (speed
-  emphasised when it is not 100%, the engine label beside it, loop state tinted when
-  active) and the transport bar shows two of them as controls, so that page would have
-  duplicated what is already on screen. This line was written before either existed. If
-  the inspector wants content beyond Shortcuts and Practice, the genuinely
-  non-duplicative candidate is **precise numeric entry** — typing `1:23.456` for a loop
-  point instead of dragging to it — plus file info
-- Full menu-bar coverage plus a shortcut reference generated from the live action catalog
+- ~~Collapsible inspector~~ — **cut in Task 25.** It was built in Task 20 and removed one
+  task later, and the reason is worth keeping: *the status bar and the transport bar came
+  to cover its content.* This line originally asked the inspector to show speed, loop
+  points and the active engine; by the time it existed, `StatusBarView` showed all three
+  (speed emphasised when it is not 100%, the engine label beside it, loop state tinted
+  when active) and the transport bar showed two of them as live controls. That left the
+  panel with one page — the shortcut reference — which Task 25 moved into a window of its
+  own, and the Practice hub (Task 21), which is better as a window too and costs the
+  waveform no width there. An inspector with nothing in it is a menu item that opens an
+  empty panel, which is worse than no menu item; the user spotted it. `⌥⌘I` and
+  `view.toggleInspector` went with it. **This is a deliberate removal, not a missing
+  feature** — if a side panel is ever wanted again, the genuinely non-duplicative content
+  is **precise numeric entry** (typing `1:23.456` for a loop point instead of dragging to
+  it) plus file info
+- Full menu-bar coverage plus a **shortcut window** (`⌘/`) generated from the live action
+  catalog: the bindings drawn on a picture of a keyboard, tinted by category, changing
+  layer as you hold `⇧`/`⌥`/`⌘`, with a searchable list beside it
 - Per-file session persistence via a visible `.artscribe` sidecar
 
 Explicitly out (see §11):
@@ -67,7 +74,7 @@ Explicitly out (see §11):
 | Rubber Band binding | C API (`rubberband-c.h`) via SwiftPM `systemLibrary` | Verified present; **no C++ interop shim needed**. `pkg-config` links `-framework Accelerate`, confirming vDSP FFTs on Apple Silicon |
 | Decoding | AVFoundation / `AVAssetReader` only | **Verified**: macOS 26 natively decodes MP3, AAC, M4A/MP4, ALAC, FLAC (incl. 24-bit), WAV, AIFF, CAF, AC3, W64, **Ogg Vorbis**, and **Opus**. Zero external decoders, no ffmpeg bundle, hardware-accelerated |
 | Playback node | `AVAudioSourceNode` (pull-based) | Sample-accurate looping, instant seek, instant speed change without rescheduling buffers — none of which `AVAudioPlayerNode` gives cleanly |
-| UI | SwiftUI, dark-first, time-aligned lanes + collapsible inspector | Lanes are the structure a transcription tool converges on; a spectrum or marker lane cannot live anywhere else and still align with the audio |
+| UI | SwiftUI, dark-first, time-aligned lanes; **no side panel** | Lanes are the structure a transcription tool converges on; a spectrum or marker lane cannot live anywhere else and still align with the audio. A collapsible inspector was specified here, built in Task 20 and **cut in Task 25**: the status bar and transport bar had come to carry everything it was for, and anything left that wants a panel (the shortcut reference, the Practice hub) is better as its own window, where it costs the waveform no width |
 | Waveform rendering | SwiftUI `Canvas`, cached layer + cheap overlay | The waveform only changes on viewport change; the playhead changes every frame. Caching the former and overlaying the latter keeps this trivial. Metal is a documented escape hatch behind `TimelineLane` |
 | Build | SwiftPM modules + XcodeGen app shell | `.pbxproj` is never committed; ~90% of the code builds and tests under plain `swift test` |
 | Keymap default | Left-hand cluster (QWER / ASDF / ZXCV + Space) | The user has an instrument in their hands. Transcribe! needs foot pedals precisely because its keymap assumes two free hands |
@@ -108,7 +115,7 @@ UI (via `Waveform`) and the render thread read it; neither mutates it.
 | `TimeStretch` | `TimeStretcher` protocol; `RubberBandStretcher` (R3/R2) | CRubberBand | — |
 | `Playback` | `PlaybackEngine` (headless), `CommandRing`, `AudioOutput` | ArtscribeKit, TimeStretch | AVFAudio (edge only) |
 | `InputBindings` | `Action`, `ActionID`, `InputEvent`, `BindingTable`, `ActionDispatcher`, `KeyboardSource` | ArtscribeKit | AppKit (key events) |
-| `ArtscribeUI` | `TimelineLane`, `WaveformLane`, `OverviewStrip`, `Ruler`, `Transport`, `Inspector`, `ShortcutReference` | all of the above | SwiftUI |
+| `ArtscribeUI` | `TimelineLane`, `WaveformLane`, `OverviewStrip`, `Ruler`, `Transport`, `ShortcutWindow` (`KeyboardLayout`, `ShortcutLayers`, `ShortcutSearch`) | all of the above | SwiftUI |
 
 **Boundary rule:** dependencies point one way, left to right in the table. `ArtscribeKit`
 imports nothing. `Playback` must not import `ArtscribeUI`. Anything that would require an
@@ -257,7 +264,6 @@ away from being back inside it.
 | `selection.selectAll` | `⌘A` | Select all |
 | `selection.clear` | `Esc` | Clear selection |
 | `file.open` | `⌘O` | Open… |
-| `view.toggleInspector` | `⌥⌘I` | Show / hide the inspector |
 | `transport.stop` | — | Playback ▸ Stop. Menu only: `Space` already pauses, and a third way to say it would be a key spent on nothing |
 | `loop.clear` | — | Loop ▸ Clear Loop. Menu only |
 | `view.scrollLeft` / `.scrollRight` | — | View ▸ Scroll. Menu only: `Z`/`X` are the nudge keys and a nudge brings the view with it, so moving the view alone is left to these, the trackpad and the overview strip |
@@ -269,7 +275,7 @@ away from being back inside it.
 | `file.openRecent` | — | File ▸ Open Recent, 8 entries, de-duplicated by resolved path |
 | `view.zoomDragDirection` | — | Invert zoom direction; **in Settings ▸ Playback**, and it governs the ruler drag, the ⌥-drag and the wheel alike |
 | `view.theme` | — | Light / Dark / System; **in Settings ▸ Appearance**, consolidated there from the View menu |
-| `help.shortcuts` | `⌘/` | Open the inspector's **Shortcuts** page (and close it again if that page is already showing) |
+| `help.shortcuts` | `⌘/` | Open the **Keyboard Shortcuts** window — a separate, resizable window whose frame is remembered, closable on its own. Not a toggle: it has a close button and answers ⌘W |
 | `app.settings` | `⌘,` | Settings — in the **app menu** (Artscribe ▸ Settings…), the macOS convention since Ventura, wired automatically by SwiftUI's `Settings` scene |
 
 **A nudge may leave an active loop region.** All three tiers move the playhead freely, loop
@@ -368,9 +374,21 @@ catalog. What is still deferred is the *rebinding* — a persisted `BindingTable
 the fixed reverse index in `KeyBindings`, and nothing else.
 
 **There is no separate modal help sheet, and there should not be one.** §6.2 listed
-`help.shortcuts` as one and it was never built; the collapsible inspector supersedes it.
-Two overlapping shortcut surfaces is exactly the arrangement that lets one of them drift.
-`⌘/` keeps its binding and opens the inspector's Shortcuts page.
+`help.shortcuts` as a modal sheet and it was never built. Task 20 made it an inspector
+page; Task 25 made it **its own window**, because a reference you keep open while you
+learn a keymap cannot live in a panel that takes width from the waveform. There is still
+exactly one shortcut surface — two overlapping ones is the arrangement that lets one of
+them drift — and it is generated from `ActionCatalog`, so it cannot show a binding the app
+does not have. `⌘/` keeps its binding and opens that window.
+
+**The window is a keyboard, not a list.** Every bound key is drawn in place, tinted by
+category, with its action named under the glyph; unbound keys are dimmed. The keymap has
+base, `⇧`, `⌥`, `⌥⇧` and two `⌘` layers and one keyboard cannot show them, so **holding a
+modifier changes the layer live** — which teaches the keymap the way using it does. A
+layer can also be pinned from a picker, for anyone who cannot hold two keys at once; that
+is an accessibility requirement and not a nicety. A filter field narrows the keyboard and
+the list beside it together, and the list includes actions with no shortcut (Stop, Clear
+Loop, the two Scroll items) rather than pretending they do not exist.
 
 ---
 
@@ -381,8 +399,12 @@ loop region, loop enabled, viewport, playhead, and active engine. Written on clo
 debounced during editing.
 
 If the containing directory is not writable — a read-only volume, a NAS, a mounted image —
-fall back to Application Support keyed by file URL, and surface the fallback in the
-inspector. Loop points must never be silently lost because a directory was read-only.
+fall back to Application Support keyed by file URL, and **surface the fallback**. Loop
+points must never be silently lost because a directory was read-only. It is shown as a
+standing inline banner in the document window, beside the decode and device notices —
+Task 20 put it in the inspector's chrome and Task 25 rehomed it when the inspector was
+cut. What this requires is that the fallback be *visible*, not that it live in a
+particular container.
 
 ### 7.1 Save, Save As, and the close prompt
 
@@ -427,7 +449,7 @@ The rule is **never degrade silently**.
 |---|---|
 | Unsupported or corrupt file | Inline banner in the window with the real reason; the previously loaded file stays loaded. Not a modal alert |
 | Very large file | Decode with progress and cancel. Above ~1.5 GB decoded, warn with the actual figure and let the user choose |
-| Sidecar not writable | Fall back to Application Support; indicate the fallback in the inspector's chrome, on every page, as a standing indicator that cannot be dismissed while the condition holds |
+| Sidecar not writable | Fall back to Application Support; indicate the fallback as a standing inline banner in the document window, alongside the decode and device notices, which cannot be dismissed while the condition holds (`SessionFallbackBanner`) |
 | Stretcher init failure | R3 → R2 → 1.0× passthrough, each step **visibly** indicated in the transport bar |
 | Audio device / route change | Reconfigure the engine, preserving position and speed |
 

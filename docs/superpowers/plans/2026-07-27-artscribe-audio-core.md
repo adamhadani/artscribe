@@ -3380,7 +3380,9 @@ say so.
 ### Task 21: The Practice hub
 
 The user's idea, and the most genuinely novel thing in the product — Transcribe! has no
-equivalent. Lands as a third page in the Task 20 inspector.
+equivalent. **Lands as its own `Window` scene**, following Task 25's shortcut window — the
+Task 20 inspector it was originally to be a page of was cut in Task 25, and a window costs
+the waveform no width.
 
 - [ ] **Ramping loops.** Play a loop repeatedly while the speed climbs. MVP behaviour the
       user described: increase by a fixed percentage each repetition.

@@ -44,7 +44,7 @@ public enum ViewerActions {
 /// Neither this menu nor any other lists its own items any more: every title,
 /// key equivalent and enablement comes from `ActionCatalog` by way of
 /// `MenuPlan`, so a shortcut cannot be changed here and left stale in the
-/// window's key handler or in the inspector's shortcut reference. See
+/// window's key handler or in the shortcut window. See
 /// `ActionCatalogTests` for the guard.
 ///
 /// Both groups are `CommandGroup`s into menus macOS already builds, never

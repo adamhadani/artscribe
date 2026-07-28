@@ -11,18 +11,21 @@ public struct MenuContext {
     public let model: ViewerModel
     public let recents: RecentFiles
     public let devices: OutputDeviceController
-    public let inspector: InspectorController
+    /// The shortcut window's state, and the one way to open it. Both routes to
+    /// it — the View menu item and `⌘/` — arrive through `ActionInvoker`, so it
+    /// has to be reachable from here.
+    public let shortcuts: ShortcutWindowController
 
     public init(
         model: ViewerModel,
         recents: RecentFiles,
         devices: OutputDeviceController,
-        inspector: InspectorController
+        shortcuts: ShortcutWindowController
     ) {
         self.model = model
         self.recents = recents
         self.devices = devices
-        self.inspector = inspector
+        self.shortcuts = shortcuts
     }
 }
 

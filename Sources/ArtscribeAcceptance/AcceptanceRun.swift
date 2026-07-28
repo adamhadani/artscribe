@@ -157,11 +157,12 @@ enum AcceptanceRun {
         await settle(seconds: 0.3)
         snapshot(to: "\(outputDirectory)/06-error-banner.png")
 
-        // Task 20. Deliberately after every pointer check: it changes the
-        // window's layout, and the lane coordinates those checks aim at are
-        // computed from the width the inspector is about to take.
-        await checkInspector(
-            model: model, inspector: context.inspector, context: context, log: &log,
+        // Tasks 20 and 25: the menu bar against the catalog, and the shortcut
+        // window. Deliberately after every pointer check — it opens a second
+        // window and takes the keyboard focus with it, and the lane coordinates
+        // those checks aim at are measured against the document window.
+        await checkCatalogAndShortcutWindow(
+            model: model, theme: theme, context: context, log: &log,
             outputDirectory: outputDirectory)
 
         // Deliberately last. It puts a text field into the window's responder

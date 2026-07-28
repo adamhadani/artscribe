@@ -196,9 +196,6 @@ extension ActionCatalog {
         ActionEntry(.viewScrollLeft, "Scroll Left", .view, menu: .view, enablement: .documentKey),
         ActionEntry(.viewScrollRight, "Scroll Right", .view, menu: .view, enablement: .documentKey),
         ActionEntry(
-            .viewToggleInspector, "Show Inspector", .view,
-            chords: [.key("i", [.option, .command])], menu: .view),
-        ActionEntry(
             .helpShortcuts, "Keyboard Shortcuts", .view,
             chords: [.key("/", .command)], menu: .view)
     ]

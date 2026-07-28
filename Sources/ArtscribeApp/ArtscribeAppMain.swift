@@ -91,14 +91,15 @@ struct ArtscribeAppMain: App {
     /// like the rest of these: it outlives every loaded track, and it holds
     /// nothing but where the read-only-volume fallback lives.
     @State private var sessions = SessionStore()
-    /// Whether the side panel is open and which page it is on (spec §2, §6.2).
-    /// Application state like the rest of these: it outlives every loaded track.
-    @State private var inspector = InspectorController()
+    /// The shortcut window's filter and pinned layer, and the closure that
+    /// opens it. Application state like the rest of these: the window outlives
+    /// every loaded track and is closable independently of the document.
+    @State private var shortcuts = ShortcutWindowController()
 
     /// Everything the menus and the window dispatch through, built once. See
     /// `MenuContext` for why it is one value rather than four parameters.
     private var context: MenuContext {
-        MenuContext(model: model, recents: recents, devices: devices, inspector: inspector)
+        MenuContext(model: model, recents: recents, devices: devices, shortcuts: shortcuts)
     }
 
     init() {
@@ -113,6 +114,7 @@ struct ArtscribeAppMain: App {
             ViewerWindow(context: context, theme: theme)
                 .frame(minWidth: 720, minHeight: 420)
                 .task { start() }
+                .openShortcutWindow(shortcuts)
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
@@ -124,6 +126,17 @@ struct ArtscribeAppMain: App {
             PlaybackCommands(context: context)
             LoopCommands(context: context)
         }
+
+        // Task 25's shortcut reference: a **separate** window, not a panel
+        // inside the document. Resizable, its frame remembered by name (see
+        // `ShortcutWindow.configure`), opened by `⌘/` and by View ▸ Keyboard
+        // Shortcuts, and closable on its own without disturbing the track.
+        Window("Keyboard Shortcuts", id: ShortcutWindowController.windowID) {
+            ShortcutWindow(context: context, theme: theme)
+                .openShortcutWindow(shortcuts)
+        }
+        .defaultSize(width: 1100, height: 660)
+        .windowResizability(.contentMinSize)
 
         // The idiomatic route to **Artscribe ▸ Settings…**: this scene is what
         // puts the item in the app menu and wires ⌘, to it, so neither is

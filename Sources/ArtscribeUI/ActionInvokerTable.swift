@@ -93,8 +93,7 @@ extension ActionInvoker {
         .zoomToSelection: { $0.model.zoomToSelection() },
         .viewScrollLeft: { $0.model.scrollLeft() },
         .viewScrollRight: { $0.model.scrollRight() },
-        .viewToggleInspector: { $0.inspector.toggle() },
-        .helpShortcuts: { $0.inspector.show(.shortcuts) }
+        .helpShortcuts: { $0.shortcuts.show() }
     ]
 
     /// Cut, Copy and Paste are sent down the responder chain by hand, because

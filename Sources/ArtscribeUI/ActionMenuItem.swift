@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// The title a menu item and the shortcut reference both draw.
+/// The title a menu item and the shortcut window both draw.
 ///
 /// The base words live in `ActionCatalog`; this adds only what has to be live —
-/// the transport's state, the engine's, the inspector's, and the amounts the
-/// nudge and move tiers are currently set to.
+/// the transport's state, the engine's, and the amounts the nudge and move
+/// tiers are currently set to.
 ///
 /// The amounts are in the titles rather than only in Settings for two reasons:
 /// the menu is where you look to find out what a key does, and it is the only
@@ -15,12 +15,12 @@ public enum ActionTitle {
         live[id]?(context) ?? reference(id, context)
     }
 
-    /// The same title for the shortcut reference, minus the three that name a
-    /// live *state*.
+    /// The same title for the shortcut window's list, minus the two that name
+    /// a live *state*.
     ///
     /// "Pause" and "Use Studio Engine — now: Fast" are the right words on a menu
     /// item, which is a thing you are about to press. In a reference they read
-    /// as though the shortcut only does half of what it does, so the panel gets
+    /// as though the shortcut only does half of what it does, so the window gets
     /// the catalog's own wording — with the amounts, which are what a reader
     /// most wants to check.
     public static func reference(_ id: ActionID, _ context: MenuContext) -> String {
@@ -56,7 +56,7 @@ public enum ActionTitle {
         .loopMoveLeftFar: .aggressive, .loopMoveRightFar: .aggressive
     ]
 
-    /// The three titles that name a *state* rather than an action.
+    /// The two titles that name a *state* rather than an action.
     ///
     /// The engine item says which engine is running now, because "Studio /
     /// Fast" alone leaves you guessing which half is current. It is set off
@@ -68,8 +68,7 @@ public enum ActionTitle {
         .speedEngineToggle: {
             $0.model.speed.engine == .studio
                 ? "Use Fast Engine — now: Studio" : "Use Studio Engine — now: Fast"
-        },
-        .viewToggleInspector: { $0.inspector.isPresented ? "Hide Inspector" : "Show Inspector" }
+        }
     ]
 }
 

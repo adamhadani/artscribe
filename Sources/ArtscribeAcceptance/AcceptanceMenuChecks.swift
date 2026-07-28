@@ -59,9 +59,24 @@ extension AcceptanceRun {
 
         await checkVolumeItems(menu, model: model, log: &log)
 
+        // Stopped, explicitly, because that is the state this check claims to
+        // measure. It used to inherit whatever the transport happened to be
+        // doing after forty synthesised keystrokes, and on a machine where some
+        // of those do not land the item is titled "Pause" and the lookup below
+        // silently finds nothing. Measured: adding four `log.note` calls to
+        // `checkAutoScroll` was enough to flip an unmodified build into that
+        // state, so the dependency was on timing and not on anything the menu
+        // does. `pause()` is a guarded no-op when nothing is playing.
+        model.pause()
+        await refresh(menu)
         let playItem = menu.items.first { $0.title.hasPrefix("Play") && !$0.title.contains("from") }
         log.check("the play item is enabled with a track loaded", playItem?.isEnabled == true)
-        log.note("play item title", playItem?.title ?? "missing")
+        // The transport's own answer beside the menu's. Without it a "missing"
+        // here is unreadable: the item is titled "Pause" while playing, so it
+        // cannot be told apart from a menu that failed to rebuild.
+        log.note(
+            "play item title",
+            "\(playItem?.title ?? "missing") (model.isPlaying = \(model.isPlaying))")
 
         // The title has to follow the transport, or the menu lies about what
         // pressing it will do.

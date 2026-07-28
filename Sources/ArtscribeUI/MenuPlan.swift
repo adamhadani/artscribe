@@ -93,7 +93,6 @@ public enum MenuPlan {
         .action(.viewScrollLeft),
         .action(.viewScrollRight),
         .separator,
-        .action(.viewToggleInspector),
         .action(.helpShortcuts)
     ]
 

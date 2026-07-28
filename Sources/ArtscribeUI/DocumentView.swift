@@ -34,12 +34,7 @@ public struct DocumentView: View {
     private var appearance: Appearance { colorScheme == .dark ? .dark : .light }
 
     public var body: some View {
-        // `@Bindable`, not a hand-rolled `Binding` over the same property: the
-        // inspector's divider writes back through this binding from inside
-        // AppKit's split-item collapse animation, and the idiomatic projection
-        // is the one SwiftUI knows how to schedule.
-        @Bindable var inspector = context.inspector
-        return VStack(spacing: 0) {
+        VStack(spacing: 0) {
             TitleBarView(model: model) { ViewerActions.open(model) }
 
             if let message = model.errorMessage {
@@ -70,6 +65,19 @@ public struct DocumentView: View {
                 ErrorBannerView(message: message) { model.dismissSessionNotice() }
             }
 
+            // Spec §8's read-only-sidecar fallback, as a **standing** banner.
+            //
+            // Task 20 put it in the inspector's chrome, following spec §7 and
+            // §8's wording; Task 25 removed the inspector, and this is where it
+            // belongs anyway. What §8 requires is that the fallback be
+            // *visible*, not that it live in a particular container — and the
+            // inline banner stack is where this window already says "something
+            // is not as you would assume", four notices deep. Undismissible,
+            // unlike the four above it: it describes a condition rather than an
+            // event, and dismissing it would leave nothing at all telling you
+            // your loop points are not beside your music.
+            SessionFallbackBanner(model: model)
+
             if model.hasTrack {
                 OverviewStripView(model: model)
                     .frame(height: 58)
@@ -87,20 +95,6 @@ public struct DocumentView: View {
             StatusBarView(model: model)
         }
         .background(Palette.of(appearance).background.color())
-        // Spec §2 and §6.2's collapsible inspector, built at last in Task 20.
-        //
-        // SwiftUI's own `.inspector`, not a hand-rolled panel: it is the native
-        // trailing-sidebar idiom, it collapses and resizes with the divider the
-        // system draws, and AppKit remembers its width across launches.
-        //
-        // Collapsing hands the width straight back to the waveform without any
-        // help from here: the lanes' `onGeometryChange` sees the new size and
-        // `ViewerModel.setLaneSize` re-runs `Viewport.resize` and re-rasterises
-        // the bitmap, which is the same path a window resize already took.
-        .inspector(isPresented: $inspector.isPresented) {
-            InspectorView(context: context)
-                .inspectorColumnWidth(min: 260, ideal: 320, max: 460)
-        }
         // Tells `KeyWindowTracker` which window the transport belongs to. That
         // is what lets the menus' plain-letter key equivalents stand down while
         // Settings — which has editable fields — is the key window.

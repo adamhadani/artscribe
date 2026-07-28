@@ -99,8 +99,8 @@ public struct ActionEntry: Hashable, Sendable, Identifiable {
 ///   every key equivalent and every enablement in the menu bar comes from here;
 /// * the window's key handler, through `KeyBindings`, which is a reverse index
 ///   of these chords; and
-/// * the shortcut reference in the inspector, which groups these rows by
-///   category.
+/// * the shortcut window, which draws these rows onto a keyboard by chord and
+///   lists them by category beside it.
 ///
 /// It exists because this project's characteristic failure is drift: five
 /// features have shipped where the spec and the code disagreed, and every one
@@ -142,12 +142,9 @@ public enum ActionCatalog {
 
     public static func chord(_ id: ActionID) -> KeyChord? { entry(id).primaryChord }
 
-    /// The catalog grouped for the reference, in category order, skipping any
-    /// category that has nothing bound to a key.
-    public static var reference: [(category: ActionCategory, entries: [ActionEntry])] {
-        ActionCategory.allCases.compactMap { category in
-            let rows = entries.filter { $0.category == category && !$0.chords.isEmpty }
-            return rows.isEmpty ? nil : (category, rows)
-        }
-    }
+    // The grouping the reference draws used to live here as `reference`, and
+    // skipped any action with no chord. Task 25 moved it to `ShortcutSearch`,
+    // which has to filter as well as group — and stopped skipping the unbound
+    // ones, because a window headed "Keyboard Shortcuts" that cannot find Stop
+    // at all sends you hunting through the menu bar for it.
 }

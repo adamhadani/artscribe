@@ -132,8 +132,9 @@ struct ActionCatalogTests {
             .selectionMoveLeft: "C", .selectionMoveRight: "V",
             .loopMoveInLeft: "⇧A", .loopMoveOutRight: "⇧F", .loopMoveLeftFar: "⌥⇧C",
             .volumeMute: "M", .fileOpen: "⌘O",
-            // Spec §6.2's own two, built at last in Task 20.
-            .viewToggleInspector: "⌥⌘I", .helpShortcuts: "⌘/",
+            // Spec §6.2's own. `view.toggleInspector` sat beside it until Task
+            // 25 cut the inspector; §6.2 no longer lists it either.
+            .helpShortcuts: "⌘/",
             .appSettings: "⌘,"
         ]
         for (id, display) in expected {
