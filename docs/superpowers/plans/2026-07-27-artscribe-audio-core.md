@@ -3508,6 +3508,77 @@ file bounds are all pure and must be tested. Views are not snapshot-tested — e
 logic. Drive the real gestures in the acceptance harness; the screen is unlocked and real
 `NSEvent`s reach SwiftUI.
 
+---
+
+### Task 24 (P0): Honour an explicit seek, and nudge the loop boundaries
+
+#### A — Double-click plays from where you clicked, always
+
+The user overrules the earlier decision that a double-click outside an active loop should be
+pulled into it, and reports the current behaviour is **inconsistent**: clicking before the
+loop markers behaves differently from clicking after them. They are right, and the cause is a
+single line.
+
+`PlaybackEngine.feedSource`:
+
+```swift
+if looping && readCursor >= loop.range.end { readCursor = loop.range.start }
+let end = looping ? loop.range.end : totalFrames
+```
+
+- Cursor **after** `loop.range.end` → the guard fires and the cursor is **snapped backwards**
+  to the loop start immediately. Reads as being yanked.
+- Cursor **before** `loop.range.start` → the guard does not fire; `end` is still the loop end,
+  so playback runs forward from the click and wraps only on reaching it. Reads as playing
+  normally, then falling in.
+
+One line, two different experiences.
+
+- [ ] **An explicit seek must be honoured.** Playback starts exactly where the user asked.
+- [ ] **The loop captures on arrival, not on entry.** Change the rule so the wrap fires when
+      playback *reaches* `loop.range.end` from below, and not when the cursor merely sits
+      beyond it. Concretely: the segment end should be the loop end only while the loop end
+      is still ahead of the cursor; once the cursor is past it, the segment end is
+      `totalFrames`.
+- [ ] Resulting behaviour, which is consistent in all three cases and matches Ableton/Logic:
+      - Click **before** the loop → plays from the click, runs on, is captured at loop end,
+        then loops
+      - Click **inside** the loop → plays from the click, loops normally
+      - Click **after** the loop → plays from the click to the end of the file, never wrapping
+- [ ] This touches `feedSource`, the most safety-critical function in the project.
+      **The seam tests must still pass** — including
+      `rubberBandLoopingIsIndistinguishableFromAContiguousRender`, which asserts a looped
+      render is byte-identical to a contiguous one. Run them and say so explicitly.
+- [ ] The real-time rules in `CLAUDE.md` bind this function absolutely: no allocation, no
+      locks, no ARC, no Foundation collections, no `String`.
+- [ ] Test all three cases at the engine level, plus the existing inside-the-loop behaviour.
+
+#### B — Nudge and move the loop boundaries
+
+The user wants the selection-movement actions mirrored for the loop, "available via shortcuts
+and in the Loop menu".
+
+- [ ] Actions to move **loop in** and **loop out** independently, each in both directions, in
+      the same two step sizes the selection movement uses (gentle and aggressive).
+- [ ] Consider also moving the **whole loop** preserving its length — the selection has that
+      via `C`/`V`, and Task 23 gave the loop a draggable body, so a keyboard equivalent is
+      the consistent thing. Propose it and say why you did or did not include it.
+- [ ] **Reuse the existing amounts** rather than adding a third and fourth preference. The
+      selection-movement amounts are already configurable in Settings; decide whether the
+      loop shares them or needs its own, and justify. Sharing is the default unless there is
+      a real reason.
+- [ ] Shortcuts chosen to fit the existing keymap without collision — it is now large, so
+      check carefully and state your reasoning. Keep them left-hand-driveable.
+- [ ] All items in the **Loop** menu with right-aligned system-drawn shortcuts, consistent
+      with every other menu.
+- [ ] Edges must not invert: moving loop-in past loop-out either swaps or clamps — match
+      whatever Task 23 chose for dragging, so the keyboard and the mouse agree. Check what it
+      did and follow it.
+- [ ] Clamp at the file bounds; test both ends.
+- [ ] Changes while playing take effect without a click or dropout, through the existing
+      `PlaybackCommand.setLoop` path.
+- [ ] Add the new actions to the spec's §6.2 catalog.
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
