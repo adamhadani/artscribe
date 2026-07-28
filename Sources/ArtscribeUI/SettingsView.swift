@@ -86,7 +86,8 @@ struct NudgeSettingsTab: View {
         }
     }
 
-    /// The two amounts `C`/`V` and `⌥C`/`⌥V` slide the whole selection by.
+    /// The two amounts that slide a region: `C`/`V` and `⌥C`/`⌥V` for the
+    /// selection, and the `⇧` forms for the loop's edges and its body.
     ///
     /// Edited in **seconds with fractions** rather than in the nudge tab's
     /// mixed units: both amounts live in the same range here — a fine one is
@@ -103,7 +104,7 @@ struct NudgeSettingsTab: View {
                 }
             }
         } header: {
-            Text("Selection movement")
+            Text("Selection and loop movement")
         } footer: {
             // The range is stated once, under the amounts above; repeating it
             // verbatim would cost a pane's worth of height to say nothing new.

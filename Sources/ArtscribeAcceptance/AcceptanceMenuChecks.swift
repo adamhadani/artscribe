@@ -149,6 +149,60 @@ extension AcceptanceRun {
             "Selection → Loop enables as soon as there is a selection (the ⌘9 trap)",
             item(menu, "Selection")?.isEnabled == true)
         model.clearSelection()
+        await checkLoopMoveMenuItems(menu, log: &log)
+    }
+
+    /// Task 24 B: the twelve `loop.move` items, each carrying a real key
+    /// equivalent so AppKit draws the shortcut right-aligned beside it.
+    ///
+    /// The *firing* of these chords is `checkLoopMovement`'s job, through real
+    /// `NSEvent`s. What is measured here is the other half of the requirement:
+    /// that the menu is where a user can find out the chord exists. It has to be
+    /// asserted rather than assumed, because a `keyboardShortcut` that failed to
+    /// reach `NSMenuItem` would leave an item that looks like a plain command.
+    @MainActor
+    private static func checkLoopMoveMenuItems(_ menu: NSMenu, log: inout Logger) async {
+        await refresh(menu)
+        struct Expected {
+            let title: String
+            let key: String
+            let modifiers: NSEvent.ModifierFlags
+            init(_ title: String, _ key: String, _ modifiers: NSEvent.ModifierFlags) {
+                self.title = title
+                self.key = key
+                self.modifiers = modifiers
+            }
+        }
+        let expected: [Expected] = [
+            Expected("Move Loop In Left", "a", .shift),
+            Expected("Move Loop In Right", "s", .shift),
+            Expected("Move Loop In Left (Far)", "a", [.shift, .option]),
+            Expected("Move Loop In Right (Far)", "s", [.shift, .option]),
+            Expected("Move Loop Out Left", "d", .shift),
+            Expected("Move Loop Out Right", "f", .shift),
+            Expected("Move Loop Out Left (Far)", "d", [.shift, .option]),
+            Expected("Move Loop Out Right (Far)", "f", [.shift, .option]),
+            Expected("Move Loop Left", "c", .shift),
+            Expected("Move Loop Right", "v", .shift),
+            Expected("Move Loop Left (Far)", "c", [.shift, .option]),
+            Expected("Move Loop Right (Far)", "v", [.shift, .option])
+        ]
+        for want in expected {
+            // Exact-prefix match: "Move Loop In Left" must not be satisfied by
+            // "Move Loop In Left (Far)", which would let a missing item hide.
+            let found = menu.items.first {
+                $0.title == want.title || $0.title.hasPrefix(want.title + " ")
+            }
+            guard let found else {
+                log.check("the Loop menu carries \(want.title)", false)
+                continue
+            }
+            log.check(
+                "the Loop menu carries \(want.title) with its shortcut "
+                    + "(\(found.keyEquivalent), \(found.keyEquivalentModifierMask.rawValue))",
+                found.keyEquivalent.lowercased() == want.key
+                    && found.keyEquivalentModifierMask == want.modifiers)
+        }
     }
 
     /// The **Edit** menu (Task 18): the selection actions, where macOS

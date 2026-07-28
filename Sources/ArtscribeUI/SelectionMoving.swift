@@ -1,9 +1,9 @@
 import ArtscribeKit
 
-/// The two step sizes for moving the whole selection — spec §6.2's
-/// `selection.move` pair.
+/// The two step sizes for moving a **region** into place — spec §6.2's
+/// `selection.move` pair and, since Task 24, its `loop.move` actions too.
 ///
-/// Two rather than three, unlike the nudge tiers: moving a selection is a
+/// Two rather than three, unlike the nudge tiers: moving a region is a
 /// nudging-into-place job, so what is wanted is "a touch" and "a lot", and a
 /// third size in between would only cost a chord. The amounts are
 /// user-configurable in Settings; the bindings are not, until the real
@@ -14,6 +14,16 @@ import ArtscribeKit
 /// left hand moves the playhead and the selection without leaving the cluster,
 /// and ⌥ means "the bigger step" exactly as it already does for `⌥Z`/`⌥X` and
 /// `⌥←`/`⌥→`. `⌘C`/`⌘V` are untouched: nothing here binds a ⌘ chord.
+///
+/// **The loop shares these amounts** rather than carrying a third and fourth
+/// preference of its own. Nudging a region into place is one job with one pair
+/// of sizes, and it is the same job whether the region is the passage you are
+/// looking at or the one you are hearing. Two more Settings rows would be two
+/// more numbers to keep in agreement, and a user who tuned the selection step
+/// and then found the loop step ignoring it would be right to call that a bug.
+/// The type keeps its name because it is what the persisted keys are built from
+/// (`InteractionSettings.key(for:)`), and renaming it would orphan every
+/// preference a user has already set.
 public enum SelectionMoveTier: String, CaseIterable, Identifiable, Sendable {
     case gentle
     case aggressive
@@ -32,11 +42,13 @@ public enum SelectionMoveTier: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The Settings row's name.
+    /// The Settings row's name. It says "or loop" because the amount really does
+    /// govern both, and a row named only for the selection would be a lie the
+    /// moment a user pressed `⇧A`.
     public var label: String {
         switch self {
-        case .gentle: return "Move selection"
-        case .aggressive: return "Move selection (far)"
+        case .gentle: return "Move selection or loop"
+        case .aggressive: return "Move selection or loop (far)"
         }
     }
 
@@ -45,8 +57,8 @@ public enum SelectionMoveTier: String, CaseIterable, Identifiable, Sendable {
     /// editable.
     public var keys: String {
         switch self {
-        case .gentle: return "C / V"
-        case .aggressive: return "⌥C / ⌥V"
+        case .gentle: return "C / V · ⇧A ⇧S, ⇧D ⇧F, ⇧C ⇧V"
+        case .aggressive: return "⌥C / ⌥V · ⌥⇧A ⌥⇧S, ⌥⇧D ⌥⇧F, ⌥⇧C ⌥⇧V"
         }
     }
 

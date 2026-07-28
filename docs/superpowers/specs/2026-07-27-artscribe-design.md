@@ -230,6 +230,12 @@ away from being back inside it.
 | `loop.toggle` | `D` | Toggle looping |
 | `loop.restart` | `F` | Restart loop |
 | `loop.fromSelection` | `G` | Selection → loop |
+| `loop.moveIn.left` / `.right` | `⇧A` / `⇧S` | Move the loop **in** point **250 ms** (configurable) |
+| `loop.moveIn.left.far` / `.right.far` | `⌥⇧A` / `⌥⇧S` | Move the loop **in** point **2 s** (configurable) |
+| `loop.moveOut.left` / `.right` | `⇧D` / `⇧F` | Move the loop **out** point **250 ms** (configurable) |
+| `loop.moveOut.left.far` / `.right.far` | `⌥⇧D` / `⌥⇧F` | Move the loop **out** point **2 s** (configurable) |
+| `loop.move.left` / `.right` | `⇧C` / `⇧V` | Move the whole loop, length preserved, **250 ms** (configurable) |
+| `loop.move.left.far` / `.right.far` | `⌥⇧C` / `⌥⇧V` | Move the whole loop, length preserved, **2 s** (configurable) |
 | `speed.down` / `speed.up` | `Q` / `W` | ∓5% |
 | `speed.down.fine` / `speed.up.fine` | `⇧Q` / `⇧W` | ∓1% |
 | `speed.preset.100/75/50/33` | `1` / `2` / `3` / `4` | Speed presets |
@@ -260,6 +266,26 @@ boundary. The loop itself is untouched — still set, still enabled — and `F`
 (`loop.restart`) is one key away when you want to be back inside it. Nudging is otherwise
 transport-neutral: it works stopped or playing, and pushes nothing but `seek`, so it never
 starts, stops or restarts playback.
+
+**The loop-move keys, and why they are these.** `A S D F` is the loop row and already reads
+left to right, so the *left* pair drives the loop's *left* (in) edge and the *right* pair
+its *right* (out) edge, and within each pair the left key moves left. `⇧` is what turns
+"set this edge at the playhead" into "nudge it from where it is". `⇧C`/`⇧V` then move the
+whole loop, on the very keys that already move the whole selection — the keyboard
+equivalent of the loop *body* that §6.1's pointer catalog makes draggable, and of the
+selection body it deliberately does not. `⌥` still means "the bigger step" and therefore
+*adds* to the chord rather than replacing the `⇧`. The whole cluster stays under the left
+hand, so the right one can stay on the mouse.
+
+**The loop moves share the selection's two amounts**, rather than carrying a third and
+fourth preference. Nudging a region into place is one job with one pair of sizes — a touch
+and a lot — and it is the same job whether the region is the passage you are looking at or
+the one you are hearing. Settings edits both at once.
+
+**Loop edges swap rather than invert**, by keyboard exactly as by pointer: pushing the in
+point past the out point hands over to the other edge and keeps going. The keyboard calls
+the same function the drag does, so the two cannot drift. A whole-loop move clamps as a
+unit at either end of the file, keeping its length rather than shrinking against the wall.
 
 **Note on ⇧, which is deliberately inconsistent between the two nudge bindings.** On the
 arrow keys ⇧ *extends the selection*, following the macOS text-editing convention every Mac

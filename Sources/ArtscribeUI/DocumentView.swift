@@ -157,7 +157,8 @@ public struct DocumentView: View {
             || handleSelection(character, press: press)
             || handleView(character, press: press)
             || handleSpeed(character, press: press)
-            || handleLoop(character)
+            || handleLoopMove(character, press: press)
+            || handleLoop(character, press: press)
         return handled ? .handled : .ignored
     }
 
@@ -197,6 +198,9 @@ public struct DocumentView: View {
     /// so a claimed chord never reaches this method and nothing fires twice.
     private func handleSelection(_ character: String, press: KeyPress) -> Bool {
         guard character == "c" || character == "v" else { return false }
+        // ⇧C / ⇧V move the *loop*, not the selection (`handleLoopMove`), so they
+        // have to fall through rather than being swallowed here.
+        guard !press.modifiers.contains(.shift) else { return false }
         // ⌘C / ⌘V belong to the standard Edit menu; `handle(_:)` has already
         // passed those through, so this only ever sees the bare and ⌥ forms.
         let tier: SelectionMoveTier = press.modifiers.contains(.option) ? .aggressive : .gentle
@@ -288,7 +292,47 @@ public struct DocumentView: View {
         return true
     }
 
-    private func handleLoop(_ character: String) -> Bool {
+    /// `⇧A`/`⇧S` and `⇧D`/`⇧F` move the loop's in and out points; `⇧C`/`⇧V`
+    /// move the whole region. `⌥` added to any of them takes the bigger step —
+    /// spec §6.2's `loop.move` actions. See `LoopItems.moveItems` for why these
+    /// keys.
+    ///
+    /// Handled here as well as on the Loop menu for the reason `handleNavigation`
+    /// records, and it is not belt-and-braces in this case: `NSMenu` matches a key
+    /// equivalent against a **lowercase** `charactersIgnoringModifiers`, so a `⇧A`
+    /// reported as "A" is never claimed by the menu. Without this method the twelve
+    /// items would draw their shortcuts and none of them would fire.
+    private func handleLoopMove(_ character: String, press: KeyPress) -> Bool {
+        guard press.modifiers.contains(.shift) else { return false }
+        let move: (LoopMoveTarget, NudgeDirection)
+        switch character {
+        case "a": move = (.inPoint, .backward)
+        case "s": move = (.inPoint, .forward)
+        case "d": move = (.outPoint, .backward)
+        case "f": move = (.outPoint, .forward)
+        case "c": move = (.whole, .backward)
+        case "v": move = (.whole, .forward)
+        default: return false
+        }
+        let tier: SelectionMoveTier = press.modifiers.contains(.option) ? .aggressive : .gentle
+        model.moveLoop(move.0, tier, direction: move.1)
+        return true
+    }
+
+    /// `A`/`S` set the loop points, `D` toggles it, `F` restarts it, `G` copies the
+    /// selection into it.
+    ///
+    /// The modifier check is deliberate rather than incidental. This method used to
+    /// ignore modifiers entirely, which quietly made `⇧A`, `⌥A`, `⌃A` and every other
+    /// variant of all five letters a live binding that no menu, README or spec named
+    /// — exactly the drift this project has been bitten by twice. `⇧` now means "move
+    /// this edge" and `⌥` on its own claims nothing here, so both fall through.
+    /// `⌃` is left alone: nothing binds it, and refusing it would make the plain
+    /// actions unreachable for anyone whose hand rests on the key.
+    private func handleLoop(_ character: String, press: KeyPress) -> Bool {
+        guard !press.modifiers.contains(.shift), !press.modifiers.contains(.option) else {
+            return false
+        }
         switch character {
         case "a": model.setLoopIn()
         case "s": model.setLoopOut()

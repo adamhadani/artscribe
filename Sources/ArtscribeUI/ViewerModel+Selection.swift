@@ -102,6 +102,53 @@ extension ViewerModel {
         reveal(direction == .backward ? moved.range.start : moved.range.end)
     }
 
+    // MARK: - Moving the loop
+
+    /// Slides one of the loop's edges, or the whole region — spec §6.2's
+    /// `loop.move` actions.
+    ///
+    /// **It shares the selection's amounts** (`selectionMoveAmounts`) rather than
+    /// adding a third and fourth preference. "Nudge a region into place" is one
+    /// job with one pair of sizes — a touch and a lot — and it is the same job
+    /// whether the region is the passage you are looking at or the one you are
+    /// hearing. Two more Settings rows would be two more numbers to keep in
+    /// agreement, and a user who tuned the selection step and then found the loop
+    /// step ignoring it would be right to call that a bug.
+    ///
+    /// The playhead is deliberately left alone, for the reason `moveSelection`
+    /// records: this moves what you are listening *to*, not where you are
+    /// listening *from*, and a seek is one of the two things that reset the
+    /// stretcher (CLAUDE.md on looping). Going out through `applyLoop` — the
+    /// app's one `PlaybackCommand.setLoop` path — is what makes a move while
+    /// playing take effect without a click: the engine adopts the new boundary on
+    /// its next feed and never resets there (spec §5.1).
+    public func moveLoop(
+        _ target: LoopMoveTarget, _ tier: SelectionMoveTier, direction: NudgeDirection
+    ) {
+        guard hasTrack, !loop.range.isEmpty else { return }
+        let moved = LoopMoving.moved(
+            loop, target: target, bySeconds: selectionMoveAmounts[tier] * direction.sign,
+            sampleRate: sampleRate, totalFrames: totalFrames)
+        guard moved != loop else { return }
+        applyLoop(moved)
+        // Follow the edge that moved, so a loop nudged off the visible page is
+        // not nudged blind. Page-flip, like everything else that moves the view
+        // (spec §6.1).
+        reveal(revealTarget(for: target, in: moved, direction: direction))
+    }
+
+    /// The frame worth having on screen after a loop move: the edge that moved,
+    /// and for a whole-loop move the edge it is travelling towards.
+    private func revealTarget(
+        for target: LoopMoveTarget, in moved: LoopRegion, direction: NudgeDirection
+    ) -> FrameIndex {
+        switch target {
+        case .inPoint: return moved.range.start
+        case .outPoint: return moved.range.end
+        case .whole: return direction == .backward ? moved.range.start : moved.range.end
+        }
+    }
+
     /// `⇧←` / `⇧→` — spec §6.2's `selection.extendLeft` / `.extendRight`.
     ///
     /// The anchor stays put and the head moves, which is the same shape as a

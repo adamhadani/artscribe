@@ -124,6 +124,7 @@ enum AcceptanceRun {
         await checkSelectionMovement(model: model, log: &log)
         await checkEditMenu(model: model, log: &log)
         await checkLoopMenu(model: model, log: &log)
+        await checkLoopMovement(model: model, log: &log)
 
         await checkPlayback(model: model, log: &log, outputDirectory: outputDirectory)
         await settle(seconds: 0.2)

@@ -90,6 +90,28 @@ extension AcceptanceRun {
         /// `charactersIgnoringModifiers` names the key that was pressed.
         static let optionZ = Key(6, "Ω", ignoring: "z", modifiers: .option)
         static let optionX = Key(7, "≈", ignoring: "x", modifiers: .option)
+
+        /// The loop-move cluster (Task 24). `⇧` + the loop row moves an edge —
+        /// `A S` the in point, `D F` the out point — and `⇧C`/`⇧V` move the
+        /// whole region on the keys that already move the whole selection.
+        ///
+        /// With ⇧ held, `charactersIgnoringModifiers` is the **uppercase**
+        /// letter, which is exactly why `NSMenu` never claims these and
+        /// `DocumentView` has to. Adding ⌥ gives the US layout's accented
+        /// forms, so — as for `⌥Z`/`⌥X` — only `charactersIgnoringModifiers`
+        /// names the key that was pressed.
+        static let shiftA = Key(0, "A", modifiers: .shift)
+        static let shiftS = Key(1, "S", modifiers: .shift)
+        static let shiftD = Key(2, "D", modifiers: .shift)
+        static let shiftF = Key(3, "F", modifiers: .shift)
+        static let shiftC = Key(8, "C", modifiers: .shift)
+        static let shiftV = Key(9, "V", modifiers: .shift)
+        static let optionShiftA = Key(0, "Å", ignoring: "A", modifiers: [.option, .shift])
+        static let optionShiftS = Key(1, "Í", ignoring: "S", modifiers: [.option, .shift])
+        static let optionShiftD = Key(2, "Î", ignoring: "D", modifiers: [.option, .shift])
+        static let optionShiftF = Key(3, "Ï", ignoring: "F", modifiers: [.option, .shift])
+        static let optionShiftC = Key(8, "Ç", ignoring: "C", modifiers: [.option, .shift])
+        static let optionShiftV = Key(9, "◊", ignoring: "V", modifiers: [.option, .shift])
     }
 
     @MainActor
