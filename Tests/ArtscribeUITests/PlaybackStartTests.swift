@@ -68,10 +68,11 @@ struct PlaybackStartTests {
         #expect(PlaybackStart.target(selection: Selection(), loop: empty) == 0)
     }
 
-    /// The engine confines playback to an active loop, so a selection outside one
-    /// is the single case where the aim point and what is audible can still
-    /// differ. The rule is unchanged — a selection outranks the loop at the aim
-    /// point — and that is what keeps it one rule rather than two.
+    /// A selection outside an active loop is the one case where the aim point and
+    /// what is heard next can still differ, because the loop still captures on
+    /// arrival at its out point (Task 24). The rule here is unchanged — a
+    /// selection outranks the loop at the aim point — and that is what keeps it
+    /// one rule rather than two.
     @Test("a selection outside an active loop is still the aim point")
     func selectionOutsideTheLoop() {
         let before = Selection(anchor: 10_000, head: 40_000)
@@ -104,9 +105,9 @@ struct ViewerModelStartPrecedenceTests {
     //
     // One rule, four states. `loop only` is the one that was measurably wrong at
     // this level: the old `seek(to: selection.isEmpty ? 0 : …)` aimed at the
-    // track start and left `PlaybackEngine`'s loop containment to drag the cursor
-    // into the region afterwards, which is what made the app read as two
-    // competing rules. See `PlaybackStart`.
+    // track start and left the engine to drag the cursor into the region
+    // afterwards, which is what made the app read as two competing rules. See
+    // `PlaybackStart`.
 
     /// A selection, so the loop cannot be what put the playhead there.
     private func select(_ model: ViewerModel, fromPixel: Double, toPixel: Double) -> FrameIndex {

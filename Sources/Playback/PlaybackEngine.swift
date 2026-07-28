@@ -18,7 +18,7 @@ public final class PlaybackEngine: @unchecked Sendable {
     /// Held for the lifetime of the channel pointers in `sourceChannels`. **Never read on
     /// the render path** — touching it would mean touching `AudioStorage`, a class.
     private let audio: DecodedAudio
-    private let stretcher: TimeStretcher
+    let stretcher: TimeStretcher
     private let ring: CommandRing
     /// The number of channels `render` writes — always the source's. Public because it is
     /// the precondition on `render`'s pointer table, which the render thread cannot check
@@ -26,19 +26,23 @@ public final class PlaybackEngine: @unchecked Sendable {
     /// size the table correctly. `AudioOutput` takes its channel count from here rather
     /// than being told one, so the two cannot disagree.
     public let channelCount: Int
-    private let maxBlock: Int
-    /// `internal`, not `private`, only because `PlaybackEngine+Position.swift` reads it and
-    /// Swift's `private` is file-scoped. Still render-thread-owned; nothing else writes it.
+    let maxBlock: Int
+    /// `internal`, not `private`, only because the two extension files read it and Swift's
+    /// `private` is file-scoped. Still render-thread-owned; nothing else writes it.
     let totalFrames: FrameIndex
 
     // MARK: Flat pointer tables, built once in `init`
+    //
+    // The three the source feed writes through are `internal` rather than `private` only
+    // because `PlaybackEngine+Source.swift` is a separate file and Swift's `private` is
+    // file-scoped. Nothing outside this class touches any of them.
 
     /// The source audio, one pointer per channel. Read only through `copySource`.
-    private let sourceChannels: UnsafeMutablePointer<UnsafePointer<Float>?>
+    let sourceChannels: UnsafeMutablePointer<UnsafePointer<Float>?>
     /// Staging buffer handed to `TimeStretcher.process`, `maxBlock` frames per channel.
     private let feedStorage: AudioStorage
-    private let feedChannels: UnsafeMutablePointer<UnsafeMutablePointer<Float>?>
-    private let feedInput: UnsafeMutablePointer<UnsafePointer<Float>?>
+    let feedChannels: UnsafeMutablePointer<UnsafeMutablePointer<Float>?>
+    let feedInput: UnsafeMutablePointer<UnsafePointer<Float>?>
     /// Sink for output that must go nowhere: start-delay priming, and any channel the
     /// caller passed as `nil` (Rubber Band's C `retrieve` does not null-check).
     private let scratchStorage: AudioStorage
@@ -48,8 +52,9 @@ public final class PlaybackEngine: @unchecked Sendable {
 
     // MARK: Render-thread-owned state
 
-    /// Owned by the render thread. The four `audiblePosition` needs are `internal` rather
-    /// than `private` only because it lives in `PlaybackEngine+Position.swift` and Swift's
+    /// Owned by the render thread. The ones `audiblePosition` and `feedSource` need are
+    /// `internal` rather than `private` only because those live in
+    /// `PlaybackEngine+Position.swift` and `PlaybackEngine+Source.swift`, and Swift's
     /// `private` is file-scoped; nothing outside this class writes any of them.
     ///
     /// How far source has been *fed into* the stretcher. Runs ahead of what is audible.
@@ -64,7 +69,7 @@ public final class PlaybackEngine: @unchecked Sendable {
     var timeRatio: Double = 1.0
     /// Set once `process(final: true)` has been issued; the stream cannot be fed again
     /// without a `reset`.
-    private var sourceExhausted = false
+    var sourceExhausted = false
 
     // MARK: Render thread → main actor (polled, never pushed)
 
@@ -274,11 +279,9 @@ public final class PlaybackEngine: @unchecked Sendable {
                 }
             case .setLoop(let range, let enabled):
                 loop = LoopRegion(range: range.clamped(to: totalFrames), isEnabled: enabled)
-                // Re-entering a loop after the stream was finalised needs a fresh stream;
-                // this is not a loop boundary, so §5.1 does not apply.
-                if sourceExhausted && loop.isActive { restartStream() }
+                if sourceExhausted && loop.isActive { resumeAfterEndOfFile() }
             case .setPlaying(let value):
-                if value && sourceExhausted { restartStream() }
+                if value && sourceExhausted { resumeAfterEndOfFile() }
                 playing = value
                 playingFlag.store(value, ordering: .relaxed)
             }
@@ -309,60 +312,24 @@ public final class PlaybackEngine: @unchecked Sendable {
         sourceExhausted = false
     }
 
-    // MARK: - Source
-
-    /// The one place on the render path that reads source audio.
+    /// The stream was finalised at end of file and something has asked for audio again —
+    /// `.setPlaying(true)`, or a loop switched on while parked on the last frame.
     ///
-    /// Stem separation (spec §11.3) replaces the single `sourceChannels` table with N stem
-    /// tables summed here; no other part of the render path reads samples, so that swap
-    /// stays contained. Nothing is built for it now.
-    @inline(__always)
-    private func copySource(from frame: FrameIndex, into offset: Int, count: Int) {
-        let base = Int(frame)
-        for c in 0..<channelCount {
-            guard let src = sourceChannels[c], let dst = feedChannels[c] else { continue }
-            (dst + offset).update(from: src + base, count: count)
-        }
+    /// A cursor sitting at the end of the file has nothing left to play, so an active loop
+    /// takes it back to its in point. That is not in tension with honouring an explicit
+    /// seek: `sourceExhausted` is the discriminator, and it is only ever true because
+    /// playback *ran off the end*, never because the user asked to be here — `.seek` clears
+    /// it through `restartStream`. Without this, pressing play at end of file with a loop
+    /// running would finalise the stream again inside the same render call and nothing
+    /// would be heard, which is the trap `TransportLatch.rewindTarget` documents and
+    /// deliberately leaves to the engine when a loop is active.
+    ///
+    /// Not a loop boundary, so §5.1 does not apply — and `restartStream` resets anyway.
+    private func resumeAfterEndOfFile() {
+        if loop.isActive && readCursor >= loop.range.end { readCursor = loop.range.start }
+        restartStream()
     }
 
-    /// Pushes one block of source into the stretcher, wrapping across the loop boundary
-    /// **without** resetting (spec §5.1). Returns false when there is nothing left to feed.
-    private func feedSource() -> Bool {
-        let required = max(1, min(stretcher.samplesRequired(), maxBlock))
-        let looping = loop.isActive
-
-        var produced = 0
-        while produced < required {
-            // The single wrap point. When looping, `loop.range.count > 0` (that is what
-            // `isActive` means), so after a wrap `remaining == count >= 1` and `produced`
-            // strictly increases — the loop cannot spin however short the region is.
-            if looping && readCursor >= loop.range.end { readCursor = loop.range.start }
-            let end = looping ? loop.range.end : totalFrames
-            let remaining = end - readCursor
-            // Only reachable when not looping: end of file.
-            if remaining <= 0 { break }
-            let n = Int(min(FrameIndex(required - produced), remaining))
-            copySource(from: readCursor, into: produced, count: n)
-            readCursor += FrameIndex(n)
-            produced += n
-        }
-
-        // Tell the stretcher the stream ended, or its tail — the last fraction of a second
-        // of the file — is never flushed and the file ends early.
-        let atEndOfFile = !looping && readCursor >= totalFrames
-
-        guard produced > 0 else {
-            guard atEndOfFile && !sourceExhausted else { return false }
-            stretcher.process(UnsafePointer(feedInput), frames: 0, final: true)
-            sourceExhausted = true
-            return true
-        }
-
-        stretcher.process(UnsafePointer(feedInput), frames: produced, final: atEndOfFile)
-        pendingOutput += Double(produced) * timeRatio
-        if atEndOfFile { sourceExhausted = true }
-        return true
-    }
-
-    // The audible-position arithmetic lives in `PlaybackEngine+Position.swift`.
+    // The source feed and the loop wrap live in `PlaybackEngine+Source.swift`; the
+    // audible-position arithmetic lives in `PlaybackEngine+Position.swift`.
 }

@@ -5,13 +5,17 @@ import ArtscribeKit
 /// **The bug this exists to kill.** `returnToStart` used to be
 /// `seek(to: selection.isEmpty ? 0 : selection.range.start)`, which never
 /// mentions the loop. That was not the whole story the user saw, because
-/// `PlaybackEngine` *confines* playback to an active loop: a cursor placed at or
-/// past the loop's out point wraps to its in point on the very next feed, and one
-/// placed before the in point plays forward until the out point and is captured
-/// there (spec §5.1, deliberate since Task 8). So with a loop running, `⇧Space`
-/// aimed at frame 0, the engine dragged the cursor into the region a moment
-/// later, and the app read as if it were following two competing rules — worse
-/// than a plain bug, because it looked arbitrary.
+/// `PlaybackEngine` pulls playback into an active loop: a cursor placed before
+/// the in point plays forward until the out point and is captured there (spec
+/// §5.1, deliberate since Task 8). So with a loop running, `⇧Space` aimed at
+/// frame 0, the engine dragged the cursor into the region a moment later, and the
+/// app read as if it were following two competing rules — worse than a plain bug,
+/// because it looked arbitrary.
+///
+/// Task 24 removed the other half of that behaviour: a cursor at or past the out
+/// point used to be snapped *backwards* on the very next feed, and no longer is.
+/// The loop now captures on arrival only, so aiming correctly matters more, not
+/// less — nothing downstream will quietly correct a bad target any more.
 ///
 /// The fix is to aim correctly in the first place instead of relying on the
 /// engine to correct a bad target:
@@ -30,12 +34,14 @@ import ArtscribeKit
 /// and `TransportLatch.rewindTarget` both already branch on exactly `isActive`;
 /// using a different predicate here is how the disagreement started.
 ///
-/// **What this rule does not do.** It picks the aim point; it does not overrule
-/// loop containment. A selection lying wholly outside an active loop is two
-/// explicit instructions that contradict each other, and the loop — the narrower
-/// statement about what may be heard at all — still wins on what is audible. The
-/// difference from before is that this is now the *only* interaction between the
-/// two, and it is deterministic: the aim point itself no longer ignores the loop.
+/// **What this rule does not do.** It picks the aim point, and nothing more. A
+/// selection lying wholly outside an active loop is two explicit instructions
+/// that contradict each other; since Task 24 the engine no longer arbitrates
+/// between them by dragging the cursor about, so what happens is simply what the
+/// aim point says: a selection *before* the loop plays until the out point and is
+/// captured there, and one *after* it plays to the end of the file. Both are the
+/// same one rule — the loop captures on arrival — applied to an honestly honoured
+/// seek.
 public enum PlaybackStart {
 
     /// - Returns: the frame `⇧Space` should seek to. Unclamped; `ViewerModel.seek`

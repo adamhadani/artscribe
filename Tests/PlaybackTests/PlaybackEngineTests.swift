@@ -124,16 +124,18 @@ import TimeStretch
     }
 }
 
-/// A loop set entirely *behind* the cursor must fall into it on the next feed
-/// rather than reading past the end of the region.
-@Test func loopSetBehindTheCursorWrapsIntoItImmediately() {
+/// A loop set entirely *behind* the cursor is **not** entered: the cursor is already past
+/// the out point, so there is no arrival to capture and playback runs on to the end of the
+/// file. Task 24 overruled the previous behaviour — the cursor was snapped backwards on the
+/// next feed, which read as being yanked. See `LoopCaptureTests` for the full rule.
+@Test func loopSetBehindTheCursorDoesNotPullItBack() {
     let (engine, ring) = makeEngine()
     ring.push(.setLoop(FrameRange(start: 1000, count: 100), true))
     ring.push(.seek(5000))
     let out = render(engine, frames: 200)
-    #expect(out[0] == 1000)
-    #expect(out[99] == 1099)
-    #expect(out[100] == 1000)
+    #expect(out[0] == 5000)
+    #expect(out[99] == 5099)
+    #expect(out[199] == 5199)
 }
 
 /// A loop set entirely *ahead* of the cursor plays through into it, then loops —

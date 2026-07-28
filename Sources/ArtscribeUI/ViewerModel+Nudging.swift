@@ -48,9 +48,11 @@ extension ViewerModel {
     ///
     /// A nudge is free to leave an active loop region, matching Transcribe!: the
     /// tier you reach for when the phrase starts a beat earlier than you set the
-    /// in point is precisely the one that has to be able to cross it. `F`
-    /// (`restartLoop`) is one key away when you want to be back inside it, and
-    /// the loop keeps looping the moment playback next reaches its out point.
+    /// in point is precisely the one that has to be able to cross it. Since Task
+    /// 24 the engine honours where it lands, and the loop captures on arrival: a
+    /// nudge back **before** the in point plays on and is caught at the out point,
+    /// and one **past** the out point plays to the end of the file. `F`
+    /// (`restartLoop`) is one key away either way.
     public func nudge(_ tier: NudgeTier, direction: NudgeDirection) {
         guard hasTrack else { return }
         let target = NudgeStepping.target(

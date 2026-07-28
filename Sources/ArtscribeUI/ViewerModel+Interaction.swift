@@ -274,14 +274,20 @@ extension ViewerModel {
     /// The playhead is placed before playing, so `play`'s end-of-file rewind sees
     /// the clicked position rather than the one being left behind.
     ///
-    /// What it does *not* override is `PlaybackEngine`'s loop containment: a
-    /// double-click outside an active loop still gets pulled into the region,
-    /// because the loop is an explicit, visible, persistent setting and the click
-    /// is a transient one. Silently clearing or disabling a loop as a side effect
-    /// of a click would destroy state the user set on purpose and can only
-    /// restore by hand, and making this the one gesture that escapes the loop
-    /// would put back exactly the "two competing rules" feel Task 22 A removed.
-    /// The playhead visibly snaps into the region, and `D` turns looping off.
+    /// **And the engine honours it.** Task 22 decided that a double-click outside
+    /// an active loop should still be pulled into the region; the user overruled
+    /// that in Task 24, having also found it behaved differently before the loop
+    /// than after it. `PlaybackEngine.feedSource` now captures on *arrival* only,
+    /// so all three cases read the same way and match Ableton and Logic:
+    ///
+    /// - click **before** the loop → plays from the click, runs on, is captured
+    ///   at the out point, then loops;
+    /// - click **inside** → plays from the click and loops normally;
+    /// - click **after** → plays from the click to the end of the file.
+    ///
+    /// Nothing here clears or disables the loop, so no state the user set on
+    /// purpose is destroyed by a transient click: the loop is still on, still
+    /// drawn, and `F` puts playback back inside it in one key.
     ///
     /// The `dragOrigin` reset here is a courtesy, not the correctness
     /// mechanism — see `dragChanged`, which recovers on its own if this never

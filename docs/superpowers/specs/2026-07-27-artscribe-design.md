@@ -187,6 +187,19 @@ boundary from the loop start rather than resetting it. Resetting flushes the str
 internal overlap state and produces an audible click on every repetition — the single most
 important detail for a tool whose core use is listening to the same four bars fifty times.
 
+**The loop captures on arrival, not on entry.** An explicit seek is always honoured:
+playback starts exactly where the user asked, and the loop takes hold only when playback
+*reaches* the out point from below. Three cases, matching Ableton and Logic:
+
+| Seek lands | What happens |
+|---|---|
+| **Before** the loop | Plays from there, runs on, is captured at the out point, then loops |
+| **Inside** the loop | Plays from there and loops normally |
+| **After** the loop | Plays from there to the end of the file, never wrapping |
+
+The loop is never cleared or disabled as a side effect; `loop.restart` (`F`) is one key
+away from being back inside it.
+
 ---
 
 ## 6. Interaction model

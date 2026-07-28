@@ -110,9 +110,9 @@ extension AcceptanceRun {
     ///
     /// Deliberately set up with a selection *and* an active loop in place, which
     /// is where B has to compose with A: `⇧Space` would aim at the selection
-    /// start, and a double-click must not. The click lands inside the loop so
-    /// that the engine's loop containment — which stays in charge, see
-    /// `ViewerModel.dragEnded` — cannot be what put the playhead there either.
+    /// start, and a double-click must not. The first click lands inside the loop,
+    /// so neither candidate start can be what put the playhead there; the last
+    /// pair of clicks lands past the out point, which is Task 24 A's case 3.
     @MainActor
     static func checkDoubleClickPlays(model: ViewerModel, log: inout Logger) async {
         let lanes = model.laneFrame
@@ -186,12 +186,28 @@ extension AcceptanceRun {
             "a third click does not chain into another play",
             !model.isPlaying && abs(model.playhead - thirdExpected) <= 1)
 
-        // The decision recorded in `ViewerModel.dragEnded`, driven rather than
-        // asserted: a double-click past an active loop's out point is *not* let
-        // out of the loop. The engine wraps the cursor to the in point on its
-        // next feed, so within a fraction of a second the playhead is in the
-        // region and not where the finger landed. The loop is the explicit,
-        // visible, persistent setting; the click is the transient one.
+        await checkDoubleClickPastTheLoopIsHonoured(model: model, lanes: lanes, log: &log)
+
+        model.pause()
+        model.clearLoop()
+        model.clearSelection()
+        model.seek(to: 0)
+    }
+
+    /// Task 24 A case 3, driven rather than asserted.
+    ///
+    /// Task 22 decided a double-click past an active loop's out point should be
+    /// pulled back into the region; the user overruled it, and reported it also
+    /// behaved differently before the loop than after it. The click is now
+    /// honoured and playback runs on towards the end of the file. The loop is
+    /// **not** cleared or disabled — it stays on and stays drawn, and `F` puts
+    /// playback back inside it in one key.
+    ///
+    /// Called with the loop and selection left in place by `checkDoubleClickPlays`.
+    @MainActor
+    private static func checkDoubleClickPastTheLoopIsHonoured(
+        model: ViewerModel, lanes: CGRect, log: inout Logger
+    ) async {
         model.pause()
         await settle(seconds: 0.2)
         let stalled = positionChecksAreImpossible(model: model)
@@ -204,17 +220,17 @@ extension AcceptanceRun {
         await click(at: CGPoint(x: outsideX, y: lanes.midY))
         await click(at: CGPoint(x: outsideX, y: lanes.midY))
         await settle(seconds: 0.4)
-        let contained = model.playhead
+        let escaped = model.playhead
+        // Forward of the click, never behind it: being snapped back to the in
+        // point is the one outcome this exists to rule out.
         log.check(
-            "a double-click past an active loop is pulled into it rather than escaping "
-                + "(\(contained), loop \(model.loop.range.start)…\(model.loop.range.end))",
-            contained >= model.loop.range.start && contained <= model.loop.range.end,
+            "a double-click past an active loop plays from the click, not from the loop "
+                + "(\(escaped), loop \(model.loop.range.start)…\(model.loop.range.end))",
+            escaped >= outside - 1 && escaped > model.loop.range.end,
             unless: stalled)
-
-        model.pause()
-        model.clearLoop()
-        model.clearSelection()
-        model.seek(to: 0)
+        log.check(
+            "and the loop itself is left switched on rather than silently cleared",
+            model.loop.isActive)
     }
 
     /// One click, as a real down/up pair. `minimumDistance: 0` means SwiftUI's
