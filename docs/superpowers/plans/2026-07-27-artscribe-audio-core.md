@@ -3207,6 +3207,107 @@ The user wants one convention: **the system one — right-aligned and grey, ever
       not steal focus from Space
 - [ ] Loop-on and speed≠100% both read as clearly modal in Light and Dark
 
+---
+
+### Task 18: Selection movement, menu reorganisation, and configurable zoom direction
+
+All P0 feedback from the user driving the app.
+
+#### A — Flip the zoom direction, and make it a preference
+
+- [ ] **Drag down now zooms in** (the reverse of today). The previous direction was chosen on
+      internal consistency because neither Ableton's nor Melodyne's manual states which way
+      theirs runs; the user has driven it and prefers down-to-zoom-in. Their hand beats our
+      reasoning.
+- [ ] Make it a **Settings preference** — an "Invert zoom drag direction" toggle — so it is a
+      one-click change rather than a rebuild. Apply to the ruler drag and the ⌥-lane drag
+      alike, and say in the report whether it should also affect the scroll-wheel zoom
+      (recommendation: yes, consistency within one window matters more than matching any
+      particular other app).
+
+#### B — A bigger ruler hit area
+
+- [ ] The ruler is about to carry a frequently-used gesture, so make it a comfortable drag
+      target. Increase its height, and consider whether the hit area can extend slightly
+      beyond the drawn ruler without stealing from the waveform lanes. Keep it visually
+      proportionate — this is a hit-target change, not an invitation to make the ruler loud.
+
+#### C — Move the selection, in two step sizes
+
+Mirrors the transport nudge/rewind pair, but moves the **selection** rather than the playhead.
+
+- [ ] Four actions: move selection left/right by a **gentle** amount, and left/right by an
+      **aggressive** amount. The whole selection translates — both edges move together,
+      preserving its length.
+- [ ] Shortcuts, chosen to stay left-hand-driveable and not collide with anything existing.
+      Propose them in your report with your reasoning; `⇧←`/`⇧→` are already extend-selection
+      and `←`/`→` are already nudge-playhead, so these need different chords.
+- [ ] **Both amounts configurable in Settings, in seconds with fractional support** (so a
+      user can set 20 ms). Validate as the nudge amounts already are: reject or clamp
+      nonsense rather than storing a zero that silently does nothing.
+- [ ] Clamp at the file bounds — a selection pushed against either end stops rather than
+      shrinking or inverting. Test both ends.
+- [ ] Menu items alongside the other selection actions (see D).
+
+#### D — Reorganise the menus
+
+The Playback menu now carries 36 items and has become a catch-all. Split it so each menu has
+one coherent identity:
+
+- [ ] **Edit** — the selection actions. `Select All`, `Clear Selection`, `Extend Selection`,
+      and the four new `Move Selection` items. Selection belongs in Edit by long-standing
+      macOS convention; `Select All` is already expected there.
+- [ ] **Loop** (new top level) — `Set Loop In`, `Set Loop Out`, `Toggle Loop`, `Restart Loop`,
+      `Selection → Loop`. This is the app's signature feature and deserves to be findable.
+      It is also where the Practice hub will land later.
+- [ ] **Playback** (slimmed) — transport, navigation nudges, speed, engine, volume, output
+      device.
+- [ ] Every item keeps its right-aligned system-drawn shortcut. Nothing regresses to a
+      shortcut spelled into the title.
+
+#### E — `Play from selection start` moves to `⇧Space`
+
+- [ ] Rebind from `Return` to `⇧Space`, so the whole transport is left-hand driveable.
+- [ ] **Update every reference**: the menu, the transport bar tooltip, `README.md`, the
+      spec's §6.2 action catalog, and any test or acceptance check asserting the old binding.
+      A stale reference here is exactly the drift that has already bitten this project twice.
+- [ ] Decide whether `Return` keeps a role (recommendation: leave it bound as a synonym, or
+      free it deliberately — say which and why).
+
+---
+
+### Task 19: Session persistence — the `.artscribe` sidecar, Save, and Save As
+
+**This is a documented feature that was never built.** Spec §7 has promised it since the
+design was approved and `grep -rn sidecar Sources/` returns nothing. That makes it the second
+such gap found by the user rather than by our own review, after the nudge tiers.
+
+What spec §7 requires:
+
+> A visible `<track>.artscribe` file written next to the audio file, JSON, containing speed,
+> loop region, loop enabled, viewport, playhead, and active engine. Written on close and
+> debounced during editing.
+>
+> If the containing directory is not writable — a read-only volume, a NAS, a mounted image —
+> fall back to Application Support keyed by file URL, and surface the fallback. Loop points
+> must never be silently lost because a directory was read-only.
+
+The user additionally asks for the standard document behaviour:
+
+- [ ] **File ▸ Save (⌘S)** and **Save As… (⇧⌘S)**, behaving as a Mac user expects.
+- [ ] **A dirty flag**, reflected in the window's close button and title as macOS does it.
+- [ ] **Closing with unsaved changes prompts** — Save / Don't Save / Cancel — and Cancel
+      genuinely cancels the close.
+- [ ] **Reopening a track restores its session**: speed, loop, viewport, playhead, engine.
+- [ ] The read-only-directory fallback from spec §7, surfaced visibly, never silent.
+- [ ] Round-trip safety: the JSON is user-editable by design, so **decoding must clamp or
+      reject nonsense rather than trusting it**. `SpeedState` and `Selection` already have
+      validating decoders for exactly this reason — follow that precedent for everything new.
+
+**Testing:** encode/decode round-trip, clamping of out-of-range and malformed values, the
+read-only fallback path, and dirty-tracking transitions are all pure and must be tested. The
+save panel and the close prompt are AppKit and are not.
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
