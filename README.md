@@ -17,7 +17,9 @@ make bootstrap
 make app && open .build/xcode/Build/Products/Release/Artscribe.app
 ```
 
-Not yet built: markers, pitch shift, spectrum analysis, and MIDI input. See the plan under
+Not yet built: markers, pitch shift, spectrum analysis, MIDI input, the practice hub, and
+stem separation — which has been researched in depth but deliberately not started, in
+`docs/superpowers/research/2026-07-28-stem-separation.md`. See the plan under
 `docs/superpowers/plans/`.
 
 ## Running Artscribe
@@ -138,7 +140,7 @@ Release, not debug — a debug build decodes roughly four times slower.
 | `⇧Q` / `⇧W` | Slower / faster (1%) |
 | `1` `2` `3` `4` | 100% / 75% / 50% / 33% |
 | `⌥E` | Toggle Studio / Fast engine |
-| `↑` / `↓` | Volume up / down |
+| `↑` / `↓` | Volume up / down — `⇧↑` / `⇧↓` in finer steps |
 | `M` | Mute |
 
 ### Selection, looping and view
@@ -151,8 +153,8 @@ Release, not debug — a debug build decodes roughly four times slower.
 | `F` | Restart the loop |
 | `G` | Turn the selection into the loop |
 | `R` / `E` | Zoom in / out, anchored on the playhead |
-| `Z` / `X` | Nudge the playhead back / forward (2 s, configurable) |
-| `⇧Z` / `⇧X` | Nudge finely (50 ms) — `⌥Z` / `⌥X` rewind and skip (10 s) |
+| `Z` / `X` | Nudge the playhead back / forward (2 s, configurable) — `←` / `→` do the same |
+| `⇧Z` / `⇧X` | Nudge finely (50 ms) — `⌥Z` / `⌥X` (or `⌥←` / `⌥→`) rewind and skip (10 s) |
 | `⌘A` | Select the whole file |
 | `⇧←` / `⇧→` | Extend the selection |
 | `C` / `V` | Move the whole selection left / right (250 ms, configurable) |
@@ -162,7 +164,8 @@ Release, not debug — a debug build decodes roughly four times slower.
 | `⇧A` `⇧S` / `⇧D` `⇧F` | Move the loop's in / out point (add `⌥` for the bigger step) |
 | `⇧C` / `⇧V` | Move the whole loop, keeping its length |
 | `⌘S` / `⇧⌘S` | Save the session sidecar / save it elsewhere |
-| `⌥⌘I` / `⌘/` | Show or hide the side panel / open it on the shortcut reference |
+| `⌘/` | Open the keyboard shortcut window |
+| `⌘,` | Settings — nudge and move amounts, zoom direction, theme |
 
 Drag in the lanes to select, shift-drag to extend, click to place the playhead, double-click
 to place it and play from there (`⌘A` is still Select All). Pinch to zoom, two-finger scroll
@@ -171,12 +174,27 @@ moves the visible window. **Drag down** on the time ruler — or ⌥-drag in the
 zoom in smoothly; Settings ▸ Playback ▸ *Invert zoom direction* reverses that and the scroll
 wheel together.
 
-### The shortcut reference
+### The shortcut window
 
-Press `⌘/` for a side panel listing every shortcut, grouped by what it does and showing the
-nudge and move amounts you currently have set. `⌥⌘I` shows and hides the panel without
-changing its page; both are in the **View** menu. Drag its inner edge to resize it, and it
-stays where you left it between launches.
+Press `⌘/` — or **View ▸ Keyboard Shortcuts** — for a separate window with the whole keymap
+drawn on a keyboard, and a searchable list beside it.
+
+* **The keyboard shows one modifier layer at a time, and follows the modifiers you hold.**
+  Hold `⇧` and `A S D F` change from setting the loop's edges to moving them; add `⌥` and
+  they move further. Six actions live on the `A` and `Z` caps alone, which is why a picture
+  that stacked them all would teach nothing. Layers are derived from the bindings that
+  exist, so a new chord gets a layer without anyone maintaining a list.
+* **A layer can also be pinned** from the picker, for anyone who cannot hold two modifiers
+  at once. Holding wins while you hold; the pin is what you come back to.
+* **One filter narrows both surfaces.** Type "loop" and the list shows the loop actions
+  while every key that is not one goes quiet. It matches the action's name, its group, its
+  note, and the chord both written (`⌥⇧A`) and spoken ("option shift").
+* Keys are tinted by category and unbound keys are dimmed. Actions with no shortcut at all —
+  Stop, Clear Loop, the two Scroll items — still appear in the list.
+
+Drag the divider between the keyboard and the list to resplit it; it stays where you left it
+between launches. The window is separate rather than a panel inside the document on purpose:
+a panel can only exist by taking width from the waveform.
 
 It is generated from the same `ActionCatalog` the menus and the keyboard are built from, so
 it cannot fall out of step with what the keys actually do — see `Sources/ArtscribeUI/
@@ -219,6 +237,27 @@ Measure performance in **release**. A debug build is roughly 4× slower and will
 
 > Known issue: the full suite hangs when `$ARTSCRIBE_TEST_MEDIA_DIR` is set. `make check`
 > is unaffected. Being tracked.
+
+### The acceptance harness
+
+`make check` tests the modules headlessly. The other half is `ArtscribeAcceptance`, a
+separate executable that opens a real window and drives it through about six hundred checks
+with genuine `NSEvent`s — menus, key equivalents, pointer drags and real playback.
+
+```sh
+swift run -c release ArtscribeAcceptance --list
+swift run -c release ArtscribeAcceptance --acceptance <audio-file> --only loop
+```
+
+`--list` names the sixteen groups it is split into. `--only` and `--skip` take
+comma-separated names, and `--quick` drops the two groups that wait on timed playback. A
+single group takes seconds where the full run takes minutes — but a run that skipped
+anything says so in its summary and exits 2 rather than 0, because a partial acceptance run
+is not an acceptance pass.
+
+The harness never makes a sound: it closes a process-wide audibility gate in the audio graph
+itself, before any output can exist. `ARTSCRIBE_ACCEPTANCE_AUDIBLE=1` is the deliberate
+override.
 
 ## Architecture
 
