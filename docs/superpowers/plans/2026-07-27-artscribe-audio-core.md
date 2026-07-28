@@ -3444,6 +3444,70 @@ double-click window calls `selectAll()`.
       loop start.
 - [ ] Update `README.md`, which currently documents "double-click to select all".
 
+---
+
+### Task 23 (P0): Draggable loop and selection edges
+
+Standard in Ableton, Logic and every serious editor, and the user calls it a must-have.
+Grab the left or right edge of the loop region — or the selection — and drag it.
+
+#### Behaviour
+
+- [ ] **Drag either edge of the loop region** to move it; the opposite edge stays put.
+- [ ] **Drag either edge of the selection** the same way.
+- [ ] **Drag the body** of the loop region to move the whole loop, preserving its length.
+      (Judgement call: propose whether the selection body should also be draggable, and say
+      why. `C`/`V` already move the selection by keyboard.)
+- [ ] Dragging one edge past the other must not produce an inverted region. Decide between
+      **swapping** the edges (the drag continues, now grabbing the other edge — what most
+      DAWs do) and **clamping** at zero length, and justify the choice.
+- [ ] While dragging, show the edge's time as a live readout, in the same monospaced style
+      the rest of the app uses for time.
+- [ ] Loop edges dragged while playing must take effect without a click or dropout — push
+      through the existing `PlaybackCommand.setLoop` path rather than inventing another.
+
+#### The interaction hazard — this is the part most likely to go wrong
+
+The waveform lanes already carry: plain drag (select), ⇧-drag (extend selection), ⌥-drag
+(zoom), single click (place playhead), double click (play from here), pinch, and wheel. The
+ruler carries a vertical zoom drag. **Adding edge-dragging to a surface with seven live
+gestures is where this task will fail if it fails.**
+
+- [ ] **Edge grab must win over starting a new selection** when the pointer is inside an
+      edge's grab zone, and must lose to it everywhere else. Decide the precedence
+      explicitly and write it down.
+- [ ] Decide what happens when the loop edge and a selection edge are at or near the same
+      pixel, since `G` (selection → loop) makes that common. Pick one and make it
+      predictable.
+- [ ] **Before finishing, enumerate every gesture on the lanes and the ruler and confirm each
+      still does exactly what it did.** A regression here is instantly visible to the user.
+
+#### The visual and pointer treatment
+
+The user asked for something "nuanced but palpable", following iOS/macOS design language.
+Consider loading the `frontend-design` skill for direction.
+
+- [ ] **Grab zone wider than the drawn edge** — the loop edge is 2 pt; a grab zone of roughly
+      8–10 pt on each side makes it reliably hittable (Fitts's law). The hit area is not the
+      visual.
+- [ ] **Hover** gives a restrained but unmistakable response: the edge brightens and
+      thickens slightly, optionally with a narrow gradient wash falling away from it. Nothing
+      that jumps.
+- [ ] **Active drag** is stronger than hover — a full-height guide line reads well and shows
+      exactly where the edge will land.
+- [ ] **Pointer style** via `pointerStyle(_:)`, as Task 17 established. `.frameResize(position:)`
+      is the semantically correct choice for resizing a region from one edge;
+      `.columnResize(directions:)` is the alternative. Pick one, say why, and make it appear
+      on hover — not only once dragging starts.
+- [ ] Legible and correct in **both** themes.
+- [ ] Respect **Reduce Motion** for any animated transition.
+
+**Testing:** hit-testing (which edge, if any, is under a given pixel, including the
+overlapping-edges case), the drag→new-region maths, inversion handling, and clamping at the
+file bounds are all pure and must be tested. Views are not snapshot-tested — extract the
+logic. Drive the real gestures in the acceptance harness; the screen is unlocked and real
+`NSEvent`s reach SwiftUI.
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
