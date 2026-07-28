@@ -3595,6 +3595,51 @@ and in the Loop menu".
       `PlaybackCommand.setLoop` path.
 - [ ] Add the new actions to the spec's §6.2 catalog.
 
+---
+
+### Task 25: The shortcut reference as its own window, laid out on a keyboard
+
+Task 20 built the shortcut reference as an inspector page. The user has seen it running and
+wants something different: **a separate, resizable window**, with the shortcuts **drawn onto
+a picture of a keyboard** rather than listed — "clear and legible but also visually
+intuitive".
+
+**There is prior art in this project, and the user already approved it.** During brainstorming
+they were shown a full macOS keyboard with every bound key tinted by category and its action
+labelled beneath the glyph, and they chose the left-hand-cluster keymap *from that mockup*. It
+is at `.superpowers/brainstorm/82657-1785140523/content/keyboard.html` — open it. That is the
+target look, and it is already validated with this user.
+
+The pattern is also well established: KeyClu, Kommand and KeyboardOverlay all render a
+shortcut overlay on a keyboard, grouped and coloured by category.
+
+- [ ] **A separate `Window` scene**, not `.inspector()`. Resizable, its size and position
+      remembered, opened by `⌘/` and from the View menu, closable independently of the
+      document window. Remove the inspector's Shortcuts page — do not ship both.
+- [ ] Keep the inspector container itself: Task 21's Practice hub still needs it, and the
+      sidecar-fallback indicator now lives in its chrome.
+- [ ] **The keyboard view.** A macOS layout, each bound key tinted by category with its action
+      labelled; unbound keys visibly dimmed so the bound ones read at a glance. Scale with the
+      window rather than clipping.
+- [ ] **Modifier layers, and this is the interesting design problem.** The keymap has base
+      keys, `⇧` chords, `⌥` chords and `⌥⇧` chords — one static keyboard cannot show them.
+      **Hold a modifier and the keyboard should update to that layer live.** That is what
+      makes this delightful rather than merely pretty, and it teaches the keymap the way using
+      it does. Also offer a way to see a layer without holding the key, for people who cannot.
+- [ ] **A searchable list alongside the keyboard.** A keyboard picture is excellent for "what
+      can I press" and poor for "what is the shortcut for X". Offer both — a filter field that
+      narrows both views at once is the natural answer.
+- [ ] **Driven entirely by the `ActionCatalog`** Task 20 built. No second source of truth, and
+      the existing drift guard must keep passing. If an action has no shortcut it should still
+      be findable in the list.
+- [ ] Correct in both themes; the category colours must work on light as well as dark.
+- [ ] Respect Reduce Motion for any layer transition.
+
+**Testing:** the mapping from catalog to key positions, the modifier-layer resolution, and the
+search filter are all pure and must be tested — including a test that every action in the
+catalog is reachable in the window, so an action can never be added and silently omitted.
+The keyboard view itself is not snapshot-tested.
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
