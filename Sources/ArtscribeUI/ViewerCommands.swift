@@ -10,10 +10,11 @@ public enum ViewerActions {
     }
 }
 
-/// The menu bar. ⌘-shortcuts live here because menu key equivalents work even
-/// when nothing in the window has focus; the unmodified left-hand cluster is
-/// handled by `DocumentView` and only *listed* here, so it stays discoverable
-/// without the menu swallowing plain letter keys.
+/// The menu bar. Every item carries a real key equivalent, right-aligned and
+/// drawn by the system — including the unmodified ones, which Task 15 stopped
+/// spelling into titles (`"Zoom In  (R)"`). `DocumentView` keeps its handlers
+/// for the keys the menu does not claim; AppKit offers an event to the menu bar
+/// first, so nothing fires twice.
 ///
 /// Nothing here uses `.disabled(…)`. A `Commands` body is not re-evaluated when
 /// an `@Observable` model changes the way a `View` body is, so a state-dependent
@@ -22,6 +23,12 @@ public enum ViewerActions {
 /// below is already a guarded no-op in `ViewerModel`, so an always-enabled item
 /// is both correct and honest. Greying out returns in Plan 2 with the real
 /// binding table behind it.
+///
+/// The View menu's plain letters (`E`, `R`, `Esc`) therefore sit in a nested
+/// `View` — `ViewItems` — for the one enablement that is not optional: a menu
+/// key equivalent is offered before the key window's first responder, so these
+/// must go quiet while another window (Settings, with its editable fields) is
+/// key. See `KeyWindowTracker`.
 public struct ViewerCommands: Commands {
     private let model: ViewerModel
     private let recents: RecentFiles
@@ -49,21 +56,43 @@ public struct ViewerCommands: Commands {
 
             Divider()
 
-            Button("Zoom In  (R)") { model.zoomIn() }
-            Button("Zoom Out  (E)") { model.zoomOut() }
-            // No key equivalents any more: `Z`/`X` are spec §6.2's nudge keys,
-            // and a nudge brings the view with it through the same page-flip
-            // rule that follows playback, so moving the *view* on its own is
-            // left to these items, the trackpad, and the overview strip.
-            Button("Scroll Left") { model.scrollLeft() }
-            Button("Scroll Right") { model.scrollRight() }
+            ViewItems(model: model)
 
             Divider()
 
             Button("Select All") { model.selectAll() }
                 .keyboardShortcut("a", modifiers: .command)
-            Button("Clear Selection  (Esc)") { model.clearSelection() }
         }
+    }
+}
+
+/// The View menu's unmodified keys, in a `View` so their enablement is live.
+///
+/// `⌘`-modified items stay in the `Commands` body above, always enabled: they
+/// cannot collide with typing, so they need nothing from here.
+struct ViewItems: View {
+    let model: ViewerModel
+    private let keyWindow = KeyWindowTracker.shared
+
+    var body: some View {
+        Group {
+            Button("Zoom In") { model.zoomIn() }
+                .keyboardShortcut("r", modifiers: [])
+            Button("Zoom Out") { model.zoomOut() }
+                .keyboardShortcut("e", modifiers: [])
+            // No key equivalents: `Z`/`X` are spec §6.2's nudge keys, and a
+            // nudge brings the view with it through the same page-flip rule
+            // that follows playback, so moving the *view* on its own is left to
+            // these items, the trackpad, and the overview strip.
+            Button("Scroll Left") { model.scrollLeft() }
+            Button("Scroll Right") { model.scrollRight() }
+            Button("Clear Selection") { model.clearSelection() }
+                .keyboardShortcut(.escape, modifiers: [])
+        }
+        // Escape especially: it dismisses a sheet, cancels a field edit and
+        // closes a menu, and a menu key equivalent would claim it before any of
+        // those. It must only be ours while this window is the one taking keys.
+        .disabled(!keyWindow.documentIsKey)
     }
 }
 

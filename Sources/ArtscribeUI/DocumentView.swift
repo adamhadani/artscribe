@@ -60,9 +60,17 @@ public struct DocumentView: View {
                 EmptyStateView()
             }
 
+            // Directly above the status bar, and given the keyboard back after
+            // every press: see `TransportBarView` for why that second half is
+            // not optional in a keyboard-first app.
+            TransportBarView(model: model) { hasKeyboardFocus = true }
             StatusBarView(model: model)
         }
         .background(Palette.of(appearance).background.color())
+        // Tells `KeyWindowTracker` which window the transport belongs to. That
+        // is what lets the menus' plain-letter key equivalents stand down while
+        // Settings — which has editable fields — is the key window.
+        .background(WindowReader { KeyWindowTracker.shared.adopt(document: $0) })
         // One place sets the palette, so no view can draw half of one theme.
         .environment(\.palette, Palette.of(appearance))
         // And one place tells the model, because the cached waveform bitmap has

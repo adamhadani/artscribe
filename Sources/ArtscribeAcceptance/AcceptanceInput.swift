@@ -52,6 +52,9 @@ extension AcceptanceRun {
         static let four = Key(21, "4")
 
         static let m = Key(46, "m")
+        /// Bound to nothing, anywhere. The control for "did the menu bar really
+        /// claim that chord, or does `performKeyEquivalent` say yes to anything?"
+        static let unbound = Key(38, "j")
         /// Arrow keys report a private-use character, not a printable one.
         static let up = Key(126, "\u{F700}")
         static let down = Key(125, "\u{F701}")
@@ -267,8 +270,16 @@ extension AcceptanceRun {
     /// speed emphasis and the P2 theme both have to reach actual pixels, and
     /// reading the model back would prove neither. Sampled on a coarse grid,
     /// which is plenty for "how much of this colour is in there".
+    /// - Parameter tolerance: per-channel distance, 0…1. The default 0.1 suits a
+    ///   near-saturated ink like the emphasis amber. A mid-tone moves further
+    ///   through this display's profile on the way back out of the capture:
+    ///   measured, the loop violet arrives as `9A96E7` against a declared
+    ///   `8C7BE6` in dark and `6160CA` against `5340C4` in light — 0.125 on the
+    ///   green channel. Nothing else in the status bar is within 0.15 of it, so
+    ///   a wider window there costs no discrimination; see
+    ///   `checkLoopProminence`, which keeps a loop-off control at exactly zero.
     @MainActor
-    static func pixelCount(near colour: NSColor, in rect: CGRect) -> Int {
+    static func pixelCount(near colour: NSColor, in rect: CGRect, tolerance: Double = 0.1) -> Int {
         guard let wanted = colour.usingColorSpace(.sRGB),
             let window = NSApp.windows.first, let view = window.contentView,
             view.bounds.height > 0,
@@ -288,9 +299,9 @@ extension AcceptanceRun {
             for x in stride(from: left, to: right, by: 3) {
                 guard let pixel = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
                 let close =
-                    abs(pixel.redComponent - wanted.redComponent) < 0.1
-                    && abs(pixel.greenComponent - wanted.greenComponent) < 0.1
-                    && abs(pixel.blueComponent - wanted.blueComponent) < 0.1
+                    abs(pixel.redComponent - wanted.redComponent) < tolerance
+                    && abs(pixel.greenComponent - wanted.greenComponent) < tolerance
+                    && abs(pixel.blueComponent - wanted.blueComponent) < tolerance
                 if close { count += 1 }
             }
         }
@@ -336,62 +347,5 @@ extension AcceptanceRun {
 
     static func settle(seconds: Double) async {
         try? await Task.sleep(for: .seconds(seconds))
-    }
-
-    // MARK: - Reporting
-
-    struct Logger {
-        private(set) var failures = 0
-        /// Checks the machine could not support. Counted apart from failures and
-        /// from passes, because they are neither.
-        private(set) var skipped = 0
-        private var lines: [String] = []
-
-        mutating func check(_ name: String, _ passed: Bool) {
-            if !passed { failures += 1 }
-            lines.append("\(passed ? "PASS" : "FAIL")  \(name)")
-        }
-
-        /// A check this session cannot support, with the reason it cannot.
-        ///
-        /// Spec §8 — never degrade silently — applies to the harness as much as
-        /// to the app. The alternative that keeps suggesting itself, relaxing an
-        /// assertion until the environment stops tripping it, is how a real
-        /// defect becomes permanent; this records what was not checked instead.
-        /// The reason must be established *independently* of the behaviour under
-        /// test, or a skip is just a failure in a better mood.
-        mutating func skip(_ name: String, because reason: String) {
-            skipped += 1
-            lines.append("SKIP  \(name) — \(reason)")
-        }
-
-        /// `check`, unless `reason` says the environment cannot support it.
-        mutating func check(_ name: String, _ passed: Bool, unless reason: String?) {
-            guard let reason else { return check(name, passed) }
-            skip(name, because: reason)
-        }
-
-        mutating func note(_ name: String, _ value: String) {
-            lines.append("....  \(name): \(value)")
-        }
-
-        /// 0 = everything was checked and passed, 1 = something failed,
-        /// 2 = nothing failed but some checks could not run. A caller that reads
-        /// only the exit status still cannot mistake a partly-run acceptance for
-        /// a complete one.
-        var exitCode: Int32 {
-            if failures > 0 { return 1 }
-            return skipped > 0 ? 2 : 0
-        }
-
-        func report() {
-            print("\n===== ACCEPTANCE =====")
-            for line in lines { print(line) }
-            let summary =
-                skipped > 0
-                ? "\(failures) failure(s), \(skipped) NOT CHECKED"
-                : "\(failures) failure(s)"
-            print("===== \(summary) =====\n")
-        }
     }
 }

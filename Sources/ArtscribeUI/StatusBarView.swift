@@ -23,7 +23,21 @@ struct StatusBarView: View {
             // readout that shouts.
             field("SPEED", speedText, emphasised: SpeedStepping.isAltered(model.speed.ratio))
                 .frame(width: 150, alignment: .leading)
-            field("LOOP", loopText).frame(width: 160, alignment: .leading)
+            // An engaged loop is a mode, and it changes what you are hearing
+            // just as much as an altered speed does — so it gets the speed
+            // readout's treatment: bold, and in a colour.
+            //
+            // The colour is the loop's own violet rather than the emphasis
+            // amber. Both are "you changed something" hues in this palette, but
+            // the loop already wears violet on the lanes and in the overview
+            // strip, and two modes that are on at once must not be told apart
+            // only by which word is bold. Contrast against the panel is 4.9
+            // (dark) and 6.8 (light) — see `Palette`.
+            field(
+                "LOOP", loopText, emphasised: model.loop.isActive,
+                tint: model.loop.isActive ? palette.loop.color() : nil
+            )
+            .frame(width: 160, alignment: .leading)
             field("SELECTION", selectionText).frame(width: 150, alignment: .leading)
             field("ZOOM", zoom).frame(width: 146, alignment: .leading)
             field("FORMAT", format).frame(width: 104, alignment: .leading)

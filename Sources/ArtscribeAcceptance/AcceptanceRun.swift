@@ -81,6 +81,14 @@ enum AcceptanceRun {
         await checkScrollZoom(model: model, log: &log)
         await checkSpeedEmphasis(model: model, log: &log, outputDirectory: outputDirectory)
         await checkFileAndViewMenus(model: model, log: &log)
+        // Task 15. The presentation and strobe checks read the menus; the
+        // transport bar checks click real buttons and then press Space.
+        await checkShortcutPresentation(log: &log)
+        await checkMenuBarStrobe(model: model, log: &log)
+        checkSingleFire(model: model, log: &log)
+        await checkDisabledItemsClaimNothing(model: model, log: &log)
+        await checkTransportBar(
+            model: model, theme: theme, log: &log, outputDirectory: outputDirectory)
         await checkNudge(model: model, log: &log)
         await checkSettings(model: model, theme: theme, log: &log)
         await checkTheme(model: model, theme: theme, log: &log, outputDirectory: outputDirectory)
@@ -103,6 +111,11 @@ enum AcceptanceRun {
         if let badFile { await checkBadFile(model: model, url: badFile, log: &log) }
         await settle(seconds: 0.3)
         snapshot(to: "\(outputDirectory)/06-error-banner.png")
+
+        // Deliberately last. It puts a text field into the window's responder
+        // chain, and a field left there swallows every later keystroke — which
+        // is exactly what happened the first time it ran earlier in the run.
+        await checkTypingInAField(model: model, log: &log)
 
         log.report()
         exit(log.exitCode)

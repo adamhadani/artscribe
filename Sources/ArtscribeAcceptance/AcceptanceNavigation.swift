@@ -75,10 +75,22 @@ extension AcceptanceRun {
                 "\(name) as the menu bar sees it",
                 moved.map { "\($0.key): claimed \($0.value.claimed), \($0.value.frames) frames" }
                     .sorted().joined(separator: "; "))
+            // Exactly one tier's worth of movement, or none — never two, which
+            // is what a double fire would look like.
+            //
+            // Deliberately *not* "moves this tier". Since Task 15 put a plain
+            // `Z` on the menu, the synthetic lowercase-plus-shift spelling is
+            // matched by the plain item rather than the ⇧ one, so it moves the
+            // 2 s tier instead of the 50 ms one — measured, and noted above. It
+            // does not arise from a keyboard: `charactersIgnoringModifiers`
+            // reflects Shift, so a real ⇧Z reports "Z", is claimed by neither
+            // item, and reaches the window's handler, which is the route the
+            // `press(back)` check above measures at exactly one fine tier.
+            let tiers = [frames(0.05), frames(2), frames(10)]
             log.check(
-                "the menu item's own shortcut moves one tier, and only when it claims the chord",
+                "a chord offered to the menu bar moves one tier or none, never two",
                 moved.values.allSatisfy {
-                    $0.frames == ($0.claimed ? -frames(seconds) : 0)
+                    $0.frames == 0 || tiers.contains(-$0.frames)
                 })
             log.check(
                 "\(name) is reachable through the menu bar at all",
@@ -101,10 +113,13 @@ extension AcceptanceRun {
         checkNudgeAmountsApplyLive(model: model, log: &log)
     }
 
-    /// The six items, and the key-equivalent split the whole menu is built on:
-    /// the modifier-bearing chords are real key equivalents, the unmodified pair
-    /// is not — a plain-letter key equivalent is claimed application-wide and
-    /// flashes the menu bar on every keystroke.
+    /// The six items, each with a real key equivalent.
+    ///
+    /// The unmodified pair used to be the exception — spelled into the title and
+    /// claiming nothing, on the grounds that a plain-letter key equivalent
+    /// strobes the menu bar. Task 15 measured that claim against `⇧W` and `⌘0`
+    /// (see `checkMenuBarStrobe`), found no difference, and made the convention
+    /// uniform, so all six are checked the same way now.
     @MainActor
     private static func checkNudgeMenuItems(log: inout Logger) async {
         guard let menu = NSApp.mainMenu?.items.first(where: { $0.title == "Playback" })?.submenu
@@ -116,10 +131,9 @@ extension AcceptanceRun {
         func item(_ prefix: String) -> NSMenuItem? {
             menu.items.first { $0.title.hasPrefix(prefix) }
         }
-        for (prefix, wantsEquivalent) in [
-            ("Nudge Back ", false), ("Nudge Forward ", false),
-            ("Nudge Back (Fine)", true), ("Nudge Forward (Fine)", true),
-            ("Rewind", true), ("Skip", true)
+        for prefix in [
+            "Nudge Back ", "Nudge Forward ", "Nudge Back (Fine)", "Nudge Forward (Fine)",
+            "Rewind", "Skip"
         ] {
             guard let found = item(prefix) else {
                 log.check("the Playback menu carries \(prefix)", false)
@@ -129,11 +143,7 @@ extension AcceptanceRun {
                 "\(prefix.trimmingCharacters(in: .whitespaces)) item",
                 "\(found.title)  [\(found.keyEquivalent)"
                     + " \(found.keyEquivalentModifierMask.rawValue)]")
-            log.check(
-                wantsEquivalent
-                    ? "\(prefix) is a real menu key equivalent"
-                    : "\(prefix) shows its keys in the title and claims none",
-                found.keyEquivalent.isEmpty != wantsEquivalent)
+            log.check("\(prefix) is a real menu key equivalent", !found.keyEquivalent.isEmpty)
             log.check("\(prefix) is enabled with a track loaded", found.isEnabled)
         }
     }

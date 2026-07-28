@@ -178,6 +178,12 @@ public final class ViewerModel {
     /// instead of hard-coding a layout.
     @ObservationIgnored public internal(set) var laneFrame: CGRect = .zero
     @ObservationIgnored public internal(set) var overviewFrame: CGRect = .zero
+    /// Where each transport button landed, in the same coordinates, for the same
+    /// reason: the acceptance run clicks the real button rather than guessing at
+    /// a layout. `@ObservationIgnored` like the others — nothing draws from it,
+    /// and a dictionary rewritten on every layout pass would invalidate the
+    /// window if it were observed.
+    @ObservationIgnored public internal(set) var transportFrames: [TransportControl: CGRect] = [:]
     var scale: CGFloat = 2
     var renderedKey: WaveformRenderer.Key?
     var overviewKey: WaveformRenderer.Key?
@@ -336,6 +342,10 @@ public final class ViewerModel {
 
     public func setOverviewFrame(_ frame: CGRect) {
         overviewFrame = frame
+    }
+
+    public func setTransportFrame(_ frame: CGRect, for control: TransportControl) {
+        transportFrames[control] = frame
     }
 
     var lanePointWidth: Int { Swift.max(1, Int(laneSize.width.rounded())) }

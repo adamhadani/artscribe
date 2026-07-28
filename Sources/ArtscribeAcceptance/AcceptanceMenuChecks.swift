@@ -132,7 +132,7 @@ extension AcceptanceRun {
         log.check("Mute unchecks when unmuted", item(menu, "Mute")?.state == .off)
         log.check(
             "Volume Up is enabled with a track loaded",
-            item(menu, "Volume Up  (")?.isEnabled == true)
+            item(menu, "Volume Up")?.isEnabled == true)
     }
 
     /// Lets SwiftUI's update transaction run, then asks AppKit to validate.
