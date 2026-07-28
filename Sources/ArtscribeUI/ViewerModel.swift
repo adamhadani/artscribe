@@ -134,6 +134,19 @@ public final class ViewerModel {
     /// The file this window's session belongs to. Not `fileName`, which is only
     /// the last path component and cannot be written next to anything.
     @ObservationIgnored var trackURL: URL?
+    /// The session as it stands on disk, as this app understands it — set on
+    /// every successful read and every successful write.
+    ///
+    /// It is what makes "has anything actually changed?" answerable, which is
+    /// what keeps a close from rewriting a file nobody touched. Deliberately the
+    /// *restored* state rather than the file's literal contents: a hand-edited
+    /// value that had to be clamped is recorded here as the clamped value, so
+    /// the app does not decide it must go and correct the user's file.
+    @ObservationIgnored var savedState: SessionState?
+    /// The sidecar's bytes as they were read, so the next write can lay
+    /// Artscribe's keys over them rather than replacing them. See
+    /// `SessionStore.merged(ours:into:)`.
+    @ObservationIgnored var preservedSidecar: Data?
     /// The debounced autosave in flight, if any. Cancelled and replaced on every
     /// edit, and flushed by an explicit Save or a close.
     @ObservationIgnored var autosaveTask: Task<Void, Never>?

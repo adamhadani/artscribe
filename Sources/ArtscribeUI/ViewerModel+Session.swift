@@ -149,10 +149,15 @@ extension ViewerModel {
     ///   because the alternative, silently redirecting the live session to a
     ///   path nothing reloads from, is the silent loss spec §7 exists to
     ///   prevent.
+    /// Whichever way it goes, the unknown keys in the session this window read
+    /// are carried into the file it writes — a copy meant for a bandmate that
+    /// silently dropped the note you typed into the original would be a strange
+    /// kind of copy.
     public func saveSession(to url: URL) {
         guard let sessions, let track = trackURL, let state = sessionState else { return }
+        let written: Data
         do {
-            try sessions.write(state, to: url)
+            written = try sessions.write(state, to: url, preserving: preservedSidecar)
         } catch {
             lastSaveFailed = true
             sessionNotice =
@@ -169,7 +174,9 @@ extension ViewerModel {
             return
         }
         cancelAutosave()
-        adopt(SessionSave(location: .sidecar(url), fellBack: false, reason: nil))
+        adopt(
+            SessionSave(
+                location: .sidecar(url), fellBack: false, reason: nil, contents: written))
     }
 
     /// **Don't Save.** Nothing is written, and the document stops claiming to
@@ -188,7 +195,7 @@ extension ViewerModel {
     private func writeSession() {
         guard let sessions, let track = trackURL, let state = sessionState else { return }
         do {
-            adopt(try sessions.save(state, for: track))
+            adopt(try sessions.save(state, for: track, preserving: preservedSidecar))
         } catch {
             lastSaveFailed = true
             sessionNotice =
@@ -202,6 +209,12 @@ extension ViewerModel {
         sessionLocation = saved.location
         isDirty = false
         lastSaveFailed = false
+        // What is now on disk, and the bytes to lay the next write over. The
+        // bytes just written already carry everything that was preserved, so
+        // this keeps unknown keys alive across a whole session of saves rather
+        // than only the first one.
+        savedState = sessionState
+        preservedSidecar = saved.contents
         guard saved.fellBack else {
             // A previous fallback notice is stale once the sidecar works again.
             if isSessionNoticeAboutStorage { sessionNotice = nil }
@@ -242,6 +255,8 @@ extension ViewerModel {
         lastSaveFailed = false
         sessionLocation = nil
         sessionNotice = nil
+        savedState = nil
+        preservedSidecar = nil
 
         guard let sessions,
             let read = sessions.load(
@@ -249,12 +264,19 @@ extension ViewerModel {
         else { return }
 
         sessionLocation = read.location
+        preservedSidecar = read.original
         let state = read.restoration.state
         speed = state.speed
         loop = state.loop
         playhead = Swift.max(0, Swift.min(state.playhead, totalFrames))
         reachedEnd = playhead >= totalFrames && totalFrames > 0
         viewport.restore(state.viewport)
+        // Recorded *after* the restore, so it is the state the app is actually
+        // running rather than the file's literal contents. A hand-edited value
+        // that had to be clamped therefore does not register as "the file is out
+        // of date" and does not provoke a write to correct it — the user is told
+        // about the repair and left to decide.
+        savedState = sessionState
         sessionNotice = Self.restoreNotice(for: read)
     }
 
@@ -312,55 +334,25 @@ extension ViewerModel {
             hasStoredSession: sessionLocation != nil, lastSaveFailed: lastSaveFailed)
     }
 
+    /// True when what would be written differs from what is on disk.
+    ///
+    /// Broader than `isDirty` on purpose: it includes the playhead and the
+    /// viewport, which spec §7 persists but which are never *edits* (see this
+    /// file's header). So closing a track whose position moved records where you
+    /// were, and closing one nobody touched writes nothing at all.
+    public var hasUnwrittenChanges: Bool { sessionState != savedState }
+
     /// The `.saveThenClose` half of the decision, and the "written on close"
-    /// half of spec §7. Called by the window before it goes away, and by the
-    /// **Save** button on the close sheet.
+    /// half of spec §7. Called by the window before it goes away, by ⌘Q, and by
+    /// anything that replaces the loaded track.
+    ///
+    /// **Guarded, not unconditional.** An unguarded write here rewrote the
+    /// sidecar of any track that was merely looked at, which for a file the user
+    /// is invited to hand-edit means their edit disappears the next time they
+    /// glance at the track.
     public func performClose() {
         cancelAutosave()
-        guard canSaveSession else { return }
+        guard canSaveSession, hasUnwrittenChanges else { return }
         writeSession()
-    }
-}
-
-/// What a window must do when it is asked to close.
-public enum SessionCloseAction: Equatable, Sendable {
-    /// Nothing is stored for this track and nothing was changed, or there is no
-    /// track at all.
-    case close
-    /// A session file already exists, so it is brought up to date and the window
-    /// goes. This is the ordinary path and it never interrupts anybody.
-    case saveThenClose
-    /// Save / Don't Save / Cancel. Reached when this track has no session file
-    /// yet and has been edited, or when the last attempt to write one failed.
-    case ask
-}
-
-/// The close rule, as a pure function.
-///
-/// It is deliberately not a method on the model: it is the single most
-/// consequential decision in this feature — get it wrong in one direction and
-/// the app nags on every window close, in the other and it silently drops loop
-/// points — and it should be readable and testable as a table rather than
-/// inferred from four `if`s in the middle of a view.
-public enum SessionClosePolicy {
-    public static func action(
-        canSave: Bool, isDirty: Bool, hasStoredSession: Bool, lastSaveFailed: Bool
-    ) -> SessionCloseAction {
-        guard canSave else { return .close }
-        // A file exists but the last write to it failed, and there are changes
-        // that are not in it. Closing quietly here is exactly the silent loss
-        // spec §7 forbids, so it asks and lets Save As… find somewhere writable.
-        if lastSaveFailed && isDirty { return .ask }
-        guard hasStoredSession else {
-            // Never saved. Only worth a question once there is something in the
-            // window that is not on disk — and it is a question rather than a
-            // silent write because the file lands in the user's music folder,
-            // visibly, and that is their decision to make (spec §2).
-            return isDirty ? .ask : .close
-        }
-        // Has a location, so it is kept up to date: the macOS rule for a
-        // document that has been saved once. The write also carries the
-        // viewport and playhead, which are persisted but never dirty.
-        return .saveThenClose
     }
 }

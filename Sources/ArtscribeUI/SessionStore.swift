@@ -52,6 +52,10 @@ public struct SessionRead: Equatable, Sendable {
     /// opens the track normally and says what happened, rather than refusing to
     /// open it or pretending the defaults were the user's choice.
     public var failure: SessionReadFailure?
+    /// The bytes exactly as they were on disk, so a later save can lay
+    /// Artscribe's own keys over them instead of replacing the file. See
+    /// `SessionStore.merged(ours:into:)`.
+    public var original: Data?
 }
 
 /// The outcome of writing a session.
@@ -62,6 +66,9 @@ public struct SessionSave: Equatable, Sendable {
     /// Why, when it fell back. Carried out rather than logged, because spec §7
     /// requires the fallback be surfaced.
     public var reason: String?
+    /// The bytes that were written, which become the next write's baseline —
+    /// they already carry whatever was preserved from the file before them.
+    public var contents: Data
 }
 
 /// Reads and writes the `.artscribe` sidecar (spec §7).
@@ -166,26 +173,30 @@ public struct SessionStore: Sendable {
         // failure that happens to have a usable answer. `repairs` is cleared so
         // the user is told one thing — "this file could not be read" — instead
         // of five field-level complaints about a file that had no fields.
-        func failed(_ failure: SessionReadFailure) -> SessionRead {
+        func failed(_ failure: SessionReadFailure, original: Data?) -> SessionRead {
             SessionRead(
                 restoration: SessionRestoration(state: defaults.state, repairs: []),
-                location: location, failure: failure)
+                location: location, failure: failure, original: original)
         }
 
         let data: Data
         do {
             data = try Data(contentsOf: location.url)
         } catch {
-            return failed(.unreadable(error.localizedDescription))
+            return failed(.unreadable(error.localizedDescription), original: nil)
         }
         do {
             let file = try JSONDecoder().decode(SessionFile.self, from: data)
             return SessionRead(
                 restoration: SessionState.restoring(
                     file, frameCount: frameCount, sampleRate: sampleRate),
-                location: location, failure: nil)
+                location: location, failure: nil, original: data)
         } catch {
-            return failed(.malformed(Self.describe(error)))
+            // The bytes are carried out even here. Merging into them will fail
+            // (they are not an object), so a save replaces them — which is the
+            // only option — but a caller that wants to show or back them up has
+            // them rather than having to read the file a second time.
+            return failed(.malformed(Self.describe(error)), original: data)
         }
     }
 
@@ -211,11 +222,14 @@ public struct SessionStore: Sendable {
     /// Throws only when **both** fail, which means the session genuinely cannot
     /// be stored anywhere; the caller turns that into something the user sees.
     @discardableResult
-    public func save(_ state: SessionState, for track: URL) throws -> SessionSave {
+    public func save(
+        _ state: SessionState, for track: URL, preserving previous: Data? = nil
+    ) throws -> SessionSave {
         let sidecar = Self.sidecarURL(for: track)
         do {
-            try write(state, to: sidecar)
-            return SessionSave(location: .sidecar(sidecar), fellBack: false, reason: nil)
+            let contents = try write(state, to: sidecar, preserving: previous)
+            return SessionSave(
+                location: .sidecar(sidecar), fellBack: false, reason: nil, contents: contents)
         } catch {
             // Deliberately not pre-checked with `isWritableFile`: that answers a
             // question about POSIX permissions, and the ways a directory refuses
@@ -223,16 +237,52 @@ public struct SessionStore: Sendable {
             // disconnected share and a sandbox. Attempting the write is the only
             // check that covers all of them.
             let fallback = fallbackURL(for: track)
-            try write(state, to: fallback)
+            let contents = try write(state, to: fallback, preserving: previous)
             return SessionSave(
                 location: .applicationSupport(fallback), fellBack: true,
-                reason: error.localizedDescription)
+                reason: error.localizedDescription, contents: contents)
         }
+    }
+
+    /// Lays the keys Artscribe owns over the ones that were already in the file.
+    ///
+    /// The sidecar is hand-editable by design (spec §2 chose a visible file over
+    /// a hidden one precisely so it could be read, edited and shared), so a save
+    /// must not silently delete a note somebody typed into it — or a field a
+    /// newer build wrote that this one does not know about yet. Anything not in
+    /// `ours` is left exactly as it was found.
+    ///
+    /// Recurses into objects that appear in both, so an unknown key nested
+    /// inside a `loop` Artscribe does own survives too. On a type clash — the
+    /// file says `"loop": "chorus"` and we hold an object — **ours wins**, since
+    /// the alternative is an app that cannot save its own state.
+    static func merged(ours: [String: Any], into theirs: [String: Any]) -> [String: Any] {
+        var result = theirs
+        for (key, value) in ours {
+            let ourObject = value as? [String: Any]
+            let theirObject = result[key] as? [String: Any]
+            if let ourObject, let theirObject {
+                result[key] = merged(ours: ourObject, into: theirObject)
+            } else {
+                result[key] = value
+            }
+        }
+        return result
     }
 
     /// One write, to one place. Used by `save` for both of its destinations and
     /// by **Save As…** for a path the user chose.
-    public func write(_ state: SessionState, to url: URL) throws {
+    ///
+    /// - Parameter previous: the bytes this session was read from, if any.
+    ///   Artscribe's keys are laid over them, so anything in the file that is
+    ///   not ours survives. Bytes that are not a JSON object are ignored — there
+    ///   is nothing to merge into — and the file is replaced.
+    /// - Returns: exactly what was written, which is the baseline for the next
+    ///   write.
+    @discardableResult
+    public func write(
+        _ state: SessionState, to url: URL, preserving previous: Data? = nil
+    ) throws -> Data {
         let directory = url.deletingLastPathComponent()
         // Only for a directory we own. Creating one beside the user's music
         // would be presumptuous, and `Data.write` reports the real reason it
@@ -245,17 +295,45 @@ public struct SessionStore: Sendable {
             try FileManager.default.createDirectory(
                 at: directory, withIntermediateDirectories: true)
         }
-        let encoder = JSONEncoder()
+        var object = try Self.jsonObject(of: state)
+        if let previous, let theirObject = Self.jsonObject(of: previous) {
+            object = Self.merged(ours: object, into: theirObject)
+        }
         // The file is meant to be opened in a text editor (spec §7, §2), so it
         // is formatted for one: indented, keys in a stable order so two sessions
         // diff cleanly, and a trailing newline so it is a well-formed text file.
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        var data = try encoder.encode(state.fileRepresentation)
+        //
+        // Serialised rather than encoded, on both paths, so a merged file and a
+        // fresh one come out in the same shape. `JSONEncoder` cannot emit keys
+        // it has no type for, which is the whole point of the merge.
+        var data = try JSONSerialization.data(
+            withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
         data.append(0x0A)
         // Atomic: the failure this whole feature exists to prevent is losing
         // loop points, and a debounced autosave interrupted mid-write is exactly
         // how that happens. The temporary file lands in the same directory, so a
         // read-only folder still fails here rather than half-succeeding.
         try data.write(to: url, options: .atomic)
+        return data
+    }
+
+    /// Bytes as a JSON object, or `nil` when they are not one. `nil` is the
+    /// ordinary answer for a truncated or hand-mangled sidecar, and it means
+    /// there is nothing to preserve — a save replaces the file.
+    private static func jsonObject(of data: Data) -> [String: Any]? {
+        (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    /// The session as a JSON object, via `JSONEncoder` so every value still goes
+    /// through the `Codable` conformances rather than being assembled by hand.
+    private static func jsonObject(of state: SessionState) throws -> [String: Any] {
+        let encoded = try JSONEncoder().encode(state.fileRepresentation)
+        guard let object = try JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        else {
+            // Unreachable: `SessionFile` is a struct and encodes to an object.
+            // Answered rather than trapped, because this runs on a save.
+            return [:]
+        }
+        return object
     }
 }

@@ -43,6 +43,7 @@ extension AcceptanceRun {
             model: model, window: window, sidecar: sidecar, log: &log)
         await checkReopenRestores(model: model, scratch: scratch, log: &log)
         await checkCorruptSidecar(model: model, scratch: scratch, log: &log)
+        await checkHandEditsSurvive(model: model, scratch: scratch, log: &log)
         await checkReadOnlyFallback(model: model, scratch: scratch, log: &log)
     }
 
@@ -220,6 +221,60 @@ extension AcceptanceRun {
         log.check("… and it is not silent about it", model.sessionNotice != nil)
         log.note("notice", model.sessionNotice ?? "none")
         model.dismissSessionNotice()
+    }
+
+    // MARK: - The file belongs to the user
+
+    /// The P0 the user found: reopening a track rewrote its sidecar *before*
+    /// reading it, so a hand edit was destroyed by looking at the track. The
+    /// visible sidecar was chosen over a hidden one (spec §2) precisely so it
+    /// could be edited and shared, which that made a lie.
+    @MainActor
+    private static func checkHandEditsSurvive(
+        model: ViewerModel, scratch: SessionScratch, log: inout Logger
+    ) async {
+        let sidecar = SessionStore.sidecarURL(for: scratch.track)
+        await load(model: model, url: scratch.track)
+        model.saveSession()
+        await settle(seconds: 0.1)
+
+        // Hand-edit it the way a person would: change a value, add a note, and
+        // add a key inside one Artscribe owns.
+        guard var text = try? String(contentsOf: sidecar, encoding: .utf8) else {
+            log.check("the sidecar can be hand-edited", false)
+            return
+        }
+        text = text.replacingOccurrences(
+            of: "\"schemaVersion\" : 1",
+            with: "\"comment\" : \"B section is the hard one\",\n  \"schemaVersion\" : 1")
+        text = text.replacingOccurrences(
+            of: "\"isEnabled\" :", with: "\"label\" : \"chorus\",\n    \"isEnabled\" :")
+        guard (try? Data(text.utf8).write(to: sidecar)) != nil,
+            let before = try? Data(contentsOf: sidecar)
+        else {
+            log.check("the sidecar can be hand-edited", false)
+            return
+        }
+        log.check("the sidecar can be hand-edited", true)
+
+        // Reopening it. This is the exact gesture that used to destroy the edit.
+        await load(model: model, url: scratch.track)
+        let after = (try? Data(contentsOf: sidecar)) ?? Data()
+        log.check("reopening a track leaves its sidecar byte-for-byte unchanged", after == before)
+        log.check(
+            "… and the hand-edited note is still there",
+            String(data: after, encoding: .utf8)?.contains("B section is the hard one") == true)
+
+        // And a real save keeps what it did not write.
+        press(.w)
+        await settle(seconds: 0.1)
+        model.saveSession()
+        await settle(seconds: 0.1)
+        let saved = (try? String(contentsOf: sidecar, encoding: .utf8)) ?? ""
+        log.check("a save keeps a key Artscribe did not write", saved.contains("\"comment\""))
+        log.check(
+            "… including one nested inside a key it does own", saved.contains("\"label\""))
+        log.check("… while still recording the change", !model.isDirty)
     }
 
     // MARK: - The read-only fallback (spec §7)

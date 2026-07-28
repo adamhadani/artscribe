@@ -14,13 +14,17 @@ import Waveform
 extension ViewerModel {
 
     public func open(url: URL) {
-        // Replacing the track is, for the session being left behind, the same
-        // event as closing the window — and spec §7 says a session is written
-        // on close. Only the already-adopted case is written here; a track that
-        // has never had a sidecar is asked about first, by
-        // `SessionPrompt.whenSafeToLeave`, which every route into this method
-        // goes through.
-        if closeAction == .saveThenClose { performClose() }
+        // **Nothing is written here, deliberately.** Opening a track is not an
+        // edit, and this method used to flush the outgoing session at exactly
+        // this point — which meant reopening a track rewrote its sidecar
+        // *before* reading it, destroying any hand edit. The sidecar is a
+        // visible, hand-editable file by design (spec §2), so that was data
+        // loss, and it was reported by the user.
+        //
+        // Leaving a session behind is still handled, one level up:
+        // `SessionPrompt.whenSafeToLeave` runs before every UI route into this
+        // method and saves or asks as the case requires. The open path itself is
+        // strictly read-only.
         loadTask?.cancel()
         errorMessage = nil
         isLoading = true

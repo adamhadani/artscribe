@@ -82,8 +82,13 @@ struct ViewerModelSessionCloseTests {
     /// A one-window, one-track app has exactly two ways to walk away from a
     /// session: closing the window, and loading another file. The second one is
     /// the easy one to forget, and forgetting it loses loop points silently.
-    @Test("loading another track writes the outgoing session first")
-    func openingAnotherTrackFlushesTheCurrentSession() throws {
+    ///
+    /// The guard lives in `SessionPrompt.whenSafeToLeave`, which every UI route
+    /// into `open(url:)` goes through — **not** inside `open(url:)` itself.
+    /// Putting it there is what made reopening a track rewrite its own sidecar
+    /// before reading it; see `SessionConservationTests`.
+    @Test("leaving a track for another one writes the outgoing session first")
+    func leavingATrackFlushesItsSession() throws {
         let scratch = try SessionScratch()
         let model = SessionTestModel.make(scratch)
         model.setSpeedPreset(0.5)
@@ -92,14 +97,33 @@ struct ViewerModelSessionCloseTests {
         model.setSpeedPreset(0.75)
         #expect(model.isDirty)
 
-        // A file that cannot be decoded is enough: `open(url:)` flushes before
-        // it starts loading, so the outgoing session is written either way.
+        // The load itself writes nothing at all.
         model.open(url: scratch.root.appendingPathComponent("not-a-track.wav"))
+        #expect(model.isDirty)
+        #expect(try #require(SessionTestModel.read(scratch)).restoration.state.speed.ratio == 0.5)
+
+        // The guard that runs before it does.
+        var proceeded = false
+        SessionPrompt.whenSafeToLeave(model) { proceeded = $0 }
+        #expect(proceeded)
         #expect(!model.isDirty)
 
         let read = try #require(SessionTestModel.read(scratch))
         #expect(read.restoration.state.speed.ratio == 0.75)
         #expect(read.restoration.state.playhead == 77_000)
+    }
+
+    @Test("leaving a track nobody edited asks nothing and writes nothing")
+    func leavingAnUntouchedTrackIsSilent() throws {
+        let scratch = try SessionScratch()
+        let model = SessionTestModel.make(scratch)
+        model.saveSession()
+        let before = try Data(contentsOf: SessionStore.sidecarURL(for: scratch.track))
+
+        var proceeded = false
+        SessionPrompt.whenSafeToLeave(model) { proceeded = $0 }
+        #expect(proceeded)
+        #expect(try Data(contentsOf: SessionStore.sidecarURL(for: scratch.track)) == before)
     }
 
     // MARK: - Save As
