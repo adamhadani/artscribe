@@ -3654,6 +3654,62 @@ search filter are all pure and must be tested — including a test that every ac
 catalog is reachable in the window, so an action can never be added and silently omitted.
 The keyboard view itself is not snapshot-tested.
 
+---
+
+### Task 27: CUE sheet support — track markers on the waveform
+
+Some albums ship as a single FLAC plus a `.cue` file of the same basename, indexing where each
+track begins. Live albums, DJ sets and vinyl rips are commonly distributed this way, and today
+Artscribe sees one nine-hour blob with no structure.
+
+The user's ask: show a distinct marker at each track boundary, name the track, colour them
+distinctly (yellow was suggested), and let the markers be toggled from the View menu with a
+shortcut.
+
+#### Parsing
+
+- [ ] On opening `<name>.flac`, look for `<name>.cue` beside it and parse it if present.
+      **Do not require it** — its absence is the normal case, not an error.
+- [ ] CUE is an old, loosely-specified format with real-world variance: `FILE`, `TRACK`,
+      `INDEX 00`/`01`, `TITLE`, `PERFORMER`, `REM` comments, and `INDEX` times in
+      `mm:ss:ff` where **ff is frames at 75 per second**, not milliseconds. Getting that
+      conversion wrong puts every marker slightly off.
+- [ ] Encoding is a real trap: CUE files are frequently **Latin-1 or Shift-JIS rather than
+      UTF-8**, and a strict UTF-8 decode will simply fail on a perfectly good file. Fall back
+      rather than refusing, and never crash on a malformed one — degrade to no markers and
+      say so, per spec §8.
+- [ ] Multi-`FILE` cue sheets exist (one per track). Decide what to do and say why —
+      recommendation: support the single-`FILE` case properly and ignore the rest rather than
+      half-supporting it.
+- [ ] Test against genuinely awkward input: missing `TITLE`, `INDEX 00` present as well as
+      `01`, out-of-order tracks, times beyond the file's length, CRLF, a BOM, and a truncated
+      file.
+
+#### Display
+
+- [ ] A marker at each track start, in its own colour distinct from selection amber, loop, and
+      the playhead. Yellow was suggested; check it against both themes and the existing palette
+      before committing to it.
+- [ ] The track name shown at the marker, **truncated when there is no room, with the full name
+      on hover.** At album zoom there will be a dozen markers competing for space — decide what
+      happens when labels would overlap, and make it degrade gracefully rather than becoming a
+      smear.
+- [ ] **Toggle from the View menu with a shortcut**, added to the `ActionCatalog` like every
+      other action — the drift guard will fail otherwise, which is the point of it.
+- [ ] Persist the toggle in the `.artscribe` sidecar alongside the other view state.
+
+#### Worth considering, and worth saying no to if it is not MVP
+
+- Snapping the selection or loop to a track boundary — genuinely useful for "loop this one
+  track", but it is a new interaction and belongs in its own task if it complicates this one.
+- Navigating between markers by keyboard. The spec's deferred markers lane (§11.4) is the
+  natural home; do not build a parallel mechanism here.
+
+**Testing:** the parser is pure and must be thoroughly tested — that is where the bugs will be.
+The `mm:ss:ff` conversion, the encoding fallback, and the malformed-input handling all deserve
+explicit cases. Label layout and overlap resolution are also pure and testable; extract them
+from the view.
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
