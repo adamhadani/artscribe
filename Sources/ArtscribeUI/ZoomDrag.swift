@@ -130,10 +130,32 @@ enum LaneDragMode: Equatable, Sendable {
     /// and because Melodyne sets the precedent for a modifier-drag zoom inside
     /// the editing pane.
     case zoom
+    /// A loop or selection handle taken hold of at mouse-down (Task 23). The
+    /// handle is latched with the mode, so an edge dragged past its opposite
+    /// number keeps being *this* drag rather than becoming a different one.
+    case edge(TimelineHandle)
 
-    /// ⌥ beats ⇧ when both are held — holding both is a typo rather than a
-    /// third gesture, and the same precedence already governs the nudge tiers.
-    init(option: Bool, shift: Bool) {
-        self = option ? .zoom : .select(extending: shift)
+    /// The lanes' precedence rule, in one place. See `TimelineHandles` for the
+    /// whole of it and for why it is ordered this way:
+    ///
+    /// 1. ⌥ → zoom. It beats everything, including a handle under the pointer.
+    /// 2. ⇧ → extend the selection. Also beats a handle, which is what keeps a
+    ///    selection edge reachable when a loop edge is sitting on top of it.
+    /// 3. A handle under the pointer → drag it.
+    /// 4. Otherwise → a new selection, exactly as before.
+    ///
+    /// ⌥ beating ⇧ when both are held is unchanged: holding both is a typo
+    /// rather than a third gesture, and the same precedence already governs the
+    /// nudge tiers.
+    init(option: Bool, shift: Bool, handle: TimelineHandle? = nil) {
+        if option {
+            self = .zoom
+        } else if shift {
+            self = .select(extending: true)
+        } else if let handle {
+            self = .edge(handle)
+        } else {
+            self = .select(extending: false)
+        }
     }
 }

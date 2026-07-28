@@ -364,7 +364,11 @@ extension ViewerModel {
         applyLoop(LoopRegion())
     }
 
-    private func applyLoop(_ next: LoopRegion) {
+    /// The app's one and only `PlaybackCommand.setLoop` path. Internal rather
+    /// than private so a dragged loop edge (`ViewerModel+EdgeDrag`) goes through
+    /// it too — the alternative would be a second way to reach the render
+    /// thread, which spec §5 does not have.
+    func applyLoop(_ next: LoopRegion) {
         guard next != loop else { return }
         loop = next
         // Takes effect on the next pass, not this one: the engine wraps at the

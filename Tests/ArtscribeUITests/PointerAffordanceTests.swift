@@ -84,6 +84,78 @@ struct PointerAffordanceTests {
         }
     }
 
+    // MARK: - The handles (Task 23)
+
+    /// The affordance has to appear on **hover**, not once the drag has begun:
+    /// an edge that only admits it is draggable after you have committed to
+    /// dragging it is not discoverable at all.
+    @Test func hoveringAnEdgeOffersTheFrameResize() {
+        #expect(
+            PointerAffordance.over(
+                .waveformLanes, optionHeld: false, laneDrag: nil,
+                hovering: .loopStart) == .resizeRegionLeading)
+        #expect(
+            PointerAffordance.over(
+                .waveformLanes, optionHeld: false, laneDrag: nil,
+                hovering: .loopEnd) == .resizeRegionTrailing)
+        #expect(
+            PointerAffordance.over(
+                .waveformLanes, optionHeld: false, laneDrag: nil,
+                hovering: .selectionStart) == .resizeRegionLeading)
+        #expect(
+            PointerAffordance.over(
+                .waveformLanes, optionHeld: false, laneDrag: nil,
+                hovering: .selectionEnd) == .resizeRegionTrailing)
+    }
+
+    /// The loop body opens the hand on hover and closes it while moving —
+    /// macOS's own two-state grab, and the only pair here that changes between
+    /// hover and drag.
+    @Test func theLoopBodyOpensAndClosesTheHand() {
+        #expect(
+            PointerAffordance.over(
+                .waveformLanes, optionHeld: false, laneDrag: nil,
+                hovering: .loopBody) == .moveRegion)
+        #expect(
+            PointerAffordance.over(.waveformLanes, optionHeld: false, laneDrag: .edge(.loopBody))
+                == .movingRegion)
+    }
+
+    /// Both modifiers outrank a handle, exactly as `LaneDragMode`'s precedence
+    /// does. A resize cursor over an edge with ⌥ or ⇧ down would be promising a
+    /// gesture that cannot happen.
+    @Test func modifiersOutrankAHoveredHandle() {
+        #expect(
+            PointerAffordance.over(
+                .waveformLanes, optionHeld: true, laneDrag: nil,
+                hovering: .loopStart) == .zoom)
+        #expect(
+            PointerAffordance.over(
+                .waveformLanes, optionHeld: false, shiftHeld: true,
+                laneDrag: nil, hovering: .loopStart) == .selectRange)
+    }
+
+    /// And the latch outranks everything, as it already did for the zoom: the
+    /// pointer may wander off the edge mid-drag, but the drag is still a resize.
+    @Test func aHandleDragKeepsItsCursorWhenThePointerLeavesTheEdge() {
+        #expect(
+            PointerAffordance.over(
+                .waveformLanes, optionHeld: true, shiftHeld: true,
+                laneDrag: .edge(.loopEnd), hovering: nil) == .resizeRegionTrailing)
+    }
+
+    /// The ruler took on no handle gesture in Task 23 — its whole surface is
+    /// claimed by a modifier-free vertical zoom drag — so a handle reported
+    /// under the pointer must not change what it says.
+    @Test func theRulerIgnoresHandlesEntirely() {
+        for handle in TimelineHandle.allCases {
+            #expect(
+                PointerAffordance.over(
+                    .timeRuler, optionHeld: false, laneDrag: nil,
+                    hovering: handle) == .verticalDrag)
+        }
+    }
+
     // MARK: - The full table
 
     /// Every combination in one place, so a change to the scheme has to be made

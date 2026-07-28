@@ -20,6 +20,19 @@ struct WaveformLanesView: View {
     /// and not on a drag. It flips twice per press of ⌥, so the two body
     /// evaluations it costs are two per keystroke, not two per frame.
     @State private var optionHeld = false
+    /// Whether ⇧ is down right now, for the same reason and by the same route.
+    /// With ⇧ held a drag extends the selection *even on top of a loop edge*
+    /// (`LaneDragMode`'s precedence), so the edge affordance has to stand down
+    /// or it would be promising a resize that will not happen.
+    @State private var shiftHeld = false
+    /// The loop or selection handle under the pointer, or `nil` over open lane.
+    ///
+    /// The *resolved handle* is stored rather than the pointer position, and it
+    /// is written only when it changes: a hover fires many events a second, and
+    /// storing the point would invalidate this view on every one of them for a
+    /// picture that is identical. This way a pointer crossing 200 points of open
+    /// lane costs zero body evaluations.
+    @State private var hovering: TimelineHandle?
 
     /// Everything the overlay draw needs, read once at body level and handed
     /// down to the `Canvas` closure as a single value — not read piecemeal
@@ -70,22 +83,42 @@ struct WaveformLanesView: View {
                 draw(in: &context, size: size, state: state)
             }
             .allowsHitTesting(false)
+
+            // Above the `Canvas`, because it is transient chrome over a
+            // steady-state picture and because it has to be able to cross-fade.
+            // See `TimelineEdgeOverlay`.
+            TimelineEdgeOverlay(model: model, hovering: hovering)
         }
         .contentShape(.rect)
-        // The lanes carry three drag behaviours and, until now, advertised
+        // The lanes carry four drag behaviours and, until Task 17, advertised
         // none of them. The crosshair says a passage can be dragged out; ⌥
-        // turns it into a magnifier, and back, with the pointer standing still.
+        // turns it into a magnifier, and back, with the pointer standing still;
+        // and over a loop or selection edge it becomes the frame-resize arrow.
         // The scheme and its reasons are in `PointerAffordance`.
         .pointerStyle(
             PointerAffordance.over(
-                .waveformLanes, optionHeld: optionHeld, laneDrag: model.laneDragMode
+                .waveformLanes, optionHeld: optionHeld, shiftHeld: shiftHeld,
+                laneDrag: model.laneDragMode, hovering: hovering
             ).pointerStyle
         )
         // Not `NSEvent.modifierFlags` polled from the gesture: that is only
         // read when an event arrives, and the whole point here is the frame in
         // which nothing is happening except a thumb on ⌥.
-        .onModifierKeysChanged(mask: .option) { _, now in
-            optionHeld = now.contains(.option)
+        .onModifierKeysChanged(mask: [.option, .shift]) { _, now in
+            if now.contains(.option) != optionHeld { optionHeld = now.contains(.option) }
+            if now.contains(.shift) != shiftHeld { shiftHeld = now.contains(.shift) }
+        }
+        // The hover half of Task 23. The cursor and the highlight both come
+        // from this, so an edge announces itself before the mouse goes down —
+        // which is the whole difference between a discoverable handle and a
+        // hidden one.
+        .onContinuousHover(coordinateSpace: .local) { phase in
+            let found: TimelineHandle? =
+                switch phase {
+                case .active(let point): model.timelineHandle(at: point)
+                case .ended: nil
+                }
+            if found != hovering { hovering = found }
         }
         .gesture(dragGesture)
         // The frame, not just the size: a scroll event arrives at the window, so

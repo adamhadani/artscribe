@@ -78,6 +78,12 @@ enum AcceptanceRun {
         // playback checks are done neither is reliably still true.
         await checkPointerGestures(model: model, log: &log)
         await checkPointerAffordances(model: model, log: &log)
+        // Task 23, deliberately immediately after them and for the same reason:
+        // it needs a key window and a pointer this process can aim. It leaves
+        // the loop and the selection cleared, so nothing downstream inherits a
+        // region it did not ask for.
+        await checkEdgeDrag(
+            model: model, theme: theme, log: &log, outputDirectory: outputDirectory)
 
         checkZoomAnchor(model: model, log: &log)
         await settle(seconds: 0.2)
@@ -128,6 +134,10 @@ enum AcceptanceRun {
         // needs the window to still be key, which it re-asserts for itself.
         await checkStartPrecedence(model: model, log: &log)
         await checkDoubleClickPlays(model: model, log: &log)
+        // Task 23's seamless half: an edge moved with the transport running.
+        // Here rather than with the other edge checks because it needs the
+        // audio graph `checkPlayback` proves is alive.
+        await checkEdgeDragWhilePlaying(model: model, log: &log)
 
         await checkResize(model: model, log: &log)
         await settle(seconds: 0.3)

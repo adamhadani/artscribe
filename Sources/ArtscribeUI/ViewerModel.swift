@@ -283,6 +283,12 @@ public final class ViewerModel {
     /// identifies one gesture across its events. `@ObservationIgnored` for the
     /// same reason as `zoomDrag`: nothing draws from it.
     @ObservationIgnored var laneDragStart: CGPoint?
+    /// The loop or selection handle being dragged, if one is (Task 23).
+    ///
+    /// Observed, unlike `zoomDrag` and `laneDragStart`: the guide line and the
+    /// live time readout are drawn from it, so it has to invalidate. See
+    /// `ViewerModel+EdgeDrag`.
+    public internal(set) var edgeDrag: EdgeDrag?
     /// What that drag was decided to mean, latched at mouse-down. See
     /// `laneDragChanged` for why it cannot be re-read per event.
     ///
@@ -352,6 +358,10 @@ public final class ViewerModel {
     }
 
     var lanePointWidth: Int { Swift.max(1, Int(laneSize.width.rounded())) }
+
+    /// The lanes' height in points, which is what puts the loop's top and
+    /// bottom bars — and therefore its body grab band — somewhere definite.
+    var lanePointHeight: Double { Swift.max(1, laneSize.height) }
 
     // MARK: - Testing
 

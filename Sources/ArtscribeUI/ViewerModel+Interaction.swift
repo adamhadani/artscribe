@@ -113,7 +113,14 @@ extension ViewerModel {
 
     // MARK: - The lane drag, and what it was decided to mean
 
-    /// A left-drag in the waveform lanes: selection, or an ⌥-modified zoom.
+    /// A left-drag in the waveform lanes: a handle, a selection, or an
+    /// ⌥-modified zoom.
+    ///
+    /// **The precedence is `LaneDragMode`'s and it is written down there and in
+    /// `TimelineHandles`.** In one line: ⌥ zooms and ⇧ extends wherever the
+    /// pointer is; otherwise a loop or selection edge within its grab zone —
+    /// or the loop's own top/bottom bar — is taken hold of; otherwise the drag
+    /// starts a new selection exactly as it always has.
     ///
     /// **The mode is latched at mouse-down.** `option` and `shift` are read
     /// live from `NSEvent.modifierFlags` by the view, so they change the moment
@@ -132,18 +139,22 @@ extension ViewerModel {
         if laneDragStart == start, let live = laneDragMode {
             mode = live
         } else {
-            mode = LaneDragMode(option: option, shift: shift)
+            mode = LaneDragMode(
+                option: option, shift: shift, handle: timelineHandle(at: start))
             laneDragStart = start
             laneDragMode = mode
-            // A new gesture never continues the previous one's zoom, even when
-            // the two began at the same point.
+            // A new gesture never continues the previous one's zoom or handle
+            // drag, even when the two began at the same point.
             zoomDrag = nil
+            edgeDrag = nil
         }
         switch mode {
         case .select(let extending):
             dragChanged(startPixel: start.x, currentPixel: current.x, extending: extending)
         case .zoom:
             zoomDragChanged(start: start, current: current)
+        case .edge(let handle):
+            edgeDragChanged(handle: handle, startPixel: start.x, currentPixel: current.x)
         }
     }
 
@@ -152,7 +163,9 @@ extension ViewerModel {
     /// A zoom drag must **not** fall through to `dragEnded`: an ⌥-drag that
     /// never really moved would otherwise be read as a click, seek the playhead
     /// and throw the selection away — and two of them as a double-click, which
-    /// starts playing.
+    /// starts playing. A handle drag is excluded for exactly the same reason:
+    /// taking hold of a loop edge and thinking better of it must not move the
+    /// playhead, and two of them in a second must not start playback.
     ///
     /// With no latched mode this behaves exactly as it did before ⌥-drag
     /// existed, so an end that somehow arrives without a preceding change still
@@ -164,6 +177,8 @@ extension ViewerModel {
         switch mode {
         case .zoom:
             zoomDragEnded()
+        case .edge:
+            edgeDragEnded()
         case .select, nil:
             dragEnded(startPixel: start.x, endPixel: end.x, now: now)
         }
