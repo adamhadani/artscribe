@@ -3138,6 +3138,75 @@ itself is not snapshot-tested, consistent with the project's standing choice.
 - [ ] Restore Defaults returns 50 ms / 2 s / 10 s
 - [ ] All six navigation items appear in the Playback menu with correct shortcuts
 
+---
+
+### Task 15: Transport bar, uniform menu shortcuts, and loop prominence
+
+Three pieces of UI feedback from the user driving the real app. They are one task because
+they touch the same files and the same visual language.
+
+#### A — A DAW-style transport bar (the substantial piece)
+
+The user asked for "a Transport component similar to other DAWs/audio editors so I can
+toggle loop on/off and see its state from bigger buttons with relevant icons on top."
+
+- [ ] A horizontal transport bar **directly above the existing status bar**, using SF Symbols
+      at a size that reads as a control surface rather than a toolbar afterthought.
+- [ ] Contents, grouped with separators: **rewind / nudge-back / play-pause / nudge-forward
+      / forward**, **play-from-selection-start**, **loop toggle**, **speed − / + with the
+      current speed between them**, **zoom out / in**.
+- [ ] **Every button is a second front-end to an action that already exists** on
+      `ViewerModel`. Do not reimplement behaviour in the view — if a button needs logic the
+      keyboard path does not have, that logic belongs on the model where it can be tested.
+- [ ] **State is visible, not just triggerable.** The loop button reads as on/off at a
+      glance (filled/tinted vs outline), play/pause reflects the transport, and the speed
+      readout carries the same emphasis rule as the status bar.
+- [ ] Buttons show their keyboard shortcut in a **tooltip**, so the bar teaches the keyboard
+      rather than replacing it. This app is keyboard-first; the transport is for discovery
+      and for when a hand is already on the mouse.
+- [ ] Correct enablement with no track loaded, and correct behaviour in both themes.
+- [ ] The bar must not steal keyboard focus — pressing Space must still play, not re-trigger
+      whichever button was last clicked. Verify this explicitly; it is the classic defect of
+      adding buttons to a keyboard-driven app.
+
+#### B — Uniform menu shortcut presentation
+
+Menus currently mix two styles: some items carry a real key equivalent (right-aligned, grey,
+system-drawn) and others spell the shortcut into the title text, e.g. `"Play  (Space)"`.
+The user wants one convention: **the system one — right-aligned and grey, everywhere.**
+
+- [ ] Convert the parenthesised-title items to real key equivalents.
+      `.keyboardShortcut("q", modifiers: [])` is the documented way to declare a
+      no-modifier shortcut; SwiftUI defaults to ⌘ otherwise.
+- [ ] **First, re-measure the reason the split exists.** `PlaybackCommands` documents that a
+      plain-letter menu key equivalent "is claimed application-wide and flashes the menu bar
+      on every keystroke, which during a held `Q`/`W` speed sweep is a strobe." Establish
+      whether that is still true. If it is, the fix is not to give up on the convention —
+      find the real remedy and report what it was. If it is not reproducible, say so and
+      convert everything.
+- [ ] **No action may fire twice.** The current design deliberately splits handling between
+      the menu (modified chords) and `DocumentView` (unmodified keys) so nothing is handled
+      by both. Whatever you change, verify each action fires exactly once per keypress —
+      there are existing tests asserting single-fire; keep them meaningful.
+- [ ] Watch for genuine conflicts: a plain-letter equivalent registered application-wide can
+      fire while a text field has focus. Settings has editable fields. Check that typing in
+      Settings does not trigger transport actions.
+
+#### C — Loop state prominence
+
+- [ ] When looping is active, the loop readout gets the same treatment the speed readout
+      already gets when it is not 100%: **bold, in an accent colour**, legible in both
+      themes. An engaged loop is a mode, and modes should be obvious.
+
+**Acceptance — verify by running:**
+- [ ] Every menu item in View and Playback shows its shortcut right-aligned and grey; none
+      spell it into the title
+- [ ] Each action still fires exactly once per keypress
+- [ ] Typing in Settings does not trigger transport actions
+- [ ] Transport buttons drive the same model actions as the keys, show live state, and do
+      not steal focus from Space
+- [ ] Loop-on and speed≠100% both read as clearly modal in Light and Dark
+
 ## Plan Complete
 
 At this point `swift test` covers decode, peaks, stretch quality, the command ring, and
