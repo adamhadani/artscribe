@@ -28,7 +28,7 @@ final class PlaybackSession {
             audio: audio, stretcher: RubberBandStretcher(engine: stretchEngine), ring: ring,
             maxBlock: 1024)
         output = try AudioOutput(
-            engine: engine, sampleRate: audio.sampleRate, channels: audio.channels)
+            engine: engine, sampleRate: audio.sampleRate)
     }
 
     func push(_ command: PlaybackCommand) {

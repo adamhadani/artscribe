@@ -92,7 +92,7 @@ func theLoopSeamOnRealMaterialIsNotADiscontinuity() async throws {
     let engine = PlaybackEngine(
         audio: audio, stretcher: RubberBandStretcher(engine: .studio), ring: ring, maxBlock: 1024)
     let output = try AudioOutput(
-        engine: engine, sampleRate: audio.sampleRate, channels: audio.channels)
+        engine: engine, sampleRate: audio.sampleRate)
 
     let start = FrameIndex(30 * audio.sampleRate)
     let end = FrameIndex(34 * audio.sampleRate)
@@ -155,7 +155,7 @@ private func makeReferencePlayer(audio: DecodedAudio) throws -> (PlaybackEngine,
     let engine = PlaybackEngine(
         audio: audio, stretcher: RubberBandStretcher(engine: .studio), ring: ring, maxBlock: 1024)
     let output = try AudioOutput(
-        engine: engine, sampleRate: audio.sampleRate, channels: audio.channels)
+        engine: engine, sampleRate: audio.sampleRate)
     ring.push(.setTimeRatio(2.0))
     ring.push(.seek(FrameIndex(30 * audio.sampleRate)))
     ring.push(.setPlaying(true))

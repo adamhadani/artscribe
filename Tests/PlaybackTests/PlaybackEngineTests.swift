@@ -24,6 +24,16 @@ import TimeStretch
     #expect(out[255] == 255)
 }
 
+/// `render`'s pointer-table length is unchecked and unreportable — the render thread can
+/// do neither — so the count it requires has to be readable from outside, or a caller has
+/// no way to size the table right. It is the source's, always.
+@Test func theEnginePublishesTheChannelCountItsPointerTableMustHave() {
+    for channels in [1, 2] {
+        let (engine, _) = makeEngine(channels: channels)
+        #expect(engine.channelCount == channels)
+    }
+}
+
 @Test func everyChannelCarriesItsOwnSource() {
     let (engine, _) = makeEngine(channels: 2)
     let out = renderChannels(engine, frames: 256, channels: 2)

@@ -20,9 +20,16 @@ public final class PlaybackEngine: @unchecked Sendable {
     private let audio: DecodedAudio
     private let stretcher: TimeStretcher
     private let ring: CommandRing
-    private let channels: Int
+    /// The number of channels `render` writes — always the source's. Public because it is
+    /// the precondition on `render`'s pointer table, which the render thread cannot check
+    /// and therefore cannot report: a caller that cannot read this count has no way to
+    /// size the table correctly. `AudioOutput` takes its channel count from here rather
+    /// than being told one, so the two cannot disagree.
+    public let channelCount: Int
     private let maxBlock: Int
-    private let totalFrames: FrameIndex
+    /// `internal`, not `private`, only because `PlaybackEngine+Position.swift` reads it and
+    /// Swift's `private` is file-scoped. Still render-thread-owned; nothing else writes it.
+    let totalFrames: FrameIndex
 
     // MARK: Flat pointer tables, built once in `init`
 
@@ -41,16 +48,20 @@ public final class PlaybackEngine: @unchecked Sendable {
 
     // MARK: Render-thread-owned state
 
+    /// Owned by the render thread. The four `audiblePosition` needs are `internal` rather
+    /// than `private` only because it lives in `PlaybackEngine+Position.swift` and Swift's
+    /// `private` is file-scoped; nothing outside this class writes any of them.
+    ///
     /// How far source has been *fed into* the stretcher. Runs ahead of what is audible.
-    private var readCursor: FrameIndex = 0
-    private var loop = LoopRegion()
+    var readCursor: FrameIndex = 0
+    var loop = LoopRegion()
     private var playing = false
     /// Output frames of start-delay padding still to be thrown away.
     private var primingRemaining = 0
     /// Output frames the stretcher still owes for source already fed, excluding priming.
     /// This is the whole basis of the audible-position compensation; see `audiblePosition`.
-    private var pendingOutput: Double = 0
-    private var timeRatio: Double = 1.0
+    var pendingOutput: Double = 0
+    var timeRatio: Double = 1.0
     /// Set once `process(final: true)` has been issued; the stream cannot be fed again
     /// without a `reset`.
     private var sourceExhausted = false
@@ -70,7 +81,7 @@ public final class PlaybackEngine: @unchecked Sendable {
         self.audio = audio
         self.stretcher = stretcher
         self.ring = ring
-        self.channels = audio.channels
+        self.channelCount = audio.channels
         self.maxBlock = maxBlock
         self.totalFrames = audio.frameCount
         self.feedStorage = AudioStorage(channels: audio.channels, capacityFrames: maxBlock)
@@ -103,15 +114,15 @@ public final class PlaybackEngine: @unchecked Sendable {
     }
 
     deinit {
-        sourceChannels.deinitialize(count: channels)
+        sourceChannels.deinitialize(count: channelCount)
         sourceChannels.deallocate()
-        feedChannels.deinitialize(count: channels)
+        feedChannels.deinitialize(count: channelCount)
         feedChannels.deallocate()
-        feedInput.deinitialize(count: channels)
+        feedInput.deinitialize(count: channelCount)
         feedInput.deallocate()
-        scratchChannels.deinitialize(count: channels)
+        scratchChannels.deinitialize(count: channelCount)
         scratchChannels.deallocate()
-        outChannels.deinitialize(count: channels)
+        outChannels.deinitialize(count: channelCount)
         outChannels.deallocate()
     }
 
@@ -151,9 +162,10 @@ public final class PlaybackEngine: @unchecked Sendable {
     ///
     /// - Parameters:
     ///   - output: A table of per-channel write pointers. **Must point to at least
-    ///     `audio.channels` entries** — every entry in `0..<audio.channels` is read. This
-    ///     is unchecked: the render thread cannot afford a bounds check and has no way to
-    ///     report a violation, so a shorter table reads out of bounds. Individual entries
+    ///     `channelCount` entries** — every entry in `0..<channelCount` is read. This is
+    ///     unchecked: the render thread cannot afford a bounds check and has no way to
+    ///     report a violation, so a shorter table reads out of bounds. `channelCount` is
+    ///     public so that every caller can size the table from it. Individual entries
     ///     may be `nil`; that channel is skipped and its output discarded, which keeps the
     ///     other channels' frame counts correct.
     ///     Each non-`nil` entry must have room for `frames` values.
@@ -169,7 +181,7 @@ public final class PlaybackEngine: @unchecked Sendable {
         }
 
         // Silence up front, so every exit path below leaves the buffer fully defined.
-        for c in 0..<channels {
+        for c in 0..<channelCount {
             if let dst = output[c] { dst.update(repeating: 0, count: frames) }
         }
 
@@ -214,7 +226,7 @@ public final class PlaybackEngine: @unchecked Sendable {
                 }
 
                 let want = min(min(ready, frames - written), maxBlock)
-                for c in 0..<channels {
+                for c in 0..<channelCount {
                     if let dst = output[c] {
                         outChannels[c] = dst + written
                     } else {
@@ -307,7 +319,7 @@ public final class PlaybackEngine: @unchecked Sendable {
     @inline(__always)
     private func copySource(from frame: FrameIndex, into offset: Int, count: Int) {
         let base = Int(frame)
-        for c in 0..<channels {
+        for c in 0..<channelCount {
             guard let src = sourceChannels[c], let dst = feedChannels[c] else { continue }
             (dst + offset).update(from: src + base, count: count)
         }
@@ -352,49 +364,5 @@ public final class PlaybackEngine: @unchecked Sendable {
         return true
     }
 
-    // MARK: - Position
-
-    /// The audible source position (spec §5): where the listener is, not where the feed
-    /// cursor is.
-    ///
-    /// `readCursor` runs ahead of the sound by whatever the stretcher still holds.
-    /// `pendingOutput` tracks that backlog in *output* frames — incremented by
-    /// `producedFrames × timeRatio` on every feed, decremented by every frame retrieved —
-    /// so dividing by `timeRatio` converts it back to source frames, and rewinding the
-    /// cursor by that much lands on the next frame to be heard. Start-delay priming is
-    /// excluded by construction: it is discarded without touching `pendingOutput`, because
-    /// it corresponds to no source at all.
-    ///
-    /// Exact whenever `timeRatio` is constant. A ratio change leaves the in-flight backlog
-    /// briefly mis-scaled (produced at the old ratio), an error bounded by one backlog that
-    /// drains within a block or two.
-    ///
-    /// This is the position at the end of the block just rendered; the further offset to
-    /// the DAC belongs to the output layer, which knows the device buffer size.
-    private func audiblePosition() -> FrameIndex {
-        guard pendingOutput.isFinite, pendingOutput > 0, timeRatio > 0 else {
-            return clampToFile(readCursor)
-        }
-        let backlog = (pendingOutput / timeRatio).rounded()
-        guard backlog.isFinite, backlog >= 1 else { return clampToFile(readCursor) }
-        let steps = FrameIndex(min(backlog, Double(Int32.max)))
-        return clampToFile(rewind(readCursor, by: steps))
-    }
-
-    /// Walks `cursor` back `frames` source frames, *through* the loop wrap when one is
-    /// active — inside a loop the source position of already-emitted output is not
-    /// `cursor - frames`.
-    private func rewind(_ cursor: FrameIndex, by frames: FrameIndex) -> FrameIndex {
-        let range = loop.range
-        guard loop.isActive, cursor >= range.start, cursor <= range.end else {
-            return max(0, cursor - frames)
-        }
-        var offset = (cursor - range.start - frames) % range.count
-        if offset < 0 { offset += range.count }
-        return range.start + offset
-    }
-
-    private func clampToFile(_ frame: FrameIndex) -> FrameIndex {
-        max(0, min(frame, totalFrames))
-    }
+    // The audible-position arithmetic lives in `PlaybackEngine+Position.swift`.
 }

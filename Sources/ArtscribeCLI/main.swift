@@ -96,7 +96,7 @@ func makeSession(url: URL, device: String?, speed: SpeedState) async throws -> S
         audio: audio, stretcher: RubberBandStretcher(engine: speed.engine), ring: ring,
         maxBlock: 1024)
     let output = try AudioOutput(
-        engine: engine, sampleRate: audio.sampleRate, channels: audio.channels)
+        engine: engine, sampleRate: audio.sampleRate)
 
     let devices = OutputDeviceController(source: CoreAudioDeviceSource(), output: output)
     if let wanted = device {

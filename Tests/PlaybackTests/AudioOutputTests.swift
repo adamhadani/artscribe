@@ -165,7 +165,7 @@ private func spuriousFreeDynamicRangeDB(_ spectrum: [Float]) -> Double {
     let ring = CommandRing(capacity: 16)
     let engine = PlaybackEngine(
         audio: audio, stretcher: IdentityStretcher(), ring: ring, maxBlock: 512)
-    let output = try AudioOutput(engine: engine, sampleRate: 44100, channels: 2)
+    let output = try AudioOutput(engine: engine, sampleRate: 44100)
     #expect(output.isRunning == false)
 }
 
@@ -176,7 +176,7 @@ private func spuriousFreeDynamicRangeDB(_ spectrum: [Float]) -> Double {
     let engine = PlaybackEngine(
         audio: audio, stretcher: IdentityStretcher(), ring: ring, maxBlock: 64)
     #expect(throws: AudioOutputError.self) {
-        _ = try AudioOutput(engine: engine, sampleRate: 0, channels: 2)
+        _ = try AudioOutput(engine: engine, sampleRate: 0)
     }
 }
 
@@ -190,7 +190,7 @@ private func spuriousFreeDynamicRangeDB(_ spectrum: [Float]) -> Double {
         c == 0 ? 0.5 : -0.25
     }
     let (engine, ring) = playingEngine(audio)
-    let output = try AudioOutput(engine: engine, sampleRate: 44100, channels: 2)
+    let output = try AudioOutput(engine: engine, sampleRate: 44100)
     let rendered = try renderOffline(output, at: 44100, channels: 2, frames: 8192)
 
     #expect(rendered[0].count == 8192)
@@ -217,7 +217,7 @@ func aDeviceRunningAtADifferentRateDoesNotShiftThePitch() throws {
         Float(sin(2 * Double.pi * 440 * Double(i) / 44100))
     }
     let (engine, ring) = playingEngine(audio)
-    let output = try AudioOutput(engine: engine, sampleRate: 44100, channels: 2)
+    let output = try AudioOutput(engine: engine, sampleRate: 44100)
     #expect(output.needsSampleRateConversion(deviceRate: 48000))
 
     let rendered = try renderOffline(output, at: 48000, channels: 2, frames: 48000)
@@ -232,7 +232,7 @@ func aDeviceRunningAtADifferentRateDoesNotShiftThePitch() throws {
     // measurement's.
     let convertedSFDR = spuriousFreeDynamicRangeDB(converted)
     let (controlEngine, controlRing) = playingEngine(audio)
-    let control = try AudioOutput(engine: controlEngine, sampleRate: 44100, channels: 2)
+    let control = try AudioOutput(engine: controlEngine, sampleRate: 44100)
     let straight = try renderOffline(control, at: 44100, channels: 2, frames: 44100)
     let controlSFDR = spuriousFreeDynamicRangeDB(magnitudeSpectrum(Array(straight[0][2048...])))
 
@@ -253,7 +253,7 @@ func theLatencyTheGraphAddsIsMeasuredNotAssumed() throws {
         i == impulseFrame ? 1.0 : 0.0
     }
     let (engine, ring) = playingEngine(audio)
-    let output = try AudioOutput(engine: engine, sampleRate: 44100, channels: 2)
+    let output = try AudioOutput(engine: engine, sampleRate: 44100)
     let rendered = try renderOffline(output, at: 48000, channels: 2, frames: 24000)
 
     let expected = Double(impulseFrame) * 48000 / 44100
@@ -284,7 +284,7 @@ func theLatencyTheGraphAddsIsMeasuredNotAssumed() throws {
     ring.push(.setLoop(FrameRange(start: 1000, count: 500), true))
     ring.push(.seek(1000))
     ring.push(.setTimeRatio(2.0))
-    let output = try AudioOutput(engine: engine, sampleRate: 44100, channels: 2)
+    let output = try AudioOutput(engine: engine, sampleRate: 44100)
     _ = try renderOffline(output, at: 44100, channels: 2, frames: 4096)
 
     let frameBefore = engine.currentFrame
@@ -321,7 +321,7 @@ func theLatencyTheGraphAddsIsMeasuredNotAssumed() throws {
     }
 
     let (controlEngine, controlRing) = playingEngine(audio)
-    let control = try AudioOutput(engine: controlEngine, sampleRate: 44100, channels: 2)
+    let control = try AudioOutput(engine: controlEngine, sampleRate: 44100)
     let audible = try renderOffline(control, at: 44100, channels: 2, frames: 8192)
     #expect(audible[0].contains { abs($0) > 0.1 }, "the control never made a sound to silence")
 
@@ -330,7 +330,7 @@ func theLatencyTheGraphAddsIsMeasuredNotAssumed() throws {
     #expect(OutputAudibility.shared.isSilenced)
 
     let (engine, ring) = playingEngine(audio)
-    let output = try AudioOutput(engine: engine, sampleRate: 44100, channels: 2)
+    let output = try AudioOutput(engine: engine, sampleRate: 44100)
     let rendered = try renderOffline(output, at: 44100, channels: 2, frames: 8192)
     #expect(rendered[0].count == 8192)
     for channel in rendered {
@@ -360,11 +360,39 @@ func theLatencyTheGraphAddsIsMeasuredNotAssumed() throws {
     #expect(OutputAudibility.shared.isSilenced == false)
 }
 
+// MARK: - The channel count is the engine's, not the caller's
+
+/// `render` reads every entry in `0..<engine.channelCount` of the pointer table and cannot
+/// check that the table is that long. While the count was a parameter here, a mono
+/// `AudioOutput` over a stereo engine was constructible and passed every guard — a mono
+/// format yields one buffer, so `buffers.count == channels` held — after which `render`
+/// read `pointers[1]` past its allocation and wrote through it. No longer a parameter.
+@MainActor
+@Test(.enabled(if: hasOutputDevice)) func theOutputRendersExactlyTheEnginesChannels() throws {
+    for channels in [1, 2] {
+        let audio = makeAudio(channels: channels, sampleRate: 44100, frames: 44100) { c, _ in
+            c == 0 ? 0.5 : -0.25
+        }
+        let (engine, _) = playingEngine(audio)
+        let output = try AudioOutput(engine: engine, sampleRate: 44100)
+        #expect(output.channelCount == channels)
+        #expect(output.channelCount == engine.channelCount)
+
+        // Skip the first block: the mixer ramps its gain in on the first render.
+        let rendered = try renderOffline(output, at: 44100, channels: channels, frames: 4096)
+        #expect(rendered.count == channels)
+        // Channel 0 carries +0.5 in both cases. A mono graph picks up the mixer's −3 dB
+        // mono pan law on the way through, so it arrives as 0.5/√2; stereo passes intact.
+        let expected: Float = channels == 1 ? 0.5 / (2 as Float).squareRoot() : 0.5
+        #expect(rendered[0][1024...].allSatisfy { abs($0 - expected) < 0.01 })
+    }
+}
+
 @MainActor
 @Test(.enabled(if: hasOutputDevice)) func stoppingAnOutputThatNeverStartedIsANoOp() throws {
     let audio = makeAudio(channels: 2, sampleRate: 44100, frames: 4410) { _, _ in 0 }
     let (engine, _) = playingEngine(audio)
-    let output = try AudioOutput(engine: engine, sampleRate: 44100, channels: 2)
+    let output = try AudioOutput(engine: engine, sampleRate: 44100)
     _ = renderChannels(engine, frames: 64, channels: 2)  // drains `.setPlaying(true)`
     output.stop()
     #expect(output.isRunning == false)

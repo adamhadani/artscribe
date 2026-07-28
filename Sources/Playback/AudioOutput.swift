@@ -53,9 +53,25 @@ public final class AudioOutput: AudioOutputDeviceSink {
     /// The file's sample rate, which is the rate the render block produces.
     public let sourceSampleRate: Double
 
-    public init(engine: PlaybackEngine, sampleRate: Double, channels: Int) throws {
+    /// The number of channels this output renders — `engine.channelCount`, never anything
+    /// else. See `init` for why it is not a parameter.
+    public var channelCount: Int { engine.channelCount }
+
+    /// The channel count is **taken from the engine, not supplied**. It used to be a
+    /// parameter, and a caller that passed a smaller one than the engine's got a graph
+    /// that passed every guard here — a mono format yields one buffer, so the layout
+    /// check `buffers.count == channels` held — and then had `PlaybackEngine.render` read
+    /// past the end of `channelPointers` and write through whatever it found. `render`'s
+    /// contract is explicitly unchecked (it runs on the render thread), so the only place
+    /// that mismatch could be prevented is here, and the only way to prevent it rather
+    /// than detect it is to leave the caller nothing to get wrong.
+    ///
+    /// `sampleRate` stays a parameter: a wrong one is audible — the track plays at the
+    /// wrong speed — but it cannot make anything read or write out of bounds.
+    public init(engine: PlaybackEngine, sampleRate: Double) throws {
         self.engine = engine
         self.sourceSampleRate = sampleRate
+        let channels = engine.channelCount
 
         guard
             channels > 0, sampleRate > 0,
