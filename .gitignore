@@ -6,6 +6,13 @@
 *.xcodeproj/
 *.xcworkspace/
 
+# Build products of `make app` / `make dist`. The bundle and the archive are
+# outputs, never sources; the icon is generated from App/GenerateIcon.swift.
+*.app/
+App/Artscribe.icns
+App/Artscribe.iconset/
+dist/
+
 # SwiftPM
 .build/
 .swiftpm/

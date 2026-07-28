@@ -12,6 +12,14 @@ let package = Package(
     platforms: [.macOS(.v26)],
     products: [
         .library(name: "ArtscribeKit", targets: ["ArtscribeKit"]),
+        // Everything but the app shell, as one product. It exists so the Xcode
+        // target generated from `project.yml` can depend on the package: Xcode
+        // can only consume *products*, and `ArtscribeApp` is an executable
+        // target. The bundle therefore compiles `Sources/ArtscribeApp` itself
+        // (three dozen lines of `App` scene) and takes the rest from here, so
+        // there is exactly one copy of the real code and both build systems
+        // read it. See `project.yml`.
+        .library(name: "ArtscribeUI", targets: ["ArtscribeUI"]),
         .executable(name: "artscribe-cli", targets: ["ArtscribeCLI"])
     ],
     targets: [

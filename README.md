@@ -14,11 +14,93 @@ seamlessly, and change speed — all from the keyboard.
 
 ```sh
 make bootstrap
+make app && open .build/xcode/Build/Products/Release/Artscribe.app
+```
+
+Not yet built: markers, pitch shift, spectrum analysis, and MIDI input. See the plan under
+`docs/superpowers/plans/`.
+
+## Running Artscribe
+
+There are two ways in, and they are for different people.
+
+### `make app` — to use it
+
+```sh
+make app
+open .build/xcode/Build/Products/Release/Artscribe.app
+```
+
+That produces `Artscribe.app`: a real, double-clickable bundle with an icon, a version, and
+a bundle identifier. Drag it to `/Applications` or `~/Applications` and it behaves like any
+other Mac app — it appears in Finder's **Open With** for every format it decodes, and a
+file dropped on its dock icon opens in it.
+
+`make dist` wraps the signed bundle in `dist/Artscribe-<version>.zip` for handing to
+somebody else.
+
+`project.yml` is the source of truth for the bundle. The `Artscribe.xcodeproj` that
+XcodeGen generates from it is disposable and gitignored — never edit or commit it. The app
+icon is likewise generated, from `App/GenerateIcon.swift`.
+
+### `swift run` — to work on it
+
+```sh
 swift run -c release ArtscribeApp
 ```
 
-Not yet built: a double-clickable `.app` bundle, markers, pitch shift, spectrum analysis,
-and MIDI input. See the plan under `docs/superpowers/plans/`.
+No Xcode project, no bundle, no signing. Every module except the app shell also builds and
+tests headlessly under `swift test`. Bundling is an additional path, not a replacement:
+`make check` never touches Xcode.
+
+Release, not debug — a debug build decodes roughly four times slower.
+
+> An unbundled `swift run` binary is not an app bundle, so macOS starts it as an accessory.
+> The app asks for the regular activation policy at startup to get its menu bar and keyboard
+> focus back. It also never receives Launch Services open events, so "Open With" and dock
+> drops only work from the bundle.
+
+### What it links, and where that runs
+
+Artscribe links [Rubber Band](https://breakfastquay.com/rubberband/) and, through it,
+libsamplerate. Both come from Homebrew at build time, and **`make app` copies them into
+`Artscribe.app/Contents/Frameworks`** and repoints the binary's load commands at
+`@rpath`, so the finished bundle does not need Homebrew on the machine that runs it. The
+build fails rather than shipping a bundle that still references anything outside itself —
+see `App/embed-dependencies.sh`.
+
+Their licences travel with them, in `Contents/Resources` alongside Artscribe's own.
+
+Apple Silicon only. Homebrew ships arm64-only libraries and the project has never been an
+Intel product, so the bundle is built `arm64` rather than universal.
+
+### Signing
+
+`make app` signs the bundle **ad-hoc** (`codesign --sign -`). That is enough to run it on
+the machine that built it, and enough for anyone who copies it across by hand.
+
+It is *not* enough for a download. A zip fetched from the internet arrives with a quarantine
+flag, and Gatekeeper rejects an ad-hoc signature outright — `spctl --assess` says
+`rejected`, and the recipient sees "Artscribe cannot be opened". They can get past it with
+right-click ▸ **Open**, or `xattr -d com.apple.quarantine Artscribe.app`, but they should
+not have to.
+
+Doing it properly needs an Apple Developer account, which this project does not have. With
+one, the additional steps would be:
+
+1. A **Developer ID Application** certificate in the login keychain, and
+   `CODE_SIGN_IDENTITY` in `project.yml` set to it instead of `-`.
+2. **Hardened runtime on** (`ENABLE_HARDENED_RUNTIME: YES`). The entitlements file already
+   carries `com.apple.security.cs.disable-library-validation`, which a hardened process
+   needs before it will load the embedded Homebrew dylibs; without it they would have to be
+   re-signed with the same Team ID.
+3. Every embedded dylib signed with that same identity, inside-out, before the bundle —
+   which is the order `App/embed-dependencies.sh` already uses.
+4. **Notarisation**: `xcrun notarytool submit dist/Artscribe-<version>.zip --wait` with an
+   app-specific password or an App Store Connect API key, then `xcrun stapler staple
+   Artscribe.app` and re-zip so the ticket travels with the app.
+
+None of that has been attempted here, and none of it is wired into the Makefile.
 
 ## Why it sounds better
 
@@ -92,10 +174,13 @@ Requires macOS 26+, Xcode 26+ (Swift 6.3), and Apple Silicon.
 ```sh
 make bootstrap   # brew: rubberband, swiftlint, xcodegen, pre-commit (+ installs hooks)
 make check       # format check, lint, and the full test suite — the gate for every commit
+make app         # the double-clickable Artscribe.app
+make dist        # a zip of the signed bundle
 ```
 
 Every module except the app shell builds and tests headlessly under `swift test` — no Xcode
-project, no scheme, no audio hardware.
+project, no scheme, no audio hardware. See **Running Artscribe** above for which path to
+use when.
 
 ### Tests against real media
 
