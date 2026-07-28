@@ -176,12 +176,44 @@ extension AcceptanceRun {
             "switching back restores the dark waveform",
             bitmapCount(Palette.dark.waveform, in: model.waveformImage) > 200)
 
+        // Ask AppKit what this Mac is set to — but only with `System` selected,
+        // because `applyToApplication` sets `NSApp.appearance` for the explicit
+        // themes and `effectiveAppearance` would then read the app's own choice
+        // straight back.
         theme.preference = .system
         await settle(seconds: 0.6)
-        log.note("System resolves to", "\(model.appearance)")
+        let macOS = systemAppearance()
+
+        // Then deliberately switch to the *opposite* of it before asking System
+        // to resolve again, so the check below has something to prove. Comparing
+        // the app's appearance against the system while the app already happens
+        // to match it is vacuous — and that is not hypothetical: this check
+        // passed review on a Mac in dark mode while `System` was broken, because
+        // "stayed dark" and "followed a dark system" are the same pixels. See
+        // `ThemeController` for what was actually wrong.
+        let oppositeAppearance: Appearance = macOS == .dark ? .light : .dark
+        let opposite: ThemePreference = macOS == .dark ? .light : .dark
+        theme.preference = opposite
+        await settle(seconds: 0.6)
+        log.check(
+            "the app is on \(opposite), the opposite of this Mac's \(macOS)",
+            model.appearance == oppositeAppearance)
+
+        theme.preference = .system
+        await settle(seconds: 0.6)
+        log.note("System resolves to", "\(model.appearance) (macOS is \(macOS))")
         log.check(
             "System resolves to whatever macOS is set to",
-            model.appearance == systemAppearance())
+            model.appearance == macOS)
+        // The seam the resolution rests on: `ThemeController` reads the global
+        // `AppleInterfaceStyle` default rather than `NSApp.effectiveAppearance`,
+        // because the latter reads back the app's own override. With `System`
+        // selected there is no override, so the two must agree — which is what
+        // makes reading the default the right substitute in the other modes.
+        let fromDefault = ThemeController.macOSAppearance()
+        log.check(
+            "the global appearance default agrees with AppKit (\(fromDefault))",
+            fromDefault == macOS)
         theme.preference = .dark
         if model.isPlaying { press(.space) }
         model.setSpeedPreset(1.0)
@@ -189,6 +221,10 @@ extension AcceptanceRun {
     }
 
     /// What macOS itself is set to, asked of AppKit rather than of the app.
+    ///
+    /// Only truthful while the app is not overriding `NSApp.appearance`, which
+    /// is why `ThemeController` reads the global default instead. Used here as
+    /// the independent second opinion that pins that reading.
     @MainActor
     static func systemAppearance() -> Appearance {
         let name = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])

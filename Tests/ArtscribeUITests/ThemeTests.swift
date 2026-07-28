@@ -1,3 +1,4 @@
+import AppKit
 import ArtscribeKit
 import AudioDecode
 import CoreGraphics
@@ -184,11 +185,121 @@ struct ThemeTests {
         #expect(ThemeController(defaults: defaults).preference == ThemeController.fallback)
     }
 
-    @Test("System defers to macOS, Light and Dark do not")
-    func colorSchemes() {
-        #expect(ThemePreference.system.colorScheme == nil)
-        #expect(ThemePreference.light.colorScheme == .light)
-        #expect(ThemePreference.dark.colorScheme == .dark)
+    @Test("only System defers to macOS")
+    func explicitAppearances() {
+        #expect(ThemePreference.system.explicitAppearance == nil)
+        #expect(ThemePreference.light.explicitAppearance == .light)
+        #expect(ThemePreference.dark.explicitAppearance == .dark)
+    }
+
+    // MARK: - Resolving System
+
+    /// A stand-in for the macOS light/dark switch that a test can flip.
+    ///
+    /// The whole point of this seam: the previous coverage compared the app's
+    /// appearance against the *running machine's*, which is vacuous whenever the
+    /// machine already agrees with the last explicit theme. That is precisely
+    /// how the `System` bug survived review — on a Mac in dark mode, "stayed
+    /// dark" and "followed the system" are the same pixels.
+    @MainActor
+    private final class SystemSwitch {
+        var appearance: Appearance
+        init(_ appearance: Appearance) { self.appearance = appearance }
+    }
+
+    private func makeController(
+        _ machine: SystemSwitch
+    ) -> (controller: ThemeController, cleanup: () -> Void) {
+        let suite = "artscribe.tests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else {
+            Issue.record("could not make a defaults suite")
+            return (ThemeController(systemAppearance: { machine.appearance }), {})
+        }
+        let controller = ThemeController(
+            defaults: defaults, systemAppearance: { machine.appearance })
+        return (controller, { defaults.removePersistentDomain(forName: suite) })
+    }
+
+    /// The regression test for "Theme ▸ System does not restore the system
+    /// appearance".
+    ///
+    /// Driven in **both** directions from the same run, so it cannot pass by
+    /// coincidence on whichever mode this Mac happens to be in. Each half
+    /// switches *away* from the system's appearance first, so resolving `System`
+    /// has to actually move something.
+    ///
+    /// Against the defect — `ThemePreference.system` handing SwiftUI a `nil` and
+    /// nothing resolving it — there was no `appearance` to read at all; the
+    /// window kept the previous explicit scheme, which is what the second
+    /// `#expect` in each half asserts against.
+    @Test("System resolves to whatever macOS is set to, both ways round")
+    func systemResolvesAgainstMacOS() {
+        for system in Appearance.allCases {
+            let machine = SystemSwitch(system)
+            let (theme, cleanup) = makeController(machine)
+            defer { cleanup() }
+
+            let opposite: ThemePreference = system == .dark ? .light : .dark
+            theme.preference = opposite
+            #expect(theme.appearance == opposite.explicitAppearance)
+
+            theme.preference = .system
+
+            #expect(
+                theme.appearance == system,
+                "macOS is \(system), app was on \(opposite): System must reach \(system)")
+            #expect(theme.colorScheme == (system == .dark ? .dark : .light))
+        }
+    }
+
+    /// `System` is not a one-shot snapshot: it has to keep up when the Mac
+    /// switches under a running app.
+    @Test("System follows macOS when it changes under the app")
+    func systemFollowsALiveChange() {
+        let machine = SystemSwitch(.light)
+        let (theme, cleanup) = makeController(machine)
+        defer { cleanup() }
+        theme.preference = .system
+        #expect(theme.appearance == .light)
+
+        machine.appearance = .dark
+        theme.refreshSystemAppearance()
+
+        #expect(theme.appearance == .dark)
+    }
+
+    /// The other half of the same contract: an explicit choice is a choice, and
+    /// the system switch must not override it.
+    @Test("an explicit theme ignores macOS entirely")
+    func explicitThemeDoesNotFollowMacOS() {
+        for chosen in [ThemePreference.light, .dark] {
+            let machine = SystemSwitch(.light)
+            let (theme, cleanup) = makeController(machine)
+            defer { cleanup() }
+            theme.preference = chosen
+
+            for system in Appearance.allCases {
+                machine.appearance = system
+                theme.refreshSystemAppearance()
+                #expect(theme.appearance == chosen.explicitAppearance)
+            }
+        }
+    }
+
+    /// Reading the system's setting must not be confused by this app's own
+    /// override — `applyToApplication` sets `NSApp.appearance`, so
+    /// `NSApp.effectiveAppearance` would read our choice back to us.
+    /// `macOSAppearance` deliberately reads the global default instead, and this
+    /// pins that: it answers the same thing whatever the app is set to.
+    @Test("the system reading is not disturbed by the app's own override")
+    func systemReadingIgnoresTheAppsOverride() {
+        let before = ThemeController.macOSAppearance()
+        for override in [NSAppearance(named: .aqua), NSAppearance(named: .darkAqua), nil] {
+            let restore = NSApp?.appearance
+            NSApp?.appearance = override
+            #expect(ThemeController.macOSAppearance() == before)
+            NSApp?.appearance = restore
+        }
     }
 
     // MARK: - The light palette is designed, not inverted

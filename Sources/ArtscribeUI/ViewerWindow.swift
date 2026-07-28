@@ -9,8 +9,11 @@ import SwiftUI
 /// putting it in the `App` would leave the window on whatever theme it launched
 /// in. A `View` body tracks observation properly.
 ///
-/// The resolution of `System` happens below this, in `DocumentView`, which reads
-/// the `\.colorScheme` the window ends up with.
+/// The scheme handed over is always explicit, never `nil` — `ThemeController`
+/// resolves `System` against macOS itself. Passing `nil` here is the bug that
+/// `ThemeController`'s documentation records: it clears the window's override
+/// but leaves the `\.colorScheme` environment on the last explicit scheme, so
+/// the chrome goes light while everything Artscribe draws stays dark.
 public struct ViewerWindow: View {
     private let model: ViewerModel
     private let theme: ThemeController

@@ -11,10 +11,14 @@ public struct DocumentView: View {
     @FocusState private var hasKeyboardFocus: Bool
     @State private var trackpad = TrackpadMonitor()
     /// The *resolved* scheme, after the window has applied the theme
-    /// preference. Reading it here rather than the preference itself is what
-    /// makes `System` follow macOS with no notification plumbing: SwiftUI
-    /// republishes this environment value when the system appearance changes,
-    /// and `preferredColorScheme` overrides it when the user has chosen.
+    /// preference. Reading it here rather than the preference itself keeps this
+    /// view out of the theme's business entirely — it draws whatever scheme it
+    /// finds itself in.
+    ///
+    /// What it must *not* be asked to do is resolve `System`: this value is only
+    /// as good as what `preferredColorScheme` was given, and SwiftUI leaves it
+    /// on the last explicit scheme when handed a `nil`. `ThemeController` does
+    /// the resolving and always passes something concrete.
     @Environment(\.colorScheme) private var colorScheme
 
     public init(model: ViewerModel) {
