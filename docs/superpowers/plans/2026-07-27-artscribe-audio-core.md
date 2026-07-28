@@ -3336,12 +3336,28 @@ Build the mechanism once, then two clients land on it: Shortcuts here, Practice 
 - [ ] Collapsing it must return the full width to the waveform, and the viewport must
       re-render correctly at the new width (`Viewport.resize` already exists).
 
-#### B — The Session page — spec §1.1's "inspector showing speed, loop points, and active engine"
+#### B — ~~The Session page~~ — CUT, and why
 
-- [ ] Speed, loop in/out/enabled, and the active stretch engine, live.
-- [ ] **This is where spec §8's read-only-sidecar fallback belongs.** Task 19 had to put that
-      indicator in the title bar because no inspector existed; move it here and remove the
-      workaround.
+Spec §1.1 asks for an "inspector showing speed, loop points, and active engine". **Do not
+build it.** `StatusBarView` already shows all three — speed emphasised when it is not 100%,
+the engine label beside it, and loop state tinted when active — and the transport bar shows
+play state and loop as controls. That page would duplicate what is already on screen. It was
+specified before either of those existed.
+
+The spec is stale here, not the code. Two consequences for this task:
+
+- The **read-only sidecar fallback indicator** (spec §8) still needs a home better than the
+  title bar where Task 19 parked it. Put it in the inspector's chrome rather than inventing a
+  page for it.
+- If the inspector later wants content beyond Shortcuts and Practice, the genuinely
+  non-duplicative candidate is **precise numeric entry** — typing `1:23.456` for a loop point
+  instead of dragging to it — plus file info. Not in scope now; recorded so the reasoning is
+  not lost.
+
+Also note spec §6.2 lists a separate `help.shortcuts` (`⌘/`) "help sheet", also never built.
+**Do not build both.** The user's side panel supersedes the modal sheet; keep `⌘/` as its
+shortcut, since that is already in the catalog and is what people press. Update the spec to
+say so.
 
 #### C — The Shortcuts page — and the anti-drift requirement that shapes it
 
