@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Artscribe</string>
+	<key>CFBundleDisplayName</key>
+	<string>Artscribe</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CFBundleIconFile</key>
+	<string>Artscribe</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.music</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>GPL-3.0-or-later. Links Rubber Band (GPL-2.0-or-later) and libsamplerate (BSD-2-Clause); full texts in Contents/Resources.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<!-- Audio keeps running with no window focus, and a sudden termination
+	     would cut the render thread off mid-buffer. -->
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
+	<key>NSSupportsSuddenTermination</key>
+	<false/>
+
+	<!-- Everything the decoder handles, so Artscribe shows up in Finder's
+	     "Open With" and accepts a file dropped on its dock icon. Every one of
+	     these UTIs is declared by macOS itself (checked with
+	     UTType(filenameExtension:)), so nothing is imported or exported here —
+	     Artscribe reads these formats, it does not own them. Note that .opus
+	     and .ogg share org.xiph.ogg-audio on macOS.
+
+	     Rank is Alternate on purpose: this is a transcription tool, not a music
+	     player, and it should not quietly take over as the default handler for
+	     every MP3 on the machine. -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Audio File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.mp3</string>
+				<string>public.aac-audio</string>
+				<string>com.apple.m4a-audio</string>
+				<string>com.apple.protected-mpeg-4-audio-b</string>
+				<string>public.mpeg-4-audio</string>
+				<string>public.mpeg-4</string>
+				<string>org.xiph.flac</string>
+				<string>com.microsoft.waveform-audio</string>
+				<string>public.aiff-audio</string>
+				<string>public.aifc-audio</string>
+				<string>com.apple.coreaudio-format</string>
+				<string>org.xiph.ogg-audio</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

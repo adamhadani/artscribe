@@ -21,6 +21,251 @@ This plan implements §§ 3–5, 9, 10 of `docs/superpowers/specs/2026-07-27-art
 - Inside a render block: no allocation, no locks, no `async`/`await`, no actor access, no Swift retain/release, no Foundation collections.
 - Prerequisite: `brew install rubberband`. Verified present at 4.0.0.
 - Real integration media lives at `$ARTSCRIBE_TEST_MEDIA_DIR`; tests **skip cleanly** when unset. Never commit audio over 100 KB.
+- **Every task ends with `make check` passing** (swift-format lint, SwiftLint, tests). Warnings are errors. Task 0 establishes these gates.
+- Reuse `sharedSwiftSettings` from `Package.swift` on every target added.
+
+---
+
+### Task 0: Tooling and quality gates
+
+Done first so every later task is checked by the same gates. Formatting, linting,
+and warnings-as-errors are cheap to adopt now and expensive to retrofit across
+nine tasks of existing code.
+
+**Files:**
+- Create: `.swift-format`
+- Create: `.swiftlint.yml`
+- Create: `Makefile`
+- Create: `.github/workflows/ci.yml`
+- Create: `Package.swift` (minimal; Task 1 fills in the real targets)
+
+**Interfaces:**
+- Consumes: nothing
+- Produces: `make format`, `make lint`, `make test`, `make check`; the
+  `sharedSwiftSettings` array in `Package.swift` that every later target reuses
+
+- [ ] **Step 1: Install the toolchain**
+
+`swift format` ships inside the Swift 6.3 toolchain — do not install it separately.
+SwiftLint and XcodeGen come from Homebrew.
+
+Run: `brew install swiftlint xcodegen rubberband`
+Expected: swiftlint ≥ 0.65, xcodegen ≥ 2.46, rubberband ≥ 4.0.
+
+- [ ] **Step 2: Create the formatter configuration**
+
+`.swift-format`:
+
+```json
+{
+  "version": 1,
+  "lineLength": 100,
+  "indentation": { "spaces": 4 },
+  "respectsExistingLineBreaks": true,
+  "lineBreakBeforeEachArgument": false,
+  "indentConditionalCompilationBlocks": false,
+  "rules": {
+    "AlwaysUseLowerCamelCase": true,
+    "NeverUseImplicitlyUnwrappedOptionals": true,
+    "UseShorthandTypeNames": true,
+    "OrderedImports": true,
+    "ReturnVoidInsteadOfEmptyTuple": true
+  }
+}
+```
+
+- [ ] **Step 3: Create the linter configuration**
+
+`.swiftlint.yml`:
+
+```yaml
+included:
+  - Sources
+  - Tests
+excluded:
+  - .build
+
+analyzer_rules:
+  - unused_import
+
+opt_in_rules:
+  - force_unwrapping
+  - empty_count
+  - explicit_init
+  - first_where
+  - redundant_nil_coalescing
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+
+line_length:
+  warning: 100
+  error: 140
+  ignores_comments: true
+
+identifier_name:
+  # Audio code legitimately uses short names: n, c, b, lo, hi, fpp.
+  min_length: 1
+  excluded: [i, j, k, n, c, b, r, s, v, lo, hi, fpp, dst, src]
+
+function_body_length:
+  warning: 80
+  error: 140
+
+type_body_length:
+  warning: 300
+  error: 450
+
+# The render path deliberately uses unsafe pointer arithmetic.
+force_unwrapping:
+  severity: warning
+```
+
+- [ ] **Step 4: Create the minimal Package.swift with shared settings**
+
+Task 1 replaces the target list; the `sharedSwiftSettings` array below is what every
+later target must reuse.
+
+```swift
+// swift-tools-version: 6.2
+import PackageDescription
+
+/// Applied to every target. Swift 6 language mode already implies complete
+/// strict concurrency; `treatAllWarnings(as: .error)` keeps the build honest.
+let sharedSwiftSettings: [SwiftSetting] = [
+    .treatAllWarnings(as: .error)
+]
+
+let package = Package(
+    name: "Artscribe",
+    platforms: [.macOS(.v26)],
+    products: [
+        .library(name: "ArtscribeKit", targets: ["ArtscribeKit"])
+    ],
+    targets: [
+        .target(name: "ArtscribeKit", swiftSettings: sharedSwiftSettings)
+    ]
+)
+```
+
+Create `Sources/ArtscribeKit/Placeholder.swift` so the target compiles:
+
+```swift
+// Replaced in Task 1 by FrameIndex.swift.
+enum Placeholder {}
+```
+
+If `treatAllWarnings(as:)` is rejected by this toolchain, fall back to
+`.unsafeFlags(["-warnings-as-errors"])` and note the substitution in the report.
+
+- [ ] **Step 5: Create the Makefile**
+
+```make
+.PHONY: bootstrap format lint test coverage check clean
+
+bootstrap:
+	brew list rubberband >/dev/null 2>&1 || brew install rubberband
+	brew list swiftlint  >/dev/null 2>&1 || brew install swiftlint
+	brew list xcodegen   >/dev/null 2>&1 || brew install xcodegen
+
+# swift format ships with the Swift 6.3 toolchain.
+format:
+	swift format --in-place --recursive Sources Tests
+
+format-check:
+	swift format lint --strict --recursive Sources Tests
+
+lint:
+	swiftlint lint --quiet --strict
+
+test:
+	swift test
+
+coverage:
+	swift test --enable-code-coverage
+
+# The single gate. Run before every commit.
+check: format-check lint test
+
+clean:
+	rm -rf .build
+```
+
+- [ ] **Step 6: Verify the gates actually catch problems**
+
+Write a deliberately bad file, confirm each gate rejects it, then delete it.
+
+```bash
+mkdir -p Sources/ArtscribeKit
+cat > Sources/ArtscribeKit/Bad.swift <<'EOF'
+enum Bad {
+      static let VeryBadlyIndentedAndNamed =    1
+}
+EOF
+make format-check   # expect: FAIL (indentation / line breaks)
+make lint           # expect: FAIL (identifier_name — should be lowerCamelCase)
+rm Sources/ArtscribeKit/Bad.swift
+```
+
+Expected: both commands exit non-zero while `Bad.swift` exists. If either passes,
+the configuration is not being picked up — check that `.swift-format` and
+`.swiftlint.yml` are at the repository root.
+
+- [ ] **Step 7: Verify the clean tree passes every gate**
+
+Run: `make check`
+Expected: `format-check` and `lint` pass. **`test` will fail with `error: no tests
+found; create a target in the 'Tests' directory`** — SwiftPM treats a package with no
+test target as an error, not an empty pass. This is expected and transient: Task 1 adds
+`CRubberBandTests` and the gate goes green from there on. Do not add a placeholder test
+target to paper over it, and do not weaken `make test` to tolerate missing tests — that
+would mask real failures for the rest of the project.
+
+- [ ] **Step 8: Create the CI workflow**
+
+`.github/workflows/ci.yml`:
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    # macos-26 is GA on arm64 and is the only image with a Swift 6.3 /
+    # macOS 26 SDK toolchain. macos-15 cannot build platforms: [.macOS(.v26)].
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version && swift format --version && sw_vers
+
+      - name: Install dependencies
+        run: brew install rubberband swiftlint
+
+      - name: Check formatting
+        run: swift format lint --strict --recursive Sources Tests
+
+      - name: Lint
+        run: swiftlint lint --quiet --strict
+
+      - name: Test
+        run: swift test
+```
+
+Note: integration tests that read `$ARTSCRIBE_TEST_MEDIA_DIR` skip automatically in
+CI because the variable is unset. That is intended — CI must stay green without the
+copyrighted reference album.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add .swift-format .swiftlint.yml Makefile Package.swift Sources .github
+git commit -m "build: formatting, linting, warnings-as-errors, and CI gates"
+```
 
 ---
 
@@ -1867,6 +2112,14 @@ git commit -m "feat: lock-free SPSC command ring for the render-thread boundary"
 
 ### Task 8: PlaybackEngine with seamless looping
 
+> **Do not build for stems — just do not preclude them.** Stem separation is a planned
+> post-MVP feature (spec §11.3): split the track into drums/bass/vocals/other, stretch each
+> independently, remix. Building any of that now would be YAGNI and is explicitly out of
+> scope. The single thing this task must get right is to read source audio through **one**
+> accessor rather than scattering `audio.channel(c)` through the render path, so that
+> swapping one buffer for N is a contained change rather than a rewrite. Nothing more: no
+> mixer, no stem types, no abstraction with a single implementation.
+
 The core of the plan. Tested entirely with `IdentityStretcher`, so loop-wrap positions are exactly assertable.
 
 **Files:**
@@ -2140,7 +2393,7 @@ public final class PlaybackEngine: @unchecked Sendable {
             }
 
             // 2. Otherwise feed it more source.
-            if !feedSource() { 
+            if !feedSource() {
                 playing = false
                 playingFlag.store(false, ordering: .relaxed)
                 break
@@ -2485,6 +2738,59 @@ Confirm by ear, in order:
    single most important qualitative check in the plan — a click here means
    `feedSource` is resetting the stretcher at the loop boundary.
 
+
+#### Task 9 addendum: Playback menu and output device selection
+
+Requested directly by the user. There is no stock Apple picker view for audio output
+devices on macOS — the idiomatic pattern is a menu of radio-style items — so this is
+"standard macOS interface" in the sense of a real menu-bar menu wired to the real HAL, not
+a bespoke panel.
+
+**Note:** `AVAudioSession` does **not** exist on macOS; it is iOS-only. Device enumeration
+and selection go through the CoreAudio HAL.
+
+- [ ] **Add a top-level `Playback` menu** to the app's menu bar via SwiftUI `Commands`
+      (`CommandMenu("Playback")`). It carries an **Output Device** submenu listing every
+      available output device, with a checkmark on the active one.
+
+- [ ] **Enumerate devices through the CoreAudio HAL**, not AVFoundation:
+      `AudioObjectGetPropertyData` with `kAudioHardwarePropertyDevices` on
+      `kAudioObjectSystemObject`, then keep only devices that actually have output streams
+      (query `kAudioDevicePropertyStreamConfiguration` on `kAudioObjectPropertyScopeOutput`
+      and require a non-zero channel count). Read each device's name from
+      `kAudioObjectPropertyName`. A device with input streams only must not appear.
+
+- [ ] **Include a "System Default" entry** that follows
+      `kAudioHardwarePropertyDefaultOutputDevice` rather than pinning a specific device.
+      This should be the default selection, because it is what a user expects when they
+      plug in headphones mid-session.
+
+- [ ] **Switch the device** by setting `kAudioOutputUnitProperty_CurrentDevice` on the
+      `AVAudioEngine`'s `outputNode.audioUnit`. The engine must be stopped and restarted
+      around the change; **playback position, speed, and loop state must survive it** — a
+      device switch is not a reason to lose the user's place.
+
+- [ ] **Observe changes** with `AudioObjectAddPropertyListenerBlock` on both
+      `kAudioHardwarePropertyDevices` (device list) and
+      `kAudioHardwarePropertyDefaultOutputDevice` (default changed). The menu must update
+      live when a device is plugged in or removed, without reopening it.
+
+- [ ] **Handle disappearance without silence.** If the selected device is removed while
+      playing (headphones unplugged, interface powered off), fall back to the system default
+      and **say so visibly** — spec §8 forbids silent degradation, and audio simply stopping
+      with no explanation is exactly that. Do not crash, and do not leave the engine in a
+      stopped state the user has to notice themselves.
+
+- [ ] **Test what is testable headlessly.** Device *selection* needs hardware, but the
+      device-list filtering (output-capable only), the name resolution, and the
+      fallback-on-disappearance decision logic are pure and must be unit-tested against
+      synthetic device lists. Do not let untestable AppKit glue absorb the decision logic —
+      keep it in a plain type the tests can drive.
+
+**Report:** the actual device list observed on this machine, and what happened when a
+device was removed mid-playback (test it for real if you have a pair of headphones or an
+external interface available; say plainly if you could not).
+
 - [ ] **Step 9: Commit**
 
 ```bash
@@ -2493,6 +2799,916 @@ git commit -m "feat: AVAudioSourceNode output and artscribe-cli"
 ```
 
 ---
+
+---
+
+### Task 10: Waveform viewer — first runnable GUI (executed out of numeric order, before Task 7)
+
+**Why this task exists and why it is specified differently.** The user asked to drive the
+app early, even with reduced functionality. After Task 6 we have decode, peaks, and
+viewport math — everything a waveform viewer needs except sound. This task ships a window
+you can open a real track in and zoom around, with no audio.
+
+Unlike Tasks 1-9, this task does **not** dictate the implementation code. Every code block
+this plan supplied for Tasks 1-6 contained at least one defect found in review (eleven
+Important defects total, all controller-authored). For view code, which the plan author
+cannot verify by reasoning, prescribing exact SwiftUI would repeat that mistake at higher
+cost. Instead: exact module APIs, exact behavioural requirements, exact acceptance
+criteria. The implementer writes the view code against the real interfaces.
+
+**Files:**
+- Create: `Sources/ArtscribeUI/` — view layer (split into focused files; no single file over ~200 lines)
+- Create: `Sources/ArtscribeApp/` — `@main` executable
+- Modify: `Package.swift` — add `ArtscribeUI` library target and `ArtscribeApp` executable target, both with `sharedSwiftSettings`
+- Test: `Tests/ArtscribeUITests/` — for the pure logic only (see Testing below)
+
+**Interfaces available — these are exact, verified, and already shipped:**
+
+```swift
+// ArtscribeKit — imports nothing
+public typealias FrameIndex = Int64
+public struct FrameRange { init(start: FrameIndex, count: FrameIndex)
+    var start, count, end: FrameIndex; var isEmpty: Bool
+    func clamped(to: FrameIndex) -> FrameRange; func contains(_: FrameIndex) -> Bool }
+public struct Viewport { init(totalFrames: FrameIndex, widthPixels: Int)
+    static let minFramesPerPixel: Double
+    let totalFrames: FrameIndex
+    private(set) var startFrame: FrameIndex, framesPerPixel: Double, widthPixels: Int
+    var maxFramesPerPixel: Double, visibleFrames: FrameIndex, endFrame: FrameIndex
+    mutating func resize(widthPixels: Int); mutating func fit()
+    mutating func zoom(by: Double, anchorFrame: FrameIndex); mutating func zoom(to: FrameRange)
+    mutating func scroll(byPixels: Int)
+    func pixel(forFrame: FrameIndex) -> Double; func frame(atPixel: Double) -> FrameIndex }
+public struct Selection { init()
+    private(set) var anchor, head: FrameIndex; var isEmpty: Bool; var range: FrameRange
+    mutating func begin(at: FrameIndex); mutating func extend(to: FrameIndex); mutating func clear() }
+
+// AudioDecode
+public enum AudioFileDecoder {
+    static func decode(url: URL, progress: (@Sendable (Double) -> Void)?) async throws -> DecodedAudio }
+public struct DecodedAudio { let channels: Int; let sampleRate: Double
+    let frameCount: FrameIndex; var duration: Double
+    func channel(_ index: Int) -> UnsafePointer<Float> }
+public enum DecodeError: Error, LocalizedError { /* has errorDescription */ }
+
+// Waveform
+public struct PeakPyramid { static func build(_ audio: DecodedAudio) -> PeakPyramid
+    struct Peak { var min, max: Float }
+    func peaks(channel: Int, range: FrameRange, buckets: Int) -> [Peak] }
+```
+
+**Behavioural requirements:**
+
+1. `swift run ArtscribeApp` opens a window. Call `NSApplication.shared.setActivationPolicy(.regular)` and activate, so an unbundled SwiftPM executable still gets a menu bar and keyboard focus.
+2. **⌘O** opens a file picker filtered to the supported audio types. Drag-and-drop onto the window loads a file too.
+3. Decoding runs off the main actor with a visible, determinate progress indicator. Errors surface as an **inline banner** carrying `DecodeError.errorDescription` — never a modal alert, and the previously loaded file stays loaded.
+4. **Waveform lane**: min/max peaks per pixel column from `PeakPyramid.peaks`, one lane per channel, stacked. Silence draws as a centre line, not a gap.
+5. **Overview strip** above the waveform: whole file at constant scale, with the current viewport drawn as a highlighted window.
+6. **Time ruler** with sensible tick spacing that adapts to zoom (mm:ss.SSS at high zoom, mm:ss when zoomed out).
+7. **Keyboard** (the agreed left-hand cluster subset): `E` zoom out, `R` zoom in, `Z` scroll left, `X` scroll right, `⌘0` fit whole file, `⌘9` zoom to selection, `Esc` clear selection. Zoom **must anchor on the playhead** (use frame 0 or the selection start until a playhead exists) — never the viewport centre.
+8. **Mouse**: drag to select, ⇧-drag to extend, double-click selects all, pinch to zoom, two-finger scroll to pan.
+9. **Status readout**: filename, sample rate, channel count, duration, current zoom (frames/pixel or a x-factor), and the selection range as mm:ss.SSS–mm:ss.SSS with its duration.
+10. Window resize calls `Viewport.resize(widthPixels:)` and re-renders correctly.
+
+**Visual direction** (dark-first, matching the agreed mockups): background `#131417`, panel `#1B1D22`, waveform `#7A889A`, selection fill `#F0A35E` at ~13% with 2px `#F0A35E` edges, accent/viewport-window `#4FD1C5`, text `#C9CED6`, dimmed text `#6F7783`. Use a monospaced font for all time readouts so digits do not jitter.
+
+**Performance requirement — this is the one that dictates the design:**
+The waveform must only be recomputed when the viewport changes, not on every frame.
+Render it into a cached layer/image and redraw only on viewport or size change; overlays
+(selection, cursor) draw on top cheaply. Zooming and panning must stay smooth on the
+25-million-frame reference track. State the approach you chose in your report.
+
+**Explicitly OUT of scope** — do not build these, they belong to Tasks 7-9 and Plan 2:
+playback, transport controls, speed control, looping, markers, the inspector panel, the
+generated help sheet, the binding table, `.artscribe` session sidecars, and XcodeGen
+bundling. A `swift run` executable is sufficient; a double-clickable `.app` comes later.
+
+**Testing:** view rendering is not unit-tested here — that is deliberate, and consistent
+with the spec's "not doing SwiftUI snapshot tests" decision. Do test the **pure logic** you
+add: ruler tick-interval selection across zoom levels, time formatting at boundaries
+(0, <1s, >1h), and the mapping from a drag gesture's pixel range to a `FrameRange`. If you
+find yourself unable to test a piece of logic because it is tangled into a view, extract it
+— that is the signal the boundary is wrong.
+
+**Acceptance — the implementer must verify all of these by running the app:**
+- [ ] `swift run ArtscribeApp` opens a window with a menu bar and keyboard focus
+- [ ] ⌘O loads `~/Downloads/Wynton Marsalis - Black Codes (From The Underground)  - 1985-2023 (24-44)/01. Wynton Marsalis - Black Codes.flac` (9:35, 24-bit) and draws its waveform
+- [ ] The waveform has visible musical structure — not a solid block, not a flat line
+- [ ] E/R zoom smoothly from whole-file down to individual cycles; the anchor frame stays put
+- [ ] Z/X pan without stutter, and clamp correctly at both ends
+- [ ] Drag-select shows the highlighted region and a correct mm:ss.SSS readout
+- [ ] ⌘9 frames the selection; ⌘0 returns to the whole file
+- [ ] Resizing the window re-renders correctly at the new width
+- [ ] Opening a non-audio file shows the inline error banner and keeps the previous file
+- [ ] `make check` green and pre-commit hooks pass
+
+**Report additionally:** a screenshot path if you can capture one, the caching approach you
+chose, and the measured time from "file chosen" to "waveform on screen" for the reference
+track (spec §1.2 budget: under 2 s; decode alone is ~1.54 s, pyramid ~5 ms).
+
+---
+
+### Task 11: Wire playback into the viewer — the MVP milestone
+
+This is the task that makes the app worth using. After it, the user can load a file, hear
+it, select a passage, loop it seamlessly, and change speed — all from the keyboard.
+
+**Depends on:** Tasks 7 (`CommandRing`), 8 (`PlaybackEngine`), 9 (`AudioOutput`), 10 (viewer).
+
+**Files:** extend `Sources/ArtscribeUI/` (view model, commands, status bar, waveform overlay)
+and `Sources/ArtscribeApp/`. Add `Tests/ArtscribeUITests/` coverage for the pure logic.
+
+**Requirements:**
+
+- [ ] **Transport**: `Space` play/pause, `Return` to selection start (else 0). The playhead
+      is drawn in the waveform and ruler and moves during playback.
+- [ ] **Playhead position comes from polling** `PlaybackEngine.currentFrame` on a display
+      link, never pushed from the audio thread. The audio thread must not touch the model.
+- [ ] **Speed**: `Q`/`W` ∓5%, `⇧Q`/`⇧W` ∓1%, `1`/`2`/`3`/`4` → 100/75/50/33%, `⌥E` toggles
+      Studio/Fast. Range 0.10–2.00. Pitch is always preserved.
+- [ ] **Loop**: `A` set in at playhead, `S` set out at playhead, `D` toggle, `F` restart
+      loop, `G` selection → loop. The loop region is drawn distinctly from the selection.
+- [ ] **Auto-scroll is page-flip**, and suppressed while a loop is active and fits on
+      screen. Continuous centred scrolling is explicitly rejected — it looks better in a
+      demo and is miserable to transcribe against, because the waveform never stops moving.
+- [ ] **Status bar** shows speed %, engine, and loop state alongside the existing readouts.
+- [ ] **Speed and loop changes take effect on the next render quantum** with no dropout,
+      no click, and no loss of position.
+- [ ] Degraded engine state (R3 → R2 → passthrough) is **visibly** indicated per spec §8.
+
+- [ ] **A `Playback` menu in the macOS menu bar** carrying the transport and speed actions
+      with their shortcuts shown, alongside the Output Device submenu Task 9 added. User
+      feedback: discovering these only from a help sheet is not enough — they belong in the
+      menu where macOS users look for them. Minimum contents, each showing its key
+      equivalent and correctly enabled/disabled when no track is loaded:
+      - **Play / Pause** (`Space`) — the title toggles to reflect current state
+      - **Stop** — halt and leave the playhead where it is
+      - **Play from Start** (`Return`) — from selection start if there is a selection, else 0
+      - separator
+      - **Faster** (`W`) and **Slower** (`Q`), ∓5%
+      - **Faster (Fine)** (`⇧W`) and **Slower (Fine)** (`⇧Q`), ∓1%
+      - **Speed presets** 100 / 75 / 50 / 33% (`1`–`4`), with a checkmark on the active one
+      - **Studio / Fast engine** toggle (`⌥E`), showing which is active
+      - separator
+      - **Loop** items: Set Loop In (`A`), Set Loop Out (`S`), Toggle Loop (`D`),
+        Restart Loop (`F`), Selection → Loop (`G`)
+      Beware: a prior task found that `.disabled()` in a SwiftUI `Commands` body goes stale
+      against `@Observable` and silently broke ⌘9. Verify enablement actually updates.
+
+- [ ] **Consume `PlaybackEngine.renderStallCount` and `rejectedCommandCount`.** Task 8
+      publishes both atomics and nothing reads them; Task 8's reviewer noted that a counter
+      nobody reads is only half a fix for silent degradation, and that the existing §8 line
+      above covers only engine *fallback*, not stalls or rejected commands. Poll them
+      alongside the playhead and surface a visible indication when either advances. Note
+      that after a stall the engine deliberately stays `playing`, so an unsurfaced permanent
+      stall presents to the user as "playing, playhead frozen, silence, forever."
+
+- [ ] **Beware the CLI bug Task 9 already hit here**: `isPlaying` is not observable until
+      the render thread has drained the command ring, so code that pushes `.setPlaying(true)`
+      and immediately checks `isPlaying` will conclude playback ended before a single frame
+      was rendered. Task 9 fixed this in the CLI; the UI's play/pause state must not repeat it.
+
+- [ ] **`.setPlaying(true)` at EOF with no loop bounces** — the engine restarts the stream,
+      immediately re-finalises, and clears the playing flag within the same render call. The
+      play button will visibly flicker unless the UI handles it.
+
+**Acceptance — verify by running, and report what you actually heard:**
+- [ ] A 4-second loop at 50% speed repeats with **no click, pop, or gap at the seam**. This
+      is the single most important qualitative check in the whole project.
+- [ ] Pitch is unchanged at 50% and 200% — a held note is the same note, just longer.
+- [ ] Changing speed mid-playback does not click, stutter, or jump position.
+- [ ] Setting loop points while playing takes effect on the next pass.
+- [ ] The playhead stays visually synchronised with what you hear.
+
+---
+
+### Task 12: Bundle and distribute — make it launchable
+
+`swift run` is fine for development and wrong for daily use. This task produces a real
+double-clickable `Artscribe.app`.
+
+**Files:** `project.yml` (XcodeGen), `App/Info.plist`, `App/Artscribe.entitlements`, an app
+icon, `Makefile` targets, README updates.
+
+**Requirements:**
+
+- [ ] **`make app`** produces `Artscribe.app` that launches by double-click from Finder,
+      with a correct bundle identifier, version, display name, and icon.
+- [ ] The `.app` **must not be committed**; `project.yml` is the source of truth and the
+      generated `.xcodeproj` stays gitignored, per the project's build-system decision.
+- [ ] **Declare supported document types** in `Info.plist` so Artscribe appears in
+      Finder's "Open With" for the formats it decodes, and so dropping a file on the dock
+      icon works.
+- [ ] **Ad-hoc codesign** so it launches on this machine without Gatekeeper friction.
+      Document what a real Developer ID signature and notarisation would additionally
+      require, but do not attempt notarisation — it needs an Apple Developer account.
+- [ ] **`make dist`** produces a distributable archive (zip or DMG) of the signed app.
+- [ ] **README** gains a "Running Artscribe" section covering both `make app` for users and
+      `swift run` for development.
+- [ ] `make check` still passes, and the SwiftPM path keeps working — bundling must not
+      become the only way to build.
+
+**Acceptance:** double-click the built app from Finder, open a file through its own ⌘O, and
+confirm playback works from the bundled binary — not just from `swift run`.
+
+---
+
+### Task 13: UI polish from acceptance testing — scroll-zoom, speed emphasis, theming
+
+Three items from the user driving the real app, in their stated priority order.
+
+**Files:** `Sources/ArtscribeUI/` (TrackpadMonitor, Palette, WaveformRenderer, StatusBarView,
+OverviewStripView, WaveformLanesView, ViewerCommands/PlaybackCommands, ViewerModel),
+`Sources/ArtscribeApp/`. Tests for the pure logic in `Tests/ArtscribeUITests/`.
+
+#### P0 — Scroll wheel zooms
+
+Today `TrackpadMonitor` maps every `.scrollWheel` event to `.pan`, without consulting
+`NSEvent.hasPreciseScrollingDeltas`. That flag is how macOS distinguishes a physical mouse
+wheel (coarse, non-precise) from a two-finger trackpad swipe (precise). The two carry
+opposite conventions, so they must be handled differently:
+
+- [ ] **Mouse wheel (`hasPreciseScrollingDeltas == false`) → zoom.** Up zooms in, down zooms
+      out. This is the user's request and matches essentially every app with a zoom concept.
+- [ ] **Trackpad two-finger scroll (`hasPreciseScrollingDeltas == true`) → keep panning.**
+      Reversing this would fight a system-wide macOS convention. (Controller decision; the
+      user has been told and can override.)
+- [ ] **`⌘` + scroll → zoom regardless of device.** Universal escape hatch, idiomatic from
+      browsers and maps, and it gives trackpad users a zoom gesture that isn't a pinch.
+- [ ] **Scroll-zoom anchors on the pointer**, not the playhead. Cursor-driven zoom that
+      anchors elsewhere feels broken. Keyboard zoom (`E`/`R`) keeps its playhead anchor —
+      `Viewport.zoom(by:anchorFrame:)` already takes the anchor, so this is a call-site
+      choice, not new machinery.
+- [ ] **Works in both the main waveform lane and the overview strip.** In the overview,
+      zooming changes the main viewport (the strip itself always shows the whole file).
+- [ ] **Respect natural-scrolling direction** so the gesture doesn't invert for users who
+      have flipped it.
+- [ ] Test the pure mapping: event characteristics → action, for wheel/trackpad/⌘-modified,
+      including the direction sign.
+
+#### P1 — Speed readout stands out when it is not 100%
+
+- [ ] When `speed.ratio != 1.0`, render the speed readout **bold and in an accent colour**
+      so an altered speed is obvious at a glance. At exactly 100% it returns to the normal
+      readout treatment, so the emphasis means something.
+- [ ] Use an existing palette accent rather than inventing a colour, and make sure it stays
+      legible in **both** themes once P2 lands — a colour that pops on dark and vanishes on
+      light is not done.
+- [ ] Apply the same treatment in the Playback menu's checked speed preset if it reads well.
+
+#### P2 — Light / Dark / System theme
+
+- [ ] A **Theme** preference with three options — System (default behaviour follows macOS),
+      Light, Dark — persisted across launches and reachable from the menu bar (View menu or
+      Settings; pick whichever is more idiomatic and say why).
+- [ ] Dark stays the default look the user already likes; **Light must be genuinely designed,
+      not an inversion.** Waveform, selection, loop region, playhead, ruler, overview lens
+      and the inline error banner all need light-mode values with real contrast. Check
+      contrast rather than eyeballing it.
+- [ ] **The trap:** `WaveformRenderer` rasterises into a cached bitmap with colours baked in
+      (see its own doc comment on why it writes pixels directly rather than filling rects).
+      A theme change **must invalidate that cache and re-render**, or the waveform will keep
+      its old colours against the new background. The same applies to the overview strip's
+      cached image. Make the theme part of the render cache key.
+- [ ] Switching theme must not disturb playback, position, selection, loop, or zoom.
+- [ ] Test the pure part: that the render cache key changes with the theme, so a stale
+      bitmap cannot survive a switch.
+
+**Acceptance — verify by running:**
+- [ ] Mouse wheel zooms in the main lane and in the overview, anchored under the pointer
+- [ ] Trackpad two-finger scroll still pans; pinch still zooms; ⌘+scroll zooms on both devices
+- [ ] Speed readout is visibly emphasised at 50% and normal at 100%
+- [ ] All three theme settings look deliberate, and switching mid-playback re-renders the
+      waveform correctly without interrupting audio
+
+---
+
+### Task 14: Navigation nudges and a Settings window
+
+**Context the implementer needs:** the spec's action catalog (§6.2) has documented three
+nudge tiers since day one, but **none of them were ever implemented** — `grep -rn nudge
+Sources/` returns nothing. Task 11's brief omitted them and its review checked against that
+brief rather than the spec, so the gap survived. This task closes it, with the user's
+preferred defaults rather than the spec's original ones.
+
+**Do not add a fourth tier.** The user's "nudge" and "rewind" map onto the existing
+`nudge` and `nudge.coarse` actions with new default values. Retune, don't duplicate.
+
+| Action | Binding | Old spec default | **New default** |
+|---|---|---|---|
+| Nudge fine back/forward | `⇧Z` / `⇧X` | 50 ms | 50 ms (unchanged) |
+| **Nudge** back/forward | `Z` / `X`, `←` / `→` | 0.5 s | **2 s** |
+| **Rewind/Skip** back/forward | `⌥Z` / `⌥X`, `⌥←` / `⌥→` | 5 s | **10 s** |
+
+- [ ] Implement all three tiers on `ViewerModel`, seeking via `PlaybackCommand.seek`.
+- [ ] **Nudging must work whether or not playback is running**, and must not stutter or
+      restart audio when it is. Clamp to `[0, frameCount]`; when a loop is active, decide
+      and document whether a nudge may leave the loop region (recommended: it may, matching
+      Transcribe!, since `F` already exists to jump back into the loop).
+- [ ] Add all six to the **Playback menu** in a Navigation section, each showing its key
+      equivalent, disabled when no track is loaded.
+- [ ] Update spec §6.2's table to the new values so the catalog stops lying.
+
+#### Settings window (⌘,)
+
+- [ ] Use SwiftUI's **`Settings` scene**, which wires ⌘, and the standard
+      "Artscribe → Settings…" menu item automatically. That is the idiomatic macOS route —
+      do not hand-roll a window and a shortcut.
+- [ ] **Playback tab** exposing the three nudge amounts as editable values with sensible
+      units and validation. Reject or clamp nonsense (negative, zero, absurdly large) rather
+      than storing it — a nudge of 0 s silently does nothing, which is the silent-degradation
+      failure this project keeps finding.
+- [ ] Persist via `@AppStorage`/`UserDefaults`, applied live without relaunch, with a
+      **Restore Defaults** control.
+- [ ] **Move Task 13's Theme preference here** if Task 13 has already landed — a Settings
+      window is its natural home and two preference surfaces is one too many. Coordinate:
+      whichever task lands second owns the consolidation.
+- [ ] The menu items' displayed shortcuts must stay correct; only the *amounts* are
+      configurable in this task, not the key bindings themselves. (Full rebindable
+      bindings are the deferred `BindingTable` work — spec §6.3 — not this.)
+
+**Testing:** the amounts, clamping, validation, and seconds→frames conversion are pure and
+must be unit-tested, including at the file's start and end boundaries. The Settings view
+itself is not snapshot-tested, consistent with the project's standing choice.
+
+**Acceptance — verify by running:**
+- [ ] `Z`/`X` move by 2 s, `⌥Z`/`⌥X` by 10 s, `⇧Z`/`⇧X` by 50 ms, both stopped and playing
+- [ ] Nudging near either end of the file clamps instead of misbehaving
+- [ ] ⌘, opens Settings; changing the nudge amount takes effect immediately
+- [ ] Restore Defaults returns 50 ms / 2 s / 10 s
+- [ ] All six navigation items appear in the Playback menu with correct shortcuts
+
+---
+
+### Task 15: Transport bar, uniform menu shortcuts, and loop prominence
+
+Three pieces of UI feedback from the user driving the real app. They are one task because
+they touch the same files and the same visual language.
+
+#### A — A DAW-style transport bar (the substantial piece)
+
+The user asked for "a Transport component similar to other DAWs/audio editors so I can
+toggle loop on/off and see its state from bigger buttons with relevant icons on top."
+
+- [ ] A horizontal transport bar **directly above the existing status bar**, using SF Symbols
+      at a size that reads as a control surface rather than a toolbar afterthought.
+- [ ] Contents, grouped with separators: **rewind / nudge-back / play-pause / nudge-forward
+      / forward**, **play-from-selection-start**, **loop toggle**, **speed − / + with the
+      current speed between them**, **zoom out / in**.
+- [ ] **Every button is a second front-end to an action that already exists** on
+      `ViewerModel`. Do not reimplement behaviour in the view — if a button needs logic the
+      keyboard path does not have, that logic belongs on the model where it can be tested.
+- [ ] **State is visible, not just triggerable.** The loop button reads as on/off at a
+      glance (filled/tinted vs outline), play/pause reflects the transport, and the speed
+      readout carries the same emphasis rule as the status bar.
+- [ ] Buttons show their keyboard shortcut in a **tooltip**, so the bar teaches the keyboard
+      rather than replacing it. This app is keyboard-first; the transport is for discovery
+      and for when a hand is already on the mouse.
+- [ ] Correct enablement with no track loaded, and correct behaviour in both themes.
+- [ ] The bar must not steal keyboard focus — pressing Space must still play, not re-trigger
+      whichever button was last clicked. Verify this explicitly; it is the classic defect of
+      adding buttons to a keyboard-driven app.
+
+#### B — Uniform menu shortcut presentation
+
+Menus currently mix two styles: some items carry a real key equivalent (right-aligned, grey,
+system-drawn) and others spell the shortcut into the title text, e.g. `"Play  (Space)"`.
+The user wants one convention: **the system one — right-aligned and grey, everywhere.**
+
+- [ ] Convert the parenthesised-title items to real key equivalents.
+      `.keyboardShortcut("q", modifiers: [])` is the documented way to declare a
+      no-modifier shortcut; SwiftUI defaults to ⌘ otherwise.
+- [ ] **First, re-measure the reason the split exists.** `PlaybackCommands` documents that a
+      plain-letter menu key equivalent "is claimed application-wide and flashes the menu bar
+      on every keystroke, which during a held `Q`/`W` speed sweep is a strobe." Establish
+      whether that is still true. If it is, the fix is not to give up on the convention —
+      find the real remedy and report what it was. If it is not reproducible, say so and
+      convert everything.
+- [ ] **No action may fire twice.** The current design deliberately splits handling between
+      the menu (modified chords) and `DocumentView` (unmodified keys) so nothing is handled
+      by both. Whatever you change, verify each action fires exactly once per keypress —
+      there are existing tests asserting single-fire; keep them meaningful.
+- [ ] Watch for genuine conflicts: a plain-letter equivalent registered application-wide can
+      fire while a text field has focus. Settings has editable fields. Check that typing in
+      Settings does not trigger transport actions.
+
+#### C — Loop state prominence
+
+- [ ] When looping is active, the loop readout gets the same treatment the speed readout
+      already gets when it is not 100%: **bold, in an accent colour**, legible in both
+      themes. An engaged loop is a mode, and modes should be obvious.
+
+**Acceptance — verify by running:**
+- [ ] Every menu item in View and Playback shows its shortcut right-aligned and grey; none
+      spell it into the title
+- [ ] Each action still fires exactly once per keypress
+- [ ] Typing in Settings does not trigger transport actions
+- [ ] Transport buttons drive the same model actions as the keys, show live state, and do
+      not steal focus from Space
+- [ ] Loop-on and speed≠100% both read as clearly modal in Light and Dark
+
+---
+
+### Task 18: Selection movement, menu reorganisation, and configurable zoom direction
+
+All P0 feedback from the user driving the app.
+
+#### A — Flip the zoom direction, and make it a preference
+
+- [ ] **Drag down now zooms in** (the reverse of today). The previous direction was chosen on
+      internal consistency because neither Ableton's nor Melodyne's manual states which way
+      theirs runs; the user has driven it and prefers down-to-zoom-in. Their hand beats our
+      reasoning.
+- [ ] Make it a **Settings preference** — an "Invert zoom drag direction" toggle — so it is a
+      one-click change rather than a rebuild. Apply to the ruler drag and the ⌥-lane drag
+      alike, and say in the report whether it should also affect the scroll-wheel zoom
+      (recommendation: yes, consistency within one window matters more than matching any
+      particular other app).
+
+#### B — A bigger ruler hit area
+
+- [ ] The ruler is about to carry a frequently-used gesture, so make it a comfortable drag
+      target. Increase its height, and consider whether the hit area can extend slightly
+      beyond the drawn ruler without stealing from the waveform lanes. Keep it visually
+      proportionate — this is a hit-target change, not an invitation to make the ruler loud.
+
+#### C — Move the selection, in two step sizes
+
+Mirrors the transport nudge/rewind pair, but moves the **selection** rather than the playhead.
+
+- [ ] Four actions: move selection left/right by a **gentle** amount, and left/right by an
+      **aggressive** amount. The whole selection translates — both edges move together,
+      preserving its length.
+- [ ] Shortcuts, chosen to stay left-hand-driveable and not collide with anything existing.
+      Propose them in your report with your reasoning; `⇧←`/`⇧→` are already extend-selection
+      and `←`/`→` are already nudge-playhead, so these need different chords.
+- [ ] **Both amounts configurable in Settings, in seconds with fractional support** (so a
+      user can set 20 ms). Validate as the nudge amounts already are: reject or clamp
+      nonsense rather than storing a zero that silently does nothing.
+- [ ] Clamp at the file bounds — a selection pushed against either end stops rather than
+      shrinking or inverting. Test both ends.
+- [ ] Menu items alongside the other selection actions (see D).
+
+#### D — Reorganise the menus
+
+The Playback menu now carries 36 items and has become a catch-all. Split it so each menu has
+one coherent identity:
+
+- [ ] **Edit** — the selection actions. `Select All`, `Clear Selection`, `Extend Selection`,
+      and the four new `Move Selection` items. Selection belongs in Edit by long-standing
+      macOS convention; `Select All` is already expected there.
+- [ ] **Loop** (new top level) — `Set Loop In`, `Set Loop Out`, `Toggle Loop`, `Restart Loop`,
+      `Selection → Loop`. This is the app's signature feature and deserves to be findable.
+      It is also where the Practice hub will land later.
+- [ ] **Playback** (slimmed) — transport, navigation nudges, speed, engine, volume, output
+      device.
+- [ ] Every item keeps its right-aligned system-drawn shortcut. Nothing regresses to a
+      shortcut spelled into the title.
+
+#### E — `Play from selection start` moves to `⇧Space`
+
+- [ ] Rebind from `Return` to `⇧Space`, so the whole transport is left-hand driveable.
+- [ ] **Update every reference**: the menu, the transport bar tooltip, `README.md`, the
+      spec's §6.2 action catalog, and any test or acceptance check asserting the old binding.
+      A stale reference here is exactly the drift that has already bitten this project twice.
+- [ ] Decide whether `Return` keeps a role (recommendation: leave it bound as a synonym, or
+      free it deliberately — say which and why).
+
+---
+
+### Task 19: Session persistence — the `.artscribe` sidecar, Save, and Save As
+
+**This is a documented feature that was never built.** Spec §7 has promised it since the
+design was approved and `grep -rn sidecar Sources/` returns nothing. That makes it the second
+such gap found by the user rather than by our own review, after the nudge tiers.
+
+What spec §7 requires:
+
+> A visible `<track>.artscribe` file written next to the audio file, JSON, containing speed,
+> loop region, loop enabled, viewport, playhead, and active engine. Written on close and
+> debounced during editing.
+>
+> If the containing directory is not writable — a read-only volume, a NAS, a mounted image —
+> fall back to Application Support keyed by file URL, and surface the fallback. Loop points
+> must never be silently lost because a directory was read-only.
+
+The user additionally asks for the standard document behaviour:
+
+- [ ] **File ▸ Save (⌘S)** and **Save As… (⇧⌘S)**, behaving as a Mac user expects.
+- [ ] **A dirty flag**, reflected in the window's close button and title as macOS does it.
+- [ ] **Closing with unsaved changes prompts** — Save / Don't Save / Cancel — and Cancel
+      genuinely cancels the close.
+- [ ] **Reopening a track restores its session**: speed, loop, viewport, playhead, engine.
+- [ ] The read-only-directory fallback from spec §7, surfaced visibly, never silent.
+- [ ] Round-trip safety: the JSON is user-editable by design, so **decoding must clamp or
+      reject nonsense rather than trusting it**. `SpeedState` and `Selection` already have
+      validating decoders for exactly this reason — follow that precedent for everything new.
+
+**Testing:** encode/decode round-trip, clamping of out-of-range and malformed values, the
+read-only fallback path, and dirty-tracking transitions are all pure and must be tested. The
+save panel and the close prompt are AppKit and are not.
+
+---
+
+### Task 20: The inspector — a reusable side panel, and the shortcut reference
+
+The user asked for "a side-window that can be toggled to show/hide" for the shortcut
+reference, and for the Practice hub to use "a similar mechanism". That mechanism already
+exists in the approved design and was never built: a **collapsible inspector**, specified in
+§1.1 (MVP scope), §2 (architecture decisions), §6.2 (`view.toggleInspector`, `⌥⌘I`), and §8
+(where the read-only sidecar fallback is supposed to be surfaced). This is the **fourth**
+documented-but-unbuilt feature the user found rather than our reviews.
+
+Build the mechanism once, then two clients land on it: Shortcuts here, Practice in Task 21.
+
+#### A — The inspector mechanism
+
+- [ ] SwiftUI's `.inspector()` — the native trailing-sidebar idiom, collapsible, resizable,
+      with its width persisted. Do not hand-roll a panel.
+- [ ] **Pages**, switchable within the one inspector rather than competing for the trailing
+      edge: **Session**, **Shortcuts**, and later **Practice**. Xcode's inspector is the
+      reference for how this reads.
+- [ ] `⌥⌘I` toggles the inspector, per spec §6.2. Each page additionally gets its own
+      shortcut that opens the inspector *to that page* — pick them, justify them, and make
+      sure they do not collide with the now-large keymap.
+- [ ] Entries in the **View** menu, with right-aligned system-drawn shortcuts like every
+      other menu item.
+- [ ] Collapsing it must return the full width to the waveform, and the viewport must
+      re-render correctly at the new width (`Viewport.resize` already exists).
+
+#### B — ~~The Session page~~ — CUT, and why
+
+Spec §1.1 asks for an "inspector showing speed, loop points, and active engine". **Do not
+build it.** `StatusBarView` already shows all three — speed emphasised when it is not 100%,
+the engine label beside it, and loop state tinted when active — and the transport bar shows
+play state and loop as controls. That page would duplicate what is already on screen. It was
+specified before either of those existed.
+
+The spec is stale here, not the code. Two consequences for this task:
+
+- The **read-only sidecar fallback indicator** (spec §8) still needs a home better than the
+  title bar where Task 19 parked it. Put it in the inspector's chrome rather than inventing a
+  page for it.
+- If the inspector later wants content beyond Shortcuts and Practice, the genuinely
+  non-duplicative candidate is **precise numeric entry** — typing `1:23.456` for a loop point
+  instead of dragging to it — plus file info. Not in scope now; recorded so the reasoning is
+  not lost.
+
+Also note spec §6.2 lists a separate `help.shortcuts` (`⌘/`) "help sheet", also never built.
+**Do not build both.** The user's side panel supersedes the modal sheet; keep `⌘/` as its
+shortcut, since that is already in the catalog and is what people press. Update the spec to
+say so.
+
+#### C — The Shortcuts page — and the anti-drift requirement that shapes it
+
+- [ ] A clean, scannable reference: grouped by category, key on the right in the same
+      system style the menus use, scrollable, legible in both themes.
+- [ ] **It must be generated from a single source of truth that the menus also consume.**
+      A hand-written list is guaranteed to drift — this project has already shipped four
+      features whose documentation and implementation disagreed. Introduce an
+      `ActionCatalog`: one list of (action id, display name, category, default shortcut) that
+      **both** the menu builders and this panel read from. A shortcut must be impossible to
+      change in one place and not the other.
+- [ ] This is also the foundation spec §6.3 needs for the deferred rebindable `BindingTable`
+      and for MIDI mapping later. Build it as that foundation, but **do not build rebinding
+      now** — one list, consumed twice, is the whole scope.
+- [ ] Add a test asserting every action in the catalog appears in exactly one menu, and that
+      no menu item exists outside the catalog. That test is the drift guard.
+
+---
+
+### Task 21: The Practice hub
+
+The user's idea, and the most genuinely novel thing in the product — Transcribe! has no
+equivalent. **Lands as its own `Window` scene**, following Task 25's shortcut window — the
+Task 20 inspector it was originally to be a page of was cut in Task 25, and a window costs
+the waveform no width.
+
+- [ ] **Ramping loops.** Play a loop repeatedly while the speed climbs. MVP behaviour the
+      user described: increase by a fixed percentage each repetition.
+- [ ] **The better form they asked for**: give **start speed**, **end speed** and **number of
+      repetitions**, and compute the per-repetition delta. Sane defaults (e.g. 50% → 100%
+      over 10 repetitions), each field overridable.
+- [ ] **Live state while running**: which repetition you are on, the current speed, and how
+      many remain. A practice tool whose progress is invisible is a stopwatch you cannot see.
+- [ ] Start / stop, and a clear indication when the ramp completes. Decide what happens at
+      the end — hold the final speed, or stop — and justify it.
+- [ ] The ramp drives the **existing** speed and loop actions on `ViewerModel`. Do not
+      duplicate transport logic; if the ramp needs behaviour the manual path lacks, that
+      behaviour belongs on the model where it is testable.
+- [ ] Speed changes must not click or interrupt playback — the engine already applies a
+      ratio change on the next render quantum, so drive it the same way the keyboard does.
+- [ ] Its own shortcut and View-menu entry, consistent with the other pages.
+
+**Testing:** the ramp schedule is pure and must be tested — the computed deltas for a given
+start/end/count, behaviour when start equals end, count of 1, an inverted range (end below
+start, which is a legitimate way to practise *slowing down*), and clamping to the 0.10–2.00
+speed range. Verify the ramp advances on loop wrap rather than on a timer, so it stays
+correct when the loop length or speed changes underneath it.
+
+---
+
+### Task 22 (P0): Play-from-start precedence, and double-click plays instead of selecting all
+
+Two behaviours the user hit while driving the app. Both are small; both are wrong in a way
+that makes the app feel arbitrary.
+
+#### A — `Play from start` (`⇧Space`) must follow one precedence rule
+
+Observed: with no selection it plays from the **track** start even when a loop is set; with a
+selection it plays from the selection start *or* the loop start depending on circumstances.
+
+**Diagnosis (already established — do not re-derive):** `returnToStart()`, which
+`playFromStart()` delegates to, is
+
+```swift
+seek(to: selection.isEmpty ? 0 : selection.range.start)
+```
+
+It never considers the loop. The "or from loop start" behaviour is not a second code path —
+it is `PlaybackEngine` *containing* the seek: seeking outside an active loop makes the engine
+pull the cursor into the region (it "wraps in from after, falls in from before", by design
+from Task 8). So the UI aims at the track start, the engine drags it to the loop, and the
+result reads as two competing rules.
+
+- [ ] Implement one precedence, in this order:
+      1. **A selection exists** → play from the selection start
+      2. **No selection but a loop is active** → play from the loop start
+      3. **Otherwise** → play from the track start
+- [ ] Fix it in `returnToStart()` so the aim point is right at source, rather than relying on
+      the engine to correct a bad target. `returnToStart` is also bound on its own, so both
+      callers benefit.
+- [ ] Decide whether "a loop is active" means `isEnabled` or merely "loop points are set",
+      and say which and why. (Recommendation: `isActive` — an existing but disabled loop
+      should not steer the playhead, because the user has explicitly turned it off.)
+- [ ] Test all four combinations: selection only, loop only, both, neither. The both case is
+      the one that was broken.
+- [ ] Update the spec's §6.2 catalog entry for `transport.returnToStart`, which currently
+      says "To selection start, else 0" and will now be wrong.
+
+#### B — Double-click plays from the click point instead of selecting all
+
+Observed today at `ViewerModel+Interaction.swift:259-262`: a second click within the
+double-click window calls `selectAll()`.
+
+- [ ] Double-click now **moves the playhead to the click point and starts playing**. Single
+      click continues to place the playhead without playing.
+- [ ] `⌘A` remains Select All, so nothing is lost — only the mouse gesture is reassigned.
+- [ ] The click state machine (`isSecondClick`, the time window, the slop distance) is
+      covered by tests added in an earlier fix round. **Keep them meaningful** — update what
+      they assert rather than deleting them, and confirm a third click still does not chain.
+- [ ] Confirm this composes with the precedence rule in A: a double-click sets an explicit
+      cursor position, so it should play from *there*, not be re-routed to a selection or
+      loop start.
+- [ ] Update `README.md`, which currently documents "double-click to select all".
+
+---
+
+### Task 23 (P0): Draggable loop and selection edges
+
+Standard in Ableton, Logic and every serious editor, and the user calls it a must-have.
+Grab the left or right edge of the loop region — or the selection — and drag it.
+
+#### Behaviour
+
+- [ ] **Drag either edge of the loop region** to move it; the opposite edge stays put.
+- [ ] **Drag either edge of the selection** the same way.
+- [ ] **Drag the body** of the loop region to move the whole loop, preserving its length.
+      (Judgement call: propose whether the selection body should also be draggable, and say
+      why. `C`/`V` already move the selection by keyboard.)
+- [ ] Dragging one edge past the other must not produce an inverted region. Decide between
+      **swapping** the edges (the drag continues, now grabbing the other edge — what most
+      DAWs do) and **clamping** at zero length, and justify the choice.
+- [ ] While dragging, show the edge's time as a live readout, in the same monospaced style
+      the rest of the app uses for time.
+- [ ] Loop edges dragged while playing must take effect without a click or dropout — push
+      through the existing `PlaybackCommand.setLoop` path rather than inventing another.
+
+#### The interaction hazard — this is the part most likely to go wrong
+
+The waveform lanes already carry: plain drag (select), ⇧-drag (extend selection), ⌥-drag
+(zoom), single click (place playhead), double click (play from here), pinch, and wheel. The
+ruler carries a vertical zoom drag. **Adding edge-dragging to a surface with seven live
+gestures is where this task will fail if it fails.**
+
+- [ ] **Edge grab must win over starting a new selection** when the pointer is inside an
+      edge's grab zone, and must lose to it everywhere else. Decide the precedence
+      explicitly and write it down.
+- [ ] Decide what happens when the loop edge and a selection edge are at or near the same
+      pixel, since `G` (selection → loop) makes that common. Pick one and make it
+      predictable.
+- [ ] **Before finishing, enumerate every gesture on the lanes and the ruler and confirm each
+      still does exactly what it did.** A regression here is instantly visible to the user.
+
+#### The visual and pointer treatment
+
+The user asked for something "nuanced but palpable", following iOS/macOS design language.
+Consider loading the `frontend-design` skill for direction.
+
+- [ ] **Grab zone wider than the drawn edge** — the loop edge is 2 pt; a grab zone of roughly
+      8–10 pt on each side makes it reliably hittable (Fitts's law). The hit area is not the
+      visual.
+- [ ] **Hover** gives a restrained but unmistakable response: the edge brightens and
+      thickens slightly, optionally with a narrow gradient wash falling away from it. Nothing
+      that jumps.
+- [ ] **Active drag** is stronger than hover — a full-height guide line reads well and shows
+      exactly where the edge will land.
+- [ ] **Pointer style** via `pointerStyle(_:)`, as Task 17 established. `.frameResize(position:)`
+      is the semantically correct choice for resizing a region from one edge;
+      `.columnResize(directions:)` is the alternative. Pick one, say why, and make it appear
+      on hover — not only once dragging starts.
+- [ ] Legible and correct in **both** themes.
+- [ ] Respect **Reduce Motion** for any animated transition.
+
+**Testing:** hit-testing (which edge, if any, is under a given pixel, including the
+overlapping-edges case), the drag→new-region maths, inversion handling, and clamping at the
+file bounds are all pure and must be tested. Views are not snapshot-tested — extract the
+logic. Drive the real gestures in the acceptance harness; the screen is unlocked and real
+`NSEvent`s reach SwiftUI.
+
+---
+
+### Task 24 (P0): Honour an explicit seek, and nudge the loop boundaries
+
+#### A — Double-click plays from where you clicked, always
+
+The user overrules the earlier decision that a double-click outside an active loop should be
+pulled into it, and reports the current behaviour is **inconsistent**: clicking before the
+loop markers behaves differently from clicking after them. They are right, and the cause is a
+single line.
+
+`PlaybackEngine.feedSource`:
+
+```swift
+if looping && readCursor >= loop.range.end { readCursor = loop.range.start }
+let end = looping ? loop.range.end : totalFrames
+```
+
+- Cursor **after** `loop.range.end` → the guard fires and the cursor is **snapped backwards**
+  to the loop start immediately. Reads as being yanked.
+- Cursor **before** `loop.range.start` → the guard does not fire; `end` is still the loop end,
+  so playback runs forward from the click and wraps only on reaching it. Reads as playing
+  normally, then falling in.
+
+One line, two different experiences.
+
+- [ ] **An explicit seek must be honoured.** Playback starts exactly where the user asked.
+- [ ] **The loop captures on arrival, not on entry.** Change the rule so the wrap fires when
+      playback *reaches* `loop.range.end` from below, and not when the cursor merely sits
+      beyond it. Concretely: the segment end should be the loop end only while the loop end
+      is still ahead of the cursor; once the cursor is past it, the segment end is
+      `totalFrames`.
+- [ ] Resulting behaviour, which is consistent in all three cases and matches Ableton/Logic:
+      - Click **before** the loop → plays from the click, runs on, is captured at loop end,
+        then loops
+      - Click **inside** the loop → plays from the click, loops normally
+      - Click **after** the loop → plays from the click to the end of the file, never wrapping
+- [ ] This touches `feedSource`, the most safety-critical function in the project.
+      **The seam tests must still pass** — including
+      `rubberBandLoopingIsIndistinguishableFromAContiguousRender`, which asserts a looped
+      render is byte-identical to a contiguous one. Run them and say so explicitly.
+- [ ] The real-time rules in `CLAUDE.md` bind this function absolutely: no allocation, no
+      locks, no ARC, no Foundation collections, no `String`.
+- [ ] Test all three cases at the engine level, plus the existing inside-the-loop behaviour.
+
+#### B — Nudge and move the loop boundaries
+
+The user wants the selection-movement actions mirrored for the loop, "available via shortcuts
+and in the Loop menu".
+
+- [ ] Actions to move **loop in** and **loop out** independently, each in both directions, in
+      the same two step sizes the selection movement uses (gentle and aggressive).
+- [ ] Consider also moving the **whole loop** preserving its length — the selection has that
+      via `C`/`V`, and Task 23 gave the loop a draggable body, so a keyboard equivalent is
+      the consistent thing. Propose it and say why you did or did not include it.
+- [ ] **Reuse the existing amounts** rather than adding a third and fourth preference. The
+      selection-movement amounts are already configurable in Settings; decide whether the
+      loop shares them or needs its own, and justify. Sharing is the default unless there is
+      a real reason.
+- [ ] Shortcuts chosen to fit the existing keymap without collision — it is now large, so
+      check carefully and state your reasoning. Keep them left-hand-driveable.
+- [ ] All items in the **Loop** menu with right-aligned system-drawn shortcuts, consistent
+      with every other menu.
+- [ ] Edges must not invert: moving loop-in past loop-out either swaps or clamps — match
+      whatever Task 23 chose for dragging, so the keyboard and the mouse agree. Check what it
+      did and follow it.
+- [ ] Clamp at the file bounds; test both ends.
+- [ ] Changes while playing take effect without a click or dropout, through the existing
+      `PlaybackCommand.setLoop` path.
+- [ ] Add the new actions to the spec's §6.2 catalog.
+
+---
+
+### Task 25: The shortcut reference as its own window, laid out on a keyboard
+
+Task 20 built the shortcut reference as an inspector page. The user has seen it running and
+wants something different: **a separate, resizable window**, with the shortcuts **drawn onto
+a picture of a keyboard** rather than listed — "clear and legible but also visually
+intuitive".
+
+**There is prior art in this project, and the user already approved it.** During brainstorming
+they were shown a full macOS keyboard with every bound key tinted by category and its action
+labelled beneath the glyph, and they chose the left-hand-cluster keymap *from that mockup*. It
+is at `.superpowers/brainstorm/82657-1785140523/content/keyboard.html` — open it. That is the
+target look, and it is already validated with this user.
+
+The pattern is also well established: KeyClu, Kommand and KeyboardOverlay all render a
+shortcut overlay on a keyboard, grouped and coloured by category.
+
+- [ ] **A separate `Window` scene**, not `.inspector()`. Resizable, its size and position
+      remembered, opened by `⌘/` and from the View menu, closable independently of the
+      document window. Remove the inspector's Shortcuts page — do not ship both.
+- [ ] **Remove the inspector entirely**, including its `⌥⌘I` binding, its View-menu item, and
+      its catalog entries. With the Session page cut as redundant and Shortcuts moving to its
+      own window, it would contain nothing — and a menu item that opens an empty panel is
+      worse than no menu item. The user spotted this. Task 21's Practice hub becomes its own
+      window too, which is more consistent and does not cost the waveform any width.
+- [ ] **Rehome the read-only sidecar-fallback indicator** (spec §8), which Task 20 moved into
+      the inspector's chrome. The inline banner used for decode errors is the right place — it
+      is where the user already looks for "something is wrong", and spec §8's requirement is
+      that the fallback be *visible*, not that it live in any particular container.
+- [ ] Update spec §6.2 to drop `view.toggleInspector`, and §2/§1.1 which still describe a
+      "collapsible inspector" as part of the UI. Record *why* it was cut — that the status bar
+      and transport bar came to cover its content — so this is not rediscovered later as a
+      missing feature. That has already happened five times on this project in the other
+      direction.
+- [ ] **The keyboard view.** A macOS layout, each bound key tinted by category with its action
+      labelled; unbound keys visibly dimmed so the bound ones read at a glance. Scale with the
+      window rather than clipping.
+- [ ] **Modifier layers, and this is the interesting design problem.** The keymap has base
+      keys, `⇧` chords, `⌥` chords and `⌥⇧` chords — one static keyboard cannot show them.
+      **Hold a modifier and the keyboard should update to that layer live.** That is what
+      makes this delightful rather than merely pretty, and it teaches the keymap the way using
+      it does. Also offer a way to see a layer without holding the key, for people who cannot.
+- [ ] **A searchable list alongside the keyboard.** A keyboard picture is excellent for "what
+      can I press" and poor for "what is the shortcut for X". Offer both — a filter field that
+      narrows both views at once is the natural answer.
+- [ ] **Driven entirely by the `ActionCatalog`** Task 20 built. No second source of truth, and
+      the existing drift guard must keep passing. If an action has no shortcut it should still
+      be findable in the list.
+- [ ] Correct in both themes; the category colours must work on light as well as dark.
+- [ ] Respect Reduce Motion for any layer transition.
+
+**Testing:** the mapping from catalog to key positions, the modifier-layer resolution, and the
+search filter are all pure and must be tested — including a test that every action in the
+catalog is reachable in the window, so an action can never be added and silently omitted.
+The keyboard view itself is not snapshot-tested.
+
+---
+
+### Task 27: CUE sheet support — track markers on the waveform
+
+Some albums ship as a single FLAC plus a `.cue` file of the same basename, indexing where each
+track begins. Live albums, DJ sets and vinyl rips are commonly distributed this way, and today
+Artscribe sees one nine-hour blob with no structure.
+
+The user's ask: show a distinct marker at each track boundary, name the track, colour them
+distinctly (yellow was suggested), and let the markers be toggled from the View menu with a
+shortcut.
+
+#### Parsing
+
+- [ ] On opening `<name>.flac`, look for `<name>.cue` beside it and parse it if present.
+      **Do not require it** — its absence is the normal case, not an error.
+- [ ] CUE is an old, loosely-specified format with real-world variance: `FILE`, `TRACK`,
+      `INDEX 00`/`01`, `TITLE`, `PERFORMER`, `REM` comments, and `INDEX` times in
+      `mm:ss:ff` where **ff is frames at 75 per second**, not milliseconds. Getting that
+      conversion wrong puts every marker slightly off.
+- [ ] Encoding is a real trap: CUE files are frequently **Latin-1 or Shift-JIS rather than
+      UTF-8**, and a strict UTF-8 decode will simply fail on a perfectly good file. Fall back
+      rather than refusing, and never crash on a malformed one — degrade to no markers and
+      say so, per spec §8.
+- [ ] Multi-`FILE` cue sheets exist (one per track). Decide what to do and say why —
+      recommendation: support the single-`FILE` case properly and ignore the rest rather than
+      half-supporting it.
+- [ ] Test against genuinely awkward input: missing `TITLE`, `INDEX 00` present as well as
+      `01`, out-of-order tracks, times beyond the file's length, CRLF, a BOM, and a truncated
+      file.
+
+#### Display
+
+- [ ] A marker at each track start, in its own colour distinct from selection amber, loop, and
+      the playhead. Yellow was suggested; check it against both themes and the existing palette
+      before committing to it.
+- [ ] The track name shown at the marker, **truncated when there is no room, with the full name
+      on hover.** At album zoom there will be a dozen markers competing for space — decide what
+      happens when labels would overlap, and make it degrade gracefully rather than becoming a
+      smear.
+- [ ] **Toggle from the View menu with a shortcut**, added to the `ActionCatalog` like every
+      other action — the drift guard will fail otherwise, which is the point of it.
+- [ ] Persist the toggle in the `.artscribe` sidecar alongside the other view state.
+
+#### Worth considering, and worth saying no to if it is not MVP
+
+- Snapping the selection or loop to a track boundary — genuinely useful for "loop this one
+  track", but it is a new interaction and belongs in its own task if it complicates this one.
+- Navigating between markers by keyboard. The spec's deferred markers lane (§11.4) is the
+  natural home; do not build a parallel mechanism here.
+
+**Testing:** the parser is pure and must be thoroughly tested — that is where the bugs will be.
+The `mm:ss:ff` conversion, the encoding fallback, and the malformed-input handling all deserve
+explicit cases. Label layout and overlap resolution are also pure and testable; extract them
+from the view.
 
 ## Plan Complete
 

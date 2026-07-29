@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Deliberately not sandboxed. Artscribe opens files the user picks and
+	     enumerates every CoreAudio output device; the sandbox would need
+	     user-selected file entitlements plus audio device access, and the app
+	     is not headed for the Mac App Store. Revisit if it ever is.
+
+	     The one entitlement here matters only under the hardened runtime, which
+	     is off for ad-hoc builds and would be on for a notarised Developer ID
+	     build: without it a hardened process refuses to load the Homebrew
+	     dylibs embedded in Contents/Frameworks unless they carry the same Team
+	     ID signature. Setting it now means the notarised path does not need a
+	     different entitlements file. -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>
