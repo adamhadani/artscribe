@@ -33,7 +33,7 @@ It is the acceptance equivalent of `swift test --filter <Target>` during the loo
 
 | Run | Wall clock | Against a full run |
 |---|---|---|
-| everything | **165 s** | — |
+| everything | **188 s** | — |
 | `--quick` (drops `playback`, `start`, `practice`) | 96 s | 1.7× |
 | `--only transport` | 13.3 s | 12× |
 | `--only practice` | 23 s | 7× |
@@ -41,9 +41,18 @@ It is the acceptance equivalent of `swift test --filter <Target>` during the loo
 | `--only selection` | 4.6 s | 36× |
 | `--only loop` | 3.4 s | **48×** |
 
-Measured on 2026-07-28, release build, the same 108 MB FLAC each time. The floor is about
-3 s: the load and the window checks in front of the first group always run. `--quick` is the
-weakest of these — the three slow groups are only 65 s of the 165 — so prefer `--only`.
+Measured on 2026-07-28, release build, the same 108 MB FLAC each time; the full-run figure is
+from 2026-07-29, after the checks below started actually running. The floor is about 3 s: the
+load and the window checks in front of the first group always run. `--quick` is the weakest
+of these — the three slow groups are only ~65 s of the total — so prefer `--only`.
+
+**The run needs the audio file, and it takes the front.** `--acceptance <audio>` is not
+optional: given only `--only`, the harness opens its window and parks in the AppKit run loop
+forever — no output, no error, no timeout. And it now calls
+`NSApp.activate(ignoringOtherApps: true)`, so it *will* come to the foreground and take the
+keyboard for the pointer, cursor, edge and transport groups. That is what makes those checks
+real rather than skipped; it also means the run is not something to launch while typing
+elsewhere. Redirect to a file rather than piping through `tail`, which buffers away progress.
 
 - `--list` prints the seventeen groups, what each covers, and roughly how many checks it
   carries. Use it rather than reading `AcceptanceGroups.swift`.
@@ -115,6 +124,45 @@ nobody asked first.
 **Check you can verify before you build.** Four fixes to that window were made blind, because
 `NSApp.activate()` silently fails from a background shell and no window could become key
 (`activate(ignoringOtherApps: true)` works). Blind fixes address symptoms and leave causes.
+
+**The harness must come to the front, with `ignoringOtherApps: true`.** The line above was
+written down and then not applied on the acceptance path: `regainKeyWindow` called the plain
+`activate()`, spun its thirty attempts, gave up, and **seventeen** pointer, cursor and
+edge-drag checks skipped themselves on every run for want of one argument. The transport
+group had the same fault by another route. Fixing both took the full run from
+`0 failures, 17 NOT CHECKED` to `0 failures, every group ran` — 704 checks, exit 0.
+
+**A check that asserts a return to the prior state passes when nothing happened at all.**
+`pressing Zoom Out zooms back out` asserted `framesPerPixel >= fitted`, and read green
+through an entire run in which not one click was delivered. Assert the **transition**
+(`after > before && after >= fitted`), and print both numbers in the check's name — the
+`19821.6 -> 19821.6` in a skipped line is what makes a dead path obvious at a glance.
+
+**Deliverability is a fact about the machine; never infer it from the result.** A press that
+does nothing must fail on a machine that *can* deliver presses, or a broken button excuses
+itself. Ask `screenIsLocked()` and `NSApp.isActive`, collect "did any press land" across
+*all* the presses rather than the first, and skip only when nothing landed **and** the
+session cannot deliver.
+
+**Sample the resting state before claiming a signal.** The menu-strobe check compared an
+absolute count against zero. Once the app was properly frontmost it emerged that performing
+*any* key equivalent — ⌘0 as much as a plain letter — leaves `highlightedItem` set for the
+duration: resting 0/20, every chord 20/20. The check now measures against ⌘0, and menu
+*opening* (`didBeginTracking`) is what it guards.
+
+**Anything a control changes belongs in the harness's fingerprint.** `activate` treats
+"nothing landed" as licence to try the next delivery path, so a press the fingerprint could
+not see got silently delivered twice. `prerollEnabled` was missing, and every preroll press
+read as not landing *while it was working*.
+
+**Let SwiftUI catch up before clicking.** `activate` settles first. A press that races the
+render pass hits a button still drawn **disabled** — a disabled SwiftUI button swallows the
+click in silence — and the loop button read as broken for a whole run purely because
+`loopFromSelection()` had given it a region the view had not yet been told about.
+
+**Mutation-test the harness, not just the unit suite.** Three deliberate defects — the loop
+button's action removed, the preroll button's action removed, the edge drag ignoring where
+the pointer moved to — were each confirmed to turn the run red before the work was trusted.
 
 **Plan code is not pre-verified.** Reviews found well over a dozen genuine defects in
 plan-authored code, including three separate silent-truncation bugs. Treat code in a plan as

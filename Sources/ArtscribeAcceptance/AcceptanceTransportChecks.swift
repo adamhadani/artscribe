@@ -29,6 +29,11 @@ extension AcceptanceRun {
             return
         }
         log.note("transport buttons in the accessibility tree", accessibilityButtons())
+        log.note(
+            "transport layout",
+            TransportControl.allCases.map {
+                "\($0)@\(frames[$0].map { rounded($0.midX) } ?? "—")"
+            }.joined(separator: " "))
         // Directly above the status bar, and below the lanes — the position the
         // plan asks for, read off the layout rather than assumed.
         if let play = frames[.playPause] {
@@ -57,73 +62,166 @@ extension AcceptanceRun {
 
     /// Each button, pressed for real, changes exactly what its key changes.
     ///
-    /// Whether a press can be delivered at all is decided **first**, and from a
-    /// fact about the machine rather than from the result: with the login
-    /// session's screen locked no application can become active, and a synthetic
-    /// pointer event does not reach a SwiftUI control — the same limitation the
-    /// selection drag records, and the reason the accessibility tree exposes no
-    /// buttons either. On an unlocked machine every check below runs for real.
+    /// **Every press happens first; the verdict is passed afterwards.** The
+    /// order matters, and the reason is a run that reported five of these as
+    /// failures on a machine where no press could be delivered at all. The old
+    /// form decided deliverability from the *first* press alone — if Zoom In did
+    /// not land it asked whether the screen was locked, and an unlocked machine
+    /// whose frontmost app was someone's terminal answered "no", so every
+    /// remaining check failed for a reason that had nothing to do with the
+    /// buttons.
+    ///
+    /// Two facts are now kept apart:
+    ///
+    /// * **Did any press land?** Collected across all eight, not one. A single
+    ///   broken button among working ones still fails, because the other seven
+    ///   prove the delivery path works — which is the property the old
+    ///   "deliberately not inferred from the result" comment was protecting, and
+    ///   it survives here.
+    /// * **Can this session deliver a press at all?** Asked of the machine —
+    ///   `screenIsLocked`, `NSApp.isActive` — never of the model.
+    ///
+    /// A check is skipped only when *nothing* landed **and** the session cannot
+    /// deliver. Nothing landing on a machine that can deliver is a real failure,
+    /// and still reads as one.
     @MainActor
     private static func checkButtonsDriveTheModel(model: ViewerModel, log: inout Logger) async {
         var paths: Set<String> = []
+        var results: [(String, Bool)] = []
+
+        // Come to the front before pressing anything. A plain `activate()` is
+        // the call that silently does nothing when the caller is not already
+        // the active app — the defect that left four focus fixes unverifiable —
+        // and `ignoringOtherApps` is the form that works from a background
+        // shell. Skipping these checks is the fallback; making them deliverable
+        // is the point.
+        NSApp.activate(ignoringOtherApps: true)
+        await settle(seconds: 0.5)
+
         model.fitWholeFile()
         let fitted = model.framesPerPixel
         paths.insert(await activate(.zoomIn, model: model))
-        let undeliverable =
-            model.framesPerPixel < fitted
-            ? nil
-            : (screenIsLocked()
-                ? "the login session's screen is locked (CGSSessionScreenIsLocked), so no "
-                    + "application can become active and a synthesised pointer event does not "
-                    + "reach a SwiftUI control — the same limitation the selection drag records"
-                : nil)
-        log.check("pressing Zoom In zooms in", model.framesPerPixel < fitted, unless: undeliverable)
+        let zoomedIn = model.framesPerPixel
+        results.append(("pressing Zoom In zooms in", zoomedIn < fitted))
 
         paths.insert(await activate(.zoomOut, model: model))
-        log.check(
-            "pressing Zoom Out zooms back out", model.framesPerPixel >= fitted * 0.999,
-            unless: undeliverable)
+        // A transition, not a destination. `>= fitted * 0.999` on its own is
+        // true when neither press landed and the view never left `fitted` —
+        // this check passed green through the whole run that prompted the fix,
+        // on a delivery path that did not work.
+        results.append(
+            (
+                "pressing Zoom Out zooms back out "
+                    + "(\(rounded(zoomedIn)) -> \(rounded(model.framesPerPixel)))",
+                model.framesPerPixel > zoomedIn && model.framesPerPixel >= fitted * 0.999
+            ))
 
         model.setSpeedPreset(1.0)
         paths.insert(await activate(.slower, model: model))
-        log.check(
-            "pressing − steps the speed exactly as Q does (\(model.speed.ratio))",
-            model.speed.ratio == 0.95, unless: undeliverable)
+        let slowed = model.speed.ratio
+        results.append(("pressing − steps the speed exactly as Q does (\(slowed))", slowed == 0.95))
         paths.insert(await activate(.faster, model: model))
-        log.check("pressing + steps it back", model.speed.ratio == 1.0, unless: undeliverable)
+        // Likewise: `== 1.0` alone is true when neither press landed.
+        results.append(
+            (
+                "pressing + steps it back (\(slowed) -> \(model.speed.ratio))",
+                model.speed.ratio > slowed && model.speed.ratio == 1.0
+            ))
 
         model.seek(to: model.totalFrames / 2)
         let middle = model.playhead
         let step = FrameIndex((model.prefs.nudgeAmounts[.normal] * model.sampleRate).rounded())
         paths.insert(await activate(.nudgeForward, model: model))
-        log.check(
-            "pressing nudge-forward moves one normal tier (\(model.playhead - middle))",
-            model.playhead - middle == step, unless: undeliverable)
+        let nudged = model.playhead
+        results.append(
+            (
+                "pressing nudge-forward moves one normal tier (\(nudged - middle))",
+                nudged - middle == step
+            ))
         paths.insert(await activate(.nudgeBackward, model: model))
-        log.check("pressing nudge-back returns", model.playhead == middle, unless: undeliverable)
+        results.append(
+            (
+                "pressing nudge-back returns (\(nudged) -> \(model.playhead))",
+                model.playhead < nudged && model.playhead == middle
+            ))
 
         model.selectAll()
         model.loopFromSelection()
         let looping = model.loop.isEnabled
         paths.insert(await activate(.loop, model: model))
-        log.check(
-            "pressing the loop button toggles looping", model.loop.isEnabled != looping,
-            unless: undeliverable)
-        log.check(
-            "and the button reads its new state", model.transportState.loopIsEnabled != looping,
-            unless: undeliverable)
+        results.append(
+            (
+                "pressing the loop button toggles looping (\(looping) -> \(model.loop.isEnabled))",
+                model.loop.isEnabled != looping
+            ))
+        results.append(
+            ("and the button reads its new state", model.transportState.loopIsEnabled != looping))
+
+        // The bar's other mode button, and the one a user found inert by hand
+        // when the `.preroll` case was missing from `performSpeedOrView`. Now
+        // that a press reaches the control, that defect is reachable from the
+        // harness rather than only from someone clicking it.
+        let prerollWas = model.prefs.prerollEnabled
+        paths.insert(await activate(.preroll, model: model))
+        results.append(
+            (
+                "pressing the preroll button toggles it "
+                    + "(\(prerollWas) -> \(model.prefs.prerollEnabled))",
+                model.prefs.prerollEnabled != prerollWas
+            ))
+        if model.prefs.prerollEnabled != prerollWas { model.togglePreroll() }
         model.clearLoop()
         model.clearSelection()
         model.setSpeedPreset(1.0)
         model.seek(to: 0)
+
+        let landed = paths.contains { $0 != "nothing landed" }
+        let undeliverable = landed ? nil : sessionCannotDeliverAPress()
         log.note("button press path", paths.sorted().joined(separator: ", "))
+        if let undeliverable {
+            log.note("transport button checks skipped", undeliverable)
+        }
+        for (name, passed) in results { log.check(name, passed, unless: undeliverable) }
+    }
+
+    /// Why a synthesised press cannot reach a SwiftUI control in this session,
+    /// or `nil` if it can and a press that did nothing is a real defect.
+    ///
+    /// Asked of the machine only. Both conditions are independent of whether any
+    /// button works, which is what keeps a broken button from excusing itself:
+    ///
+    /// * **The screen is locked.** No application can become active, so nothing
+    ///   can be key and AppKit builds no accessibility elements to press.
+    /// * **This app is not active.** How an agent reaches it — the run is
+    ///   launched from a background shell while someone is using the Mac, so
+    ///   Artscribe never comes to the front, `NSWindow.sendEvent` will not
+    ///   deliver a click to a window that is not key, and the accessibility
+    ///   tree stays unbuilt. Measured: `button press path: nothing landed`,
+    ///   `transport buttons in the accessibility tree: none exposed`.
+    ///
+    /// To make these checks run for real, launch the harness so that Artscribe
+    /// comes to the front and leave it frontmost for the transport group.
+    @MainActor
+    static func sessionCannotDeliverAPress() -> String? {
+        if screenIsLocked() {
+            return "the login session's screen is locked (CGSSessionScreenIsLocked), so no "
+                + "application can become active and a synthesised pointer event does not "
+                + "reach a SwiftUI control — the same limitation the selection drag records"
+        }
+        if !NSApp.isActive {
+            return "Artscribe is not the active application (NSApp.isActive == false — the run "
+                + "was launched from a background shell), so a synthesised pointer event does "
+                + "not reach a SwiftUI control and AppKit builds no accessibility elements to "
+                + "press instead"
+        }
+        return nil
     }
 
     /// Whether this login session's screen is locked, asked of CoreGraphics.
     ///
-    /// The independent fact behind every skip in this file. Deliberately not
-    /// inferred from "the press did nothing", which would turn any broken button
-    /// into a skip.
+    /// One of the two independent facts behind every skip in this file.
+    /// Deliberately not inferred from "the press did nothing", which would turn
+    /// any broken button into a skip.
     static func screenIsLocked() -> Bool {
         guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
         return session["CGSSessionScreenIsLocked"] as? Bool == true
@@ -161,12 +259,17 @@ extension AcceptanceRun {
             "first responder around a \(path) press",
             "\(before.map(String.init(describing:)) ?? "none") -> "
                 + "\(after.map(String.init(describing:)) ?? "none")")
-        // Not vacuous even when the press does not reach the control: the
-        // harness hit-tests the window at the button's own frame and calls
-        // `mouseDown`/`mouseUp` on the view it finds, which is the call AppKit
-        // makes and the point at which a focusable control would take
-        // first-responder status.
-        log.check("pressing a transport button does not move the first responder", before === after)
+        // "The focus did not move" is the one assertion here that a press which
+        // never arrived satisfies perfectly. It is still worth making when the
+        // harness reached a view — hit-testing the button's own frame and
+        // calling `mouseDown`/`mouseUp` is the call AppKit makes, and the point
+        // at which a focusable control would take first-responder status — but
+        // when nothing landed at all it is measuring nothing, so it says so
+        // rather than reading green.
+        let undeliverable = path == "nothing landed" ? sessionCannotDeliverAPress() : nil
+        log.check(
+            "pressing a transport button does not move the first responder", before === after,
+            unless: undeliverable)
         log.check(
             "the first responder is still the document's key view",
             String(describing: after ?? window).contains("KeyView")
@@ -247,151 +350,5 @@ extension AcceptanceRun {
         model.clearLoop()
         model.clearSelection()
         await settle(seconds: 0.2)
-    }
-
-    // MARK: - Pressing a button
-
-    /// Presses a transport button, by pointer if the pointer works and through
-    /// accessibility if it does not, and says which.
-    ///
-    /// The pointer path is tried first because it is the real thing. It does not
-    /// always reach a SwiftUI control here, for the reason `mouseDrag` already
-    /// records for `DragGesture`: `NSWindow.sendEvent` refuses to deliver a
-    /// click to a window that is not key, and no window can be key while the
-    /// login session's screen is locked, so the harness has to call the view's
-    /// `mouseDown`/`mouseUp` directly and SwiftUI does not always route those.
-    ///
-    /// The accessibility path is not a stand-in for a click: it is the same
-    /// entry point VoiceOver uses, in-process, needing no permissions, and it
-    /// runs the `Button`'s real action — including `restoreFocus`. What it does
-    /// not exercise is AppKit's first-responder handling, which is why the focus
-    /// check reads the first responder around the press rather than trusting it.
-    ///
-    /// - Returns: `"pointer"`, `"accessibility"`, or `"nothing landed"`.
-    @MainActor
-    static func activate(_ control: TransportControl, model: ViewerModel) async -> String {
-        let before = fingerprint(model)
-        await clickPointer(control, model: model)
-        if fingerprint(model) != before { return "pointer" }
-        pressViaAccessibility(control, model: model)
-        await settle(seconds: 0.25)
-        return fingerprint(model) != before ? "accessibility" : "nothing landed"
-    }
-
-    /// Everything a transport button can change, as one comparable value.
-    @MainActor
-    private static func fingerprint(_ model: ViewerModel) -> String {
-        "\(model.playhead)|\(model.speed.ratio)|\(model.speed.engine)|"
-            + "\(model.framesPerPixel)|\(model.loop)|\(model.isPlaying)"
-    }
-
-    @MainActor
-    private static func clickPointer(_ control: TransportControl, model: ViewerModel) async {
-        guard let window = NSApp.keyWindow ?? NSApp.windows.first,
-            let content = window.contentView,
-            let frame = model.transportFrames[control]
-        else { return }
-        // `transportFrames` is SwiftUI's global space: window content
-        // coordinates with a top-left origin. AppKit hit-testing is bottom-up.
-        let point = NSPoint(x: frame.midX, y: content.bounds.height - frame.midY)
-        guard let target = content.hitTest(point) else { return }
-        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            guard
-                let event = NSEvent.mouseEvent(
-                    with: type, location: point, modifierFlags: [],
-                    timestamp: ProcessInfo.processInfo.systemUptime,
-                    windowNumber: window.windowNumber, context: nil, eventNumber: 0,
-                    clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1)
-            else { return }
-            if type == .leftMouseDown {
-                target.mouseDown(with: event)
-            } else {
-                target.mouseUp(with: event)
-            }
-            await settle(seconds: 0.05)
-        }
-        await settle(seconds: 0.25)
-    }
-
-    /// Finds the button by its accessibility label — which is exactly
-    /// `TransportControl.title(in:)`, so the search is against the same string
-    /// the tooltip shows — and presses it.
-    @MainActor
-    @discardableResult
-    private static func pressViaAccessibility(
-        _ control: TransportControl, model: ViewerModel
-    ) -> Bool {
-        guard let window = NSApp.keyWindow ?? NSApp.windows.first,
-            let root = window.contentView
-        else { return false }
-        let wanted = control.title(in: model.transportState)
-        // Hit-test first. A SwiftUI hierarchy builds its accessibility elements
-        // lazily — with no assistive client attached, walking `accessibilityChildren`
-        // from the hosting view returns nothing at all (measured: "none exposed") —
-        // and a hit test is the request that makes AppKit produce them.
-        let hit = model.transportFrames[control].flatMap {
-            window.accessibilityHitTest(screenPoint(of: $0, in: root, window: window))
-                as? any NSAccessibilityProtocol
-        }
-        if let hit, hit.accessibilityRole() == .button {
-            return hit.accessibilityPerformPress()
-        }
-        guard let element = findButton(labelled: wanted, under: root, depth: 0) else {
-            return false
-        }
-        return element.accessibilityPerformPress()
-    }
-
-    /// The centre of a SwiftUI-global rect, in the screen coordinates AppKit's
-    /// accessibility hit test wants.
-    @MainActor
-    private static func screenPoint(
-        of frame: CGRect, in view: NSView, window: NSWindow
-    ) -> NSPoint {
-        let inView = NSPoint(
-            x: frame.midX, y: view.isFlipped ? frame.midY : view.bounds.height - frame.midY)
-        return window.convertPoint(toScreen: view.convert(inView, to: nil))
-    }
-
-    /// Every button the accessibility tree exposes, for the log — so a press
-    /// that finds nothing says whether the tree is empty or merely differently
-    /// labelled, rather than leaving that to guesswork.
-    @MainActor
-    private static func accessibilityButtons() -> String {
-        guard let root = (NSApp.keyWindow ?? NSApp.windows.first)?.contentView else { return "—" }
-        var found: [String] = []
-        collectButtons(under: root, depth: 0, into: &found)
-        return found.isEmpty ? "none exposed" : found.joined(separator: ", ")
-    }
-
-    @MainActor
-    private static func collectButtons(under element: Any, depth: Int, into found: inout [String]) {
-        guard depth < 40, found.count < 30, let node = element as? any NSAccessibilityProtocol
-        else { return }
-        if node.accessibilityRole() == .button {
-            found.append(node.accessibilityLabel() ?? node.accessibilityTitle() ?? "unlabelled")
-        }
-        for child in node.accessibilityChildren() ?? [] {
-            collectButtons(under: child, depth: depth + 1, into: &found)
-        }
-    }
-
-    /// Depth-first walk of the accessibility tree. Bounded, because a SwiftUI
-    /// hierarchy is deep and a cycle in an `NSAccessibility` implementation
-    /// would otherwise hang the run.
-    @MainActor
-    private static func findButton(
-        labelled label: String, under element: Any, depth: Int
-    ) -> (any NSAccessibilityProtocol)? {
-        guard depth < 40, let node = element as? any NSAccessibilityProtocol else { return nil }
-        let matches =
-            node.accessibilityLabel() == label || node.accessibilityTitle() == label
-        if node.accessibilityRole() == .button, matches { return node }
-        for child in node.accessibilityChildren() ?? [] {
-            if let found = findButton(labelled: label, under: child, depth: depth + 1) {
-                return found
-            }
-        }
-        return nil
     }
 }

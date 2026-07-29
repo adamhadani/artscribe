@@ -146,7 +146,15 @@ extension AcceptanceRun {
         guard let window = pointerWindow else { return false }
         for _ in 0..<30 {
             if NSApp.isActive, NSApp.keyWindow === window { return true }
-            NSApp.activate()
+            // `ignoringOtherApps`, not a plain `activate()`. The plain form
+            // silently does nothing when the caller is not already the active
+            // app, which is how every agent-driven run reaches here — so this
+            // loop spun thirty times and gave up, and seventeen pointer, cursor
+            // and edge-drag checks skipped themselves on every run for want of
+            // one argument. The same lesson had already been learned and written
+            // down for `AuxiliaryWindow.show()`; it had just never been applied
+            // on this path.
+            NSApp.activate(ignoringOtherApps: true)
             NSRunningApplication.current.activate(options: [.activateAllWindows])
             window.makeKeyAndOrderFront(nil)
             await settle(seconds: 0.15)

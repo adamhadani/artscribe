@@ -93,18 +93,25 @@ extension AcceptanceRun {
         let playback = NSApp.mainMenu?.items.first { $0.title == "Playback" }?.submenu
 
         /// One chord, twenty times, as a held key repeat would deliver it.
-        func sweep(_ key: Key) -> Sweep {
+        ///
+        /// `key` is optional so the same sampler can take the **resting**
+        /// reading, with no key offered at all. Without that control the counts
+        /// below are absolute numbers with nothing to be absolute against.
+        func sweep(_ key: Key?) -> Sweep {
             counter.count = 0
             var result = Sweep()
             for _ in 0..<20 {
-                if offerToMenuBar(key) { result.claimed += 1 }
-                if NSApp.mainMenu?.highlightedItem != nil { result.highlighted += 1 }
-                if playback?.highlightedItem != nil { result.highlighted += 1 }
+                if let key, offerToMenuBar(key) { result.claimed += 1 }
+                if NSApp.mainMenu?.highlightedItem != nil { result.mainHighlighted += 1 }
+                if playback?.highlightedItem != nil { result.submenuHighlighted += 1 }
             }
             result.tracking = counter.count
             return result
         }
 
+        // The control, taken first and with no key pressed: whatever the menus
+        // are already doing while the app merely sits there.
+        let resting = sweep(nil)
         model.setSpeedPreset(1.0)
         let plain = sweep(.w)
         model.setSpeedPreset(1.0)
@@ -113,13 +120,33 @@ extension AcceptanceRun {
         let commanded = sweep(.zero)
         model.setSpeedPreset(1.0)
 
+        log.note("resting, no key pressed", resting.description)
         log.note("20× plain W", plain.description)
         log.note("20× ⇧W (a menu key equivalent since Task 11)", shifted.description)
         log.note("20× ⌘0 (an ordinary ⌘ item)", commanded.description)
-        // Stated so that it FAILS if the strobe claim is true.
+        // Stated so that it FAILS if the strobe claim is true. **Opening** a menu
+        // is the strobe — a title lighting up and a panel dropping — and
+        // `didBeginTracking` is the signal for it. Measured against the resting
+        // baseline so the number has something to be a number against.
         log.check(
-            "a held plain-letter sweep opens no menu and highlights nothing (\(plain))",
-            plain.tracking == 0 && plain.highlighted == 0)
+            "a held plain-letter sweep opens no menu (resting \(resting.tracking), "
+                + "sweep \(plain.tracking))",
+            plain.tracking == resting.tracking)
+        // Highlighting is compared against **⌘0**, not against zero, and this is
+        // the correction a properly-frontmost run forced. Once the app is
+        // actually active, performing *any* key equivalent leaves
+        // `highlightedItem` set on the menu that owns it for as long as the
+        // perform takes: resting reads 0/20 and every chord reads 20/20 —
+        // ⌘0, an unremarkable ⌘ item, exactly as much as a plain letter. So a
+        // non-zero highlight count is AppKit performing a key equivalent, not a
+        // plain letter misbehaving. What is worth asserting is that a plain
+        // letter costs no *more* than an ordinary chord, and that still fails if
+        // plain letters ever become special.
+        log.check(
+            "and highlights no more than an ordinary ⌘ chord does "
+                + "(plain \(plain.highlighted), ⌘0 \(commanded.highlighted), "
+                + "resting \(resting.highlighted))",
+            plain.highlighted <= commanded.highlighted)
         // And the control: whatever the menu bar does on a plain letter, it does
         // on a chord the app has shipped as a key equivalent for four tasks. If
         // these differ, plain letters really are special and the old comment was
@@ -132,14 +159,25 @@ extension AcceptanceRun {
     }
 
     /// What one 20-press sweep did to the menus.
+    ///
+    /// The two menus are counted **separately** because they answer different
+    /// questions — a highlighted main-menu item is a menu-bar title flashing,
+    /// which is the strobe; a highlighted submenu item is the row inside an open
+    /// Playback menu. Summing them cost a run: a constant 20/40 was read as "the
+    /// strobe is happening" when it was one menu holding a highlight at rest and
+    /// the other holding none.
     struct Sweep: CustomStringConvertible {
         var claimed = 0
         var tracking = 0
-        var highlighted = 0
+        var mainHighlighted = 0
+        var submenuHighlighted = 0
+
+        var highlighted: Int { mainHighlighted + submenuHighlighted }
 
         var description: String {
             "claimed \(claimed)/20, menu-tracking events \(tracking), "
-                + "highlighted samples \(highlighted)/40"
+                + "main-menu highlighted \(mainHighlighted)/20, "
+                + "submenu highlighted \(submenuHighlighted)/20"
         }
     }
 
