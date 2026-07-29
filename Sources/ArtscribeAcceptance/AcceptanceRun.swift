@@ -63,7 +63,13 @@ enum AcceptanceRun {
         let run = Inputs(
             audio: URL(fileURLWithPath: audioPath),
             badFile: value(after: "--bad-file", in: args).map { URL(fileURLWithPath: $0) },
-            outputDirectory: value(after: "--out", in: args) ?? ".")
+            // **Not the working directory.** A run drops around thirty
+            // screenshots, and defaulting to `.` put every one of them loose in
+            // the repository root, untracked and unignored — one `git add -A`
+            // away from being committed, which is the accident CLAUDE.md's
+            // "never `git add -A`" rule was written after. `.artscribe-out` is
+            // gitignored, so the default is safe and `--out` still overrides it.
+            outputDirectory: value(after: "--out", in: args) ?? ".artscribe-out")
 
         var log = Logger(plan: plan)
         await prelude(model: model, run: run, log: &log)

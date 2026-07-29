@@ -284,24 +284,6 @@ extension AcceptanceRun {
         }
     }
 
-    @MainActor
-    static func snapshot(to path: String) {
-        snapshot(NSApp.windows.first, to: path)
-    }
-
-    /// Captures one named window rather than the viewer. `cacheDisplay` draws
-    /// the view itself, so this works with the login session's screen locked —
-    /// a screen grab would not.
-    @MainActor
-    static func snapshot(_ window: NSWindow?, to path: String) {
-        guard let window, let view = window.contentView,
-            let representation = view.bitmapImageRepForCachingDisplay(in: view.bounds)
-        else { return }
-        view.cacheDisplay(in: view.bounds, to: representation)
-        guard let data = representation.representation(using: .png, properties: [:]) else { return }
-        try? data.write(to: URL(fileURLWithPath: path))
-    }
-
     /// Counts pixels close to `colour` inside `rect`, given in window content
     /// coordinates with a top-left origin — the same space `ViewerModel`
     /// reports its lane frames in.
