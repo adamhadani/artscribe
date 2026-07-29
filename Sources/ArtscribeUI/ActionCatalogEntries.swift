@@ -13,21 +13,25 @@ extension ActionCatalog {
     // MARK: - Playback ▸ transport
 
     static let transportEntries: [ActionEntry] = [
-        // ⇧Space, not Space: the bare Space is play-from-start, the key a
-        // transcriber presses hundreds of times an hour, and pause is the
-        // variant of it. Swapped from the other way round on the user's
-        // instruction — it is what Pro Tools does. **Space no longer toggles:**
-        // pressing it while playing restarts from the aim point rather than
-        // pausing, and pausing is ⇧Space alone.
+        // The bare `Space` toggles play/pause, and `⇧Space` is the variant of it
+        // that starts from the top. Task 28 swapped the two; the user drove the
+        // swapped build and asked for this back, so a `Space` pressed while
+        // playing pauses again rather than restarting. Since Task 29 a resume
+        // also rolls back by the configurable **preroll** (`Preroll`), which is
+        // what makes a pause-and-listen-again land you slightly before the note
+        // you stopped on.
         ActionEntry(
             .transportPlayPause, "Play", .transport,
-            chords: [KeyChord(.space, .shift)], menu: .playback, enablement: .track),
-        // No shortcut, and never had one: ⇧Space is play/pause, and a separate
+            chords: [KeyChord(.space)], menu: .playback, enablement: .track),
+        // No shortcut, and never had one: Space is play/pause, and a separate
         // Stop key would be a third way to say the same thing.
         ActionEntry(.transportStop, "Stop", .transport, menu: .playback, enablement: .trackPlaying),
+        // ⇧Space, not Return: it keeps the whole transport under the left hand,
+        // next to the Space it is a variant of. No preroll — it already has an
+        // explicit target (`PlaybackStart`).
         ActionEntry(
             .transportReturnToStart, "Play from Start", .transport,
-            chords: [KeyChord(.space)], menu: .playback, enablement: .track)
+            chords: [KeyChord(.space, .shift)], menu: .playback, enablement: .track)
     ]
 
     // MARK: - Playback ▸ navigation (spec §6.2's three nudge tiers)

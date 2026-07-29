@@ -92,6 +92,10 @@ public final class ViewerModel {
     /// Same arrangement as `nudgeAmounts`: the applied value lives here and
     /// `InteractionSettings` is only its backing tape.
     public internal(set) var selectionMoveAmounts = SelectionMoveAmounts.defaults
+    /// How far a `Space` resume rolls back (spec §6.2's `transport.preroll`).
+    /// Same arrangement again: `PrerollSettings` is only its backing tape and
+    /// `attach(preroll:)` replaces this at launch. `0` means off.
+    public internal(set) var prerollSeconds = Preroll.defaultSeconds
     /// Whether a vertical drag *up* zooms in. `false` — the shipped default —
     /// means down zooms in, which is the direction the user asked for after
     /// driving Task 16's. Governs both vertical drags and the wheel zoom, so
@@ -199,6 +203,8 @@ public final class ViewerModel {
     /// if the app shell attached a store. Absent in unit tests, which is what
     /// keeps them off `UserDefaults`.
     @ObservationIgnored var interactionStore: InteractionSettings?
+    /// Where the preroll is persisted, on the same terms.
+    @ObservationIgnored var prerollStore: PrerollSettings?
     /// Where the practice ramp's schedule is persisted, on the same terms as the
     /// two above.
     @ObservationIgnored var practiceStore: PracticeSettings?
@@ -221,16 +227,10 @@ public final class ViewerModel {
     /// change has to invalidate the cache and re-render, and the cache key is
     /// here. The view layer pushes this in from the environment's colour scheme
     /// (`DocumentView`), which is also what makes `system` follow macOS.
-    public private(set) var appearance: Appearance = .dark
-
-    /// Switching theme touches nothing but the pixels: position, selection,
-    /// loop, zoom and the audio graph are all untouched, so playback carries on
-    /// across it.
-    public func setAppearance(_ appearance: Appearance) {
-        guard appearance != self.appearance else { return }
-        self.appearance = appearance
-        refresh()
-    }
+    /// `internal(set)` for the reason the rest of this class's state is: its
+    /// one writer, `setAppearance`, lives in `ViewerModel+Rendering` beside
+    /// the cache it invalidates. Nothing outside the module can write it.
+    public internal(set) var appearance: Appearance = .dark
 
     public var sampleRate: Double { audio?.sampleRate ?? 0 }
     public var channels: Int { audio?.channels ?? 0 }

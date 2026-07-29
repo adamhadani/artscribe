@@ -33,8 +33,8 @@ public struct SettingsView: View {
     }
 }
 
-/// The three nudge amounts, the two selection-move amounts, and the zoom
-/// direction.
+/// The preroll, the three nudge amounts, the two selection-move amounts, and
+/// the zoom direction.
 ///
 /// Only the *amounts* are editable here. The bindings are fixed until the real
 /// `BindingTable` lands (spec §6.3), so each row names its keys rather than
@@ -44,6 +44,7 @@ struct NudgeSettingsTab: View {
 
     var body: some View {
         Form {
+            prerollSection
             nudgeSection
             selectionSection
             zoomSection
@@ -57,11 +58,56 @@ struct NudgeSettingsTab: View {
             }
         }
         .formStyle(.grouped)
-        // Three sections and a button. Without a floor the pane opens at the
+        // Four sections and a button. Without a floor the pane opens at the
         // height of whichever tab was shown first and scrolls the rest, which
         // hides the zoom switch — the one control here nobody would think to
         // scroll for.
-        .frame(minHeight: 645)
+        .frame(minHeight: 780)
+    }
+
+    /// How far `Space` rolls back when it resumes.
+    ///
+    /// First, above the nudge amounts, because it is the one amount here that
+    /// governs a key the user presses constantly without thinking about it.
+    /// Seconds with three decimals, the same field shape as the move amounts —
+    /// but its own footer, because its range is the one that differs: zero is
+    /// allowed here and turns the feature off.
+    @ViewBuilder
+    private var prerollSection: some View {
+        Section {
+            LabeledContent {
+                prerollField
+            } label: {
+                rowLabel("Preroll", keys: "Space")
+            }
+        } header: {
+            Text("Resuming")
+        } footer: {
+            Text(
+                "Space resumes this far before where playback stopped, so you hear the note "
+                    + "you stopped on in context. 0 turns it off. It never crosses the start "
+                    + "of the file, or the in point of a loop you are inside."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private var prerollField: some View {
+        HStack(spacing: 6) {
+            TextField(
+                "Preroll",
+                value: Binding(
+                    get: { model.prerollSeconds },
+                    set: { model.setPrerollSeconds($0) }),
+                format: .number.precision(.fractionLength(0...3))
+            )
+            .labelsHidden()
+            .multilineTextAlignment(.trailing)
+            .frame(width: 70)
+            Text("s")
+                .foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder

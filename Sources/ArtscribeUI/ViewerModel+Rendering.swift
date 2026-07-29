@@ -12,6 +12,18 @@ import Waveform
 /// `WaveformRenderer.Key` first so an unchanged view costs nothing.
 extension ViewerModel {
 
+    /// Switching theme touches nothing but the pixels: position, selection,
+    /// loop, zoom and the audio graph are all untouched, so playback carries on
+    /// across it.
+    ///
+    /// Here rather than beside its stored `appearance` because what it does is
+    /// invalidate the bitmap cache, which is this file's whole subject.
+    public func setAppearance(_ appearance: Appearance) {
+        guard appearance != self.appearance else { return }
+        self.appearance = appearance
+        refresh()
+    }
+
     func refresh() {
         guard let pyramid, let audio else {
             waveformImage = nil

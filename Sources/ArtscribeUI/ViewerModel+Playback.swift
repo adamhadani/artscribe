@@ -206,11 +206,8 @@ extension ViewerModel {
     }
 
     // MARK: - Transport
-
-    public func togglePlayPause() {
-        guard hasTrack else { return }
-        if transport.isPlaying { pause() } else { play() }
-    }
+    //
+    // `togglePlayPause` — what `Space` does — is in `ViewerModel+Preroll`.
 
     public func play() {
         guard hasTrack else { return }
@@ -244,17 +241,21 @@ extension ViewerModel {
         transport.request(false, now: ProcessInfo.processInfo.systemUptime)
     }
 
-    /// `Space` (`Return` until Task 18, `⇧Space` until the P0 swap). To the
-    /// selection start, else the loop's in point, else the file start — and plays
-    /// from there. The transcriber's most-used key, because it is how you hear
-    /// the same phrase again, which is why the swap put it on the bare Space.
+    /// `⇧Space` (`Return` until Task 18; the bare `Space` for the length of Task
+    /// 28's swap, reverted in Task 29). To the selection start, else the loop's
+    /// in point, else the file start — and plays from there. The transcriber's
+    /// second-most-used key, because it is how you hear the same phrase again.
+    ///
+    /// **No preroll**: that applies to resuming from a position the user did
+    /// not choose, and this one they did — by selecting, or by setting a loop.
+    /// Rolling back before it would leave the passage the key names.
     public func playFromStart() {
         guard hasTrack else { return }
         returnToStart()
         play()
     }
 
-    /// The seek half of `Space`, without playing, and bound on its own as well —
+    /// The seek half of `⇧Space`, without playing, and bound on its own as well —
     /// which is why the precedence lives here rather than in `playFromStart`. The
     /// name predates the rebind.
     ///

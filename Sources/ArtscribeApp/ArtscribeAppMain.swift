@@ -87,6 +87,9 @@ struct ArtscribeAppMain: App {
     /// The zoom direction and the selection-move amounts, persisted the same
     /// way and for the same reason (see `InteractionSettings`).
     @State private var interaction = InteractionSettings()
+    /// How far a `Space` resume rolls back, persisted the same way again — its
+    /// own store because its floor differs (see `PrerollSettings`).
+    @State private var preroll = PrerollSettings()
     /// Reads and writes the `.artscribe` sidecar (spec §7). Application state
     /// like the rest of these: it outlives every loaded track, and it holds
     /// nothing but where the read-only-volume fallback lives.
@@ -184,6 +187,7 @@ struct ArtscribeAppMain: App {
         model.attach(recents: recents)
         model.attach(nudge: nudge)
         model.attach(interaction: interaction)
+        model.attach(preroll: preroll)
         model.attach(sessions: sessions)
         model.attach(practice: practiceSettings)
         // Hands the delegate somewhere to send a file, and replays one that

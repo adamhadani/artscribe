@@ -1,13 +1,13 @@
 import ArtscribeKit
 
-/// Where `Space` aims — one rule, decided here rather than left to the engine.
+/// Where `⇧Space` aims — one rule, decided here rather than left to the engine.
 ///
 /// **The bug this exists to kill.** `returnToStart` used to be
 /// `seek(to: selection.isEmpty ? 0 : selection.range.start)`, which never
 /// mentions the loop. That was not the whole story the user saw, because
 /// `PlaybackEngine` pulls playback into an active loop: a cursor placed before
 /// the in point plays forward until the out point and is captured there (spec
-/// §5.1, deliberate since Task 8). So with a loop running, play-from-start aimed at
+/// §5.1, deliberate since Task 8). So with a loop running, `⇧Space` aimed at
 /// frame 0, the engine dragged the cursor into the region a moment later, and the
 /// app read as if it were following two competing rules — worse than a plain bug,
 /// because it looked arbitrary.
@@ -44,7 +44,7 @@ import ArtscribeKit
 /// seek.
 public enum PlaybackStart {
 
-    /// - Returns: the frame `Space` should seek to. Unclamped; `ViewerModel.seek`
+    /// - Returns: the frame `⇧Space` should seek to. Unclamped; `ViewerModel.seek`
     ///   clamps to the file, and every input here is already a frame within it.
     public static func target(selection: Selection, loop: LoopRegion) -> FrameIndex {
         guard selection.isEmpty else { return selection.range.start }

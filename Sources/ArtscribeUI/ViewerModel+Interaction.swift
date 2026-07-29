@@ -266,7 +266,7 @@ extension ViewerModel {
     /// actually wants from pointing at a spot twice.
     ///
     /// It plays from the click point and from nowhere else. In particular it is
-    /// **not** routed through `PlaybackStart`, which is what `Space` uses: that
+    /// **not** routed through `PlaybackStart`, which is what `⇧Space` uses: that
     /// rule picks a start when the user has not named one, and a double-click
     /// names one. Aiming it at a selection or a loop's in point would make the
     /// pointer land somewhere the finger did not.

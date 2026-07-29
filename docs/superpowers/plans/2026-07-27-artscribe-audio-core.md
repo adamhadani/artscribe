@@ -3267,9 +3267,9 @@ one coherent identity:
 
 #### E — `Play from selection start` moves to `⇧Space`
 
-> **Superseded by Task 28.** `Space` and `⇧Space` were swapped after release: play-from-start
-> is now the bare `Space`. The rest of this section — the rebind itself, and above all the
-> "update every reference" checklist — still stands, and Task 28 reused it.
+> **Swapped by Task 28 and swapped back by Task 29.** Play-from-start is `⇧Space` again, as
+> this section says. The rest of it — the rebind itself, and above all the "update every
+> reference" checklist — still stands; both later tasks reused it.
 
 - [ ] Rebind from `Return` to `⇧Space`, so the whole transport is left-hand driveable.
 - [ ] **Update every reference**: the menu, the transport bar tooltip, `README.md`, the
@@ -3419,8 +3419,8 @@ that makes the app feel arbitrary.
 
 #### A — `Play from start` (`⇧Space`) must follow one precedence rule
 
-> **The key changed in Task 28** — play-from-start is `Space` now. The precedence rule
-> itself is unchanged, and is still the one rule `PlaybackStart` decides.
+> **The key moved in Task 28 and moved back in Task 29** — play-from-start is `⇧Space`. The
+> precedence rule itself never changed, and is still the one rule `PlaybackStart` decides.
 
 Observed: with no selection it plays from the **track** start even when a loop is set; with a
 selection it plays from the selection start *or* the loop start depending on circumstances.
@@ -3744,25 +3744,58 @@ Practice hub's checks their own group too if they do not have one.
 
 ### Task 28 (P0): Swap `Space` and `⇧Space`
 
-**Done.** The user asked for a straight swap, and got one:
-
-- `Space` → `transport.returnToStart` (play from start, with the unchanged
-  selection → active loop → track precedence)
-- `⇧Space` → `transport.playPause`
-
-**The consequence, accepted deliberately.** `Space` used to toggle. It does not any more:
-pressed while playing it is still a play-from-start, so it restarts from the aim point
-rather than pausing. Pausing is `⇧Space` alone. That is what Pro Tools does and it is what
-the user asked for; the acceptance run checks it explicitly rather than leaving it to be
-discovered.
+**Done, and reverted by Task 29.** The user asked for a straight swap and got one — `Space`
+became play-from-start and `⇧Space` play/pause — then drove the result and asked for the
+original pair back. The swap is history; what it left behind is the checklist below.
 
 **What the `ActionCatalog` bought.** The binding itself is two lines in
 `ActionCatalogEntries.swift`, and editing them moved the menu key equivalents, the window's
 key dispatch and the shortcut window's keyboard together, with no other code change. What it
 does **not** reach is anything holding a *string*: the transport bar's `Face.shortcut`
 literals, the README, this plan, the spec, and every acceptance check that presses a key or
-names one in its own title. See the checklist in the swap's report for the full list — it is
-the thing to follow the next time a shortcut moves.
+names one in its own title — twenty-one files by hand, both times. A check name that spells
+the wrong key is a lie even when it passes.
+
+### Task 29 (P0): Revert the swap, and add a preroll
+
+**Done.** Two halves.
+
+**A — the revert.** `Space` toggles play/pause again; `⇧Space` is play-from-start, with the
+selection → active loop → track precedence untouched. Three things Task 28 got right were
+kept rather than reverted with it: `AcceptancePlaybackTransport.swift` stays a file of its
+own, `TransportControlTests` still compares the transport bar's shortcut *strings* against
+`ActionCatalog` instead of against a second literal (a literal-versus-literal assertion
+passed unchanged through two rebinds), and `checkKeyboardAfterButton` still stops the
+transport explicitly instead of asserting that `isPlaying` flipped.
+
+**B — the preroll.** `Space` resumes from `playhead − preroll`, default 2 s, editable in
+Settings ▸ Playback. The decisions, all of them deliberate:
+
+- **`0` is allowed and means off.** The one place this app's amounts disagree about their
+  floor. A nudge of 0 is a key that silently does nothing, which spec §8 forbids; a preroll
+  of 0 is a coherent request, and is how the app behaved before the feature. That is why
+  `Preroll` is its own type and `PrerollSettings` its own store rather than a fourth field
+  on `NudgeAmounts` — one type holding two floors is how a zero eventually gets installed
+  where it must not be.
+- **Inside an active loop it floors at the in point.** Task 24 established that the engine
+  honours an explicit seek and that a loop captures on *arrival*: a preroll landing before
+  the in point would play the lead-in exactly once, then be caught at the out point and
+  never play it again. A lead-in you get on the first repetition only is the "two competing
+  rules" complaint Task 22 existed to kill. Outside the loop the playhead is not being
+  governed by it, so it contributes no floor.
+- **`⇧Space` never prerolls.** It already has an explicit target, and rolling back before a
+  selection start would leave the passage the key names.
+- **It compounds.** Pause-resume twice rolls back twice. Each press is a fresh resume from
+  wherever the playhead is, and the alternative is invisible state the user cannot see or
+  clear; it is bounded by the file start and by the loop floor, and walking backwards a
+  couple of seconds at a time is how you find the start of a phrase.
+- **At the end of the file the rewind wins.** `TransportLatch.rewindTarget` already turns a
+  play-at-EOF into "play it again"; a preroll that stepped back first would cancel that and
+  play the last two seconds instead. That check is the one part of the rule that is not
+  arithmetic, so it lives on the model (`ViewerModel.prerollTarget`) rather than in
+  `Preroll`.
+- **No new `ActionID`.** The preroll is a property of `transport.playPause`, not an action —
+  it has no key and nothing to invoke. It is in spec §6.2 as a preference row.
 
 ---
 

@@ -233,16 +233,25 @@ away from being back inside it.
 
 ### 6.2 Action catalog (MVP)
 
-**`Space` and `⇧Space` were swapped after first release** on the user's instruction. The
-bare `Space` is now play-from-start, which is the key a transcriber presses hundreds of
-times an hour, and `⇧Space` is play/pause. The consequence is deliberate and is what Pro
-Tools does: `Space` no longer toggles, so pressing it while playing restarts from the aim
-point instead of pausing. Pausing is `⇧Space` and nothing else.
+**`Space` and `⇧Space` were swapped after first release and swapped back.** Task 28 made
+the bare `Space` play-from-start; the user drove that build and asked for the original pair
+returned, so `Space` toggles play/pause again and `⇧Space` is the variant of it that starts
+from the top. The precedence rule behind play-from-start never changed.
+
+**Preroll.** Resuming with `Space` starts from `position − preroll` rather than from exactly
+where playback stopped: you stop on a note, and hearing it in context means starting
+slightly before it. Default **2 s**, configurable in Settings ▸ Playback in seconds with
+fractions, and **0 is an allowed value meaning off** — unlike the nudge amounts, where 0
+would be a key that silently does nothing, 0 preroll is a coherent choice and is the
+behaviour the app had before the feature. It clamps at the file start, and at an **active**
+loop's in point whenever the playhead is inside that loop, so a resume never leaves the
+passage the user set. It compounds: pause-resume twice rolls back twice, because each press
+is a fresh resume from wherever the playhead now is.
 
 | ActionID | Default binding | Action |
 |---|---|---|
-| `transport.playPause` | `⇧Space` | Play / pause from the current position |
-| `transport.returnToStart` | `Space` | To the selection start; else an **active** loop's in point; else 0 — and play from there. **Not a toggle**: pressed while playing it restarts rather than pausing |
+| `transport.playPause` | `Space` | Play / pause. A resume rolls back by the preroll (above) |
+| `transport.returnToStart` | `⇧Space` | To the selection start; else an **active** loop's in point; else 0 — and play from there. **No preroll**: the target is explicit |
 | `transport.nudge.back` / `.forward` | `Z` / `X`, `←` / `→` | Nudge **2 s** (configurable) |
 | `transport.nudge.back.fine` / `.forward.fine` | `⇧Z` / `⇧X` | Nudge 50 ms (configurable) |
 | `transport.nudge.back.coarse` / `.forward.coarse` | `⌥Z` / `⌥X`, `⌥←` / `⌥→` | Rewind/skip **10 s** (configurable) |
@@ -270,7 +279,7 @@ point instead of pausing. Pausing is `⇧Space` and nothing else.
 | `selection.selectAll` | `⌘A` | Select all |
 | `selection.clear` | `Esc` | Clear selection |
 | `file.open` | `⌘O` | Open… |
-| `transport.stop` | — | Playback ▸ Stop. Menu only: `⇧Space` already pauses, and a third way to say it would be a key spent on nothing |
+| `transport.stop` | — | Playback ▸ Stop. Menu only: `Space` already pauses, and a third way to say it would be a key spent on nothing |
 | `loop.clear` | — | Loop ▸ Clear Loop. Menu only |
 | `view.scrollLeft` / `.scrollRight` | — | View ▸ Scroll. Menu only: `Z`/`X` are the nudge keys and a nudge brings the view with it, so moving the view alone is left to these, the trackpad and the overview strip |
 | `file.save` / `file.saveAs` | `⌘S` / `⇧⌘S` | Write the sidecar; write it somewhere else (§7.1) |
@@ -279,6 +288,7 @@ point instead of pausing. Pausing is `⇧Space` and nothing else.
 | `volume.up.fine` / `.down.fine` | `⇧↑` / `⇧↓` | Volume ∓1% |
 | `volume.mute` | `M` | Mute, restoring the prior level |
 | `file.openRecent` | — | File ▸ Open Recent, 8 entries, de-duplicated by resolved path |
+| `transport.preroll` | — | How far a `Space` resume rolls back; **in Settings ▸ Playback**, seconds with fractions, default **2 s**, `0` allowed and means off. No key of its own: it is a property of `transport.playPause`, not an action |
 | `view.zoomDragDirection` | — | Invert zoom direction; **in Settings ▸ Playback**, and it governs the ruler drag, the ⌥-drag and the wheel alike |
 | `view.theme` | — | Light / Dark / System; **in Settings ▸ Appearance**, consolidated there from the View menu |
 | `practice.show` | `⌘P` | Open the **Practice** window — the ramping loop (Task 21). A separate, resizable window whose frame is remembered, closable on its own, for a sharper version of `help.shortcuts`'s reason: it is watched *alongside* the waveform, so it must cost the waveform no width. `⌘P` is free — this app has no Print command |

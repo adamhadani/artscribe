@@ -324,8 +324,7 @@ extension AcceptanceRun {
         theme.preference = wasTheme
         await settle(seconds: 0.5)
 
-        // ⇧Space is pause since the P0 swap.
-        press(.shiftSpace)
+        press(.space)
         await settle(seconds: 0.2)
     }
 

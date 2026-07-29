@@ -172,10 +172,11 @@ extension AcceptanceRun {
             String(describing: after ?? window).contains("KeyView")
                 || String(describing: after ?? window).contains("Hosting"))
 
-        // Stopped explicitly, because since the P0 swap Space is
-        // play-from-start rather than a toggle: pressed while already playing it
-        // restarts and `isPlaying` does not change, which would read as the
-        // keyboard never having arrived.
+        // Stopped explicitly rather than sampling `isPlaying` and asserting it
+        // flipped. Task 28 made Space a play-from-start for one release, under
+        // which a press while already playing leaves `isPlaying` alone and the
+        // old form read as the keyboard never having arrived; the deterministic
+        // "stopped, pressed, now playing" survives that and says more.
         model.pause()
         await settle(seconds: 0.2)
         let zoom = model.framesPerPixel
@@ -201,7 +202,7 @@ extension AcceptanceRun {
                 : "there is no audio output session in this run, so play() reports the fact "
                     + "instead of latching and the transport cannot change either way")
         log.check("Space did not re-press the last-pressed button", model.framesPerPixel == zoom)
-        if model.isPlaying { press(.shiftSpace) }
+        if model.isPlaying { press(.space) }
         await settle(seconds: 0.2)
         model.fitWholeFile()
     }

@@ -117,10 +117,10 @@ struct ActionCatalogTests {
     @Test("the spec's headline bindings are what the catalog says")
     func theSpecsBindingsAreHonoured() {
         let expected: [ActionID: String] = [
-            // Swapped from §6.2's original pair on the user's instruction: the
-            // bare Space is play-from-start, ⇧Space is play/pause.
-            .transportPlayPause: "⇧Space",
-            .transportReturnToStart: "Space",
+            // Task 28 swapped these two; the user drove the swapped build and
+            // asked for §6.2's original pair back, so Space is play/pause again.
+            .transportPlayPause: "Space",
+            .transportReturnToStart: "⇧Space",
             .loopSetIn: "A", .loopSetOut: "S", .loopToggle: "D", .loopRestart: "F",
             .loopFromSelection: "G",
             .nudgeBack: "Z", .nudgeForward: "X",

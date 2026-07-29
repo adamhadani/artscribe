@@ -134,14 +134,23 @@ Release, not debug — a debug build decodes roughly four times slower.
 
 | Key | Action |
 |---|---|
-| `Space` | Play from start — of the selection, else of an active loop, else of the file. Pressed while playing it restarts rather than pausing |
-| `⇧Space` | Play / pause from the current position |
+| `Space` | Play / pause. Resuming rolls back by the **preroll** — 2 s by default, configurable in Settings ▸ Playback — so you hear the note you stopped on in context |
+| `⇧Space` | Play from start — of the selection, else of an active loop, else of the file. No preroll: it already has an explicit target |
 | `Q` / `W` | Slower / faster (5%) |
 | `⇧Q` / `⇧W` | Slower / faster (1%) |
 | `1` `2` `3` `4` | 100% / 75% / 50% / 33% |
 | `⌥E` | Toggle Studio / Fast engine |
 | `↑` / `↓` | Volume up / down — `⇧↑` / `⇧↓` in finer steps |
 | `M` | Mute |
+
+**Preroll.** You stop on a note; to hear it in context you have to start slightly before it.
+`Space` therefore resumes from `position − preroll` rather than from exactly where it
+stopped. Two seconds by default, editable in **Settings ▸ Playback** in seconds with
+fractions, and **0 turns it off** — that is an allowed value, not a rejected one. It clamps
+at the start of the file, and when a loop is active and the playhead is inside it, at the
+loop's in point, so a resume never steps outside the passage you set. Pausing and resuming
+twice rolls back twice: each press is a fresh resume, which is how you inch back through a
+phrase. `⇧Space` never prerolls.
 
 ### Selection, looping and view
 
@@ -167,7 +176,7 @@ Release, not debug — a debug build decodes roughly four times slower.
 | `⌘P` | Open the Practice window — the ramping loop |
 | `⌥P` | Start / stop the speed ramp |
 | `⌘/` | Open the keyboard shortcut window |
-| `⌘,` | Settings — nudge and move amounts, zoom direction, theme |
+| `⌘,` | Settings — preroll, nudge and move amounts, zoom direction, theme |
 
 Drag in the lanes to select, shift-drag to extend, click to place the playhead, double-click
 to place it and play from there (`⌘A` is still Select All). Pinch to zoom, two-finger scroll

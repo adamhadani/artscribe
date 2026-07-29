@@ -34,6 +34,10 @@ struct AcceptanceMain: App {
     /// zoom direction and edits the move amounts to check that each applies
     /// live, and must not leave the user's real preferences altered.
     @State private var interaction = InteractionSettings(defaults: Self.defaults)
+    /// Also on the acceptance suite, for the same reason: the run measures the
+    /// preroll against the configured amount and must not leave the user's real
+    /// one altered.
+    @State private var preroll = PrerollSettings(defaults: Self.defaults)
     /// On its own fallback directory, for the same reason the four above are on
     /// their own defaults suite: the run deliberately makes a track's folder
     /// read-only to check the spec §7 fallback, and must not leave sessions in
@@ -119,6 +123,7 @@ struct AcceptanceMain: App {
         model.attach(recents: recents)
         model.attach(nudge: nudge)
         model.attach(interaction: interaction)
+        model.attach(preroll: preroll)
         model.attach(sessions: sessions)
         model.attach(practice: practiceSettings)
         NSApplication.shared.activate()

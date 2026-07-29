@@ -156,9 +156,10 @@ extension AcceptanceRun {
         // Changing speed while playing must not lose position. Measured across
         // the change, at the position the listener is at.
         model.seek(to: FrameIndex(model.sampleRate * 5))
-        // ⇧Space, not Space: this check is about the position the listener is
-        // at, and Space is play-from-start — it would rewind to the aim point.
-        press(.shiftSpace)
+        // Space resumes here, one preroll earlier (Task 29). Every position
+        // below is measured *across* the speed change, so where playback began
+        // does not enter into it.
+        press(.space)
         await settle(seconds: 0.5)
         let before = model.playhead
         press(.three)
@@ -179,7 +180,7 @@ extension AcceptanceRun {
             "50% speed advances the playhead at half rate", covered > 0.25 && covered < 0.55,
             unless: stalled)
 
-        press(.shiftSpace)
+        press(.space)
         press(.one)
         await settle(seconds: 0.1)
     }
@@ -221,9 +222,10 @@ extension AcceptanceRun {
         press(.d)
         press(.three)
         model.seek(to: inPoint)
-        // ⇧Space: the drag above left a selection, so Space would aim at the
-        // selection start rather than at the in point this check just sought to.
-        press(.shiftSpace)
+        // Space resumes from the in point exactly: the loop is active and the
+        // playhead is inside it, so Task 29's preroll clamps to the loop start
+        // rather than stepping outside the region this check is about.
+        press(.space)
 
         // Position is sampled throughout. The objective form of "it repeats
         // seamlessly" is that the playhead never leaves the region, comes back
@@ -261,7 +263,7 @@ extension AcceptanceRun {
             model.degradation.stalls == stallsBefore)
         log.check("the transport is still playing after looping", model.isPlaying)
 
-        press(.shiftSpace)
+        press(.space)
         press(.one)
         await settle(seconds: 0.1)
 
@@ -294,16 +296,18 @@ extension AcceptanceRun {
             String(format: "%.2f s", Double(visible) / model.sampleRate))
         model.seek(to: model.viewport.startFrame + visible / 8)
 
-        // ⇧Space throughout this check: it plays from where the seek above put
-        // the playhead, which is the state the page-flip measurement needs.
-        press(.shiftSpace)
+        // The zoom above anchored on a playhead at 0, so the page starts at 0
+        // and the preroll can only clamp back to it — playback begins inside
+        // the visible page either way, which is what the page-flip measurement
+        // needs.
+        press(.space)
         var starts: [FrameIndex] = []
         let deadline = Date().addingTimeInterval(6)
         while Date() < deadline {
             await settle(seconds: 0.02)
             starts.append(model.viewport.startFrame)
         }
-        press(.shiftSpace)
+        press(.space)
 
         let jumps = zip(starts, starts.dropFirst()).filter { $0 != $1 }.count
         let distinct = Set(starts).count
@@ -333,14 +337,16 @@ extension AcceptanceRun {
         press(.d)
         model.seek(to: loopStart)
         let held = model.viewport.startFrame
-        press(.shiftSpace)
+        // Inside an active loop, so the preroll clamps to the in point and
+        // playback starts exactly where the seek left it.
+        press(.space)
         var moved = false
         let loopDeadline = Date().addingTimeInterval(4)
         while Date() < loopDeadline {
             await settle(seconds: 0.02)
             if model.viewport.startFrame != held { moved = true }
         }
-        press(.shiftSpace)
+        press(.space)
         log.check("an active loop that fits on screen suppresses auto-scroll entirely", !moved)
         model.clearLoop()
         await settle(seconds: 0.1)

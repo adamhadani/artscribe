@@ -140,8 +140,7 @@ extension AcceptanceRun {
         // colour to match against on screen.
         model.seek(to: model.totalFrames / 3)
         model.setSpeedPreset(0.5)
-        // ⇧Space plays from the seek above; Space would rewind to the aim point.
-        press(.shiftSpace)
+        press(.space)
         await settle(seconds: 0.4)
         let wasPlaying = model.isPlaying
         let position = model.playhead
@@ -224,7 +223,7 @@ extension AcceptanceRun {
             "the global appearance default agrees with AppKit (\(fromDefault))",
             fromDefault == macOS)
         theme.preference = .dark
-        if model.isPlaying { press(.shiftSpace) }
+        if model.isPlaying { press(.space) }
         model.setSpeedPreset(1.0)
         await settle(seconds: 0.3)
     }

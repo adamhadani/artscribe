@@ -172,7 +172,7 @@ struct ViewerModelInteractionTests {
         #expect(model.selection.isEmpty)
     }
 
-    /// How B composes with A. `Space` (play from start) aims at the selection
+    /// How B composes with A. `⇧Space` (play from start) aims at the selection
     /// start, else an active loop's in point — but a double-click is an
     /// *explicit* cursor placement and must play from where the finger landed,
     /// so it must not be routed through that precedence.

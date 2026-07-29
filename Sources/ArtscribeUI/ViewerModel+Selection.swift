@@ -60,6 +60,7 @@ extension ViewerModel {
     public func restoreDefaults() {
         restoreDefaultNudgeAmounts()
         restoreDefaultSelectionMoveAmounts()
+        restoreDefaultPreroll()
         setInvertZoomDrag(false)
     }
 
@@ -67,7 +68,7 @@ extension ViewerModel {
     /// which is what the button greys out on.
     public var hasNonDefaultPreferences: Bool {
         nudgeAmounts != NudgeAmounts.defaults || selectionMoveAmounts != .defaults
-            || invertZoomDrag
+            || prerollSeconds != Preroll.defaultSeconds || invertZoomDrag
     }
 
     private func saveInteractionPreferences() {
