@@ -115,6 +115,28 @@ security find-identity -v -p codesigning
 # 1) A1B2C3... "Developer ID Application: Your Name (TEAMID)"
 ```
 
+Two ways this goes wrong, both of which produce a bundle that builds, signs and
+verifies cleanly and is still rejected on the recipient's Mac:
+
+- **`Apple Development: …` is the wrong certificate.** It is what Xcode creates
+  from a free Apple ID, and it signs for your own machines only. A
+  **Developer ID Application** certificate needs an *active, paid* Apple
+  Developer Program membership — a lapsed one will not offer it, and Xcode ▸
+  Manage Certificates ▸ **+** simply will not list it. Only the Account Holder
+  can create one, and you get five.
+- **The bracketed name in an `Apple Development` certificate is not the team
+  ID.** It is a per-person identifier, so copying it into `ARTSCRIBE_TEAM_ID`
+  silently disagrees with what the signature actually carries. Read the real one
+  off a built bundle:
+
+  ```sh
+  codesign -dv --verbose=4 <path>/Artscribe.app 2>&1 | grep TeamIdentifier
+  ```
+
+`make app` prints the certificate kind it used and says plainly when it is not a
+Developer ID, so this is caught at build time rather than by a user who cannot
+open the app.
+
 Export those and build. The Makefile defaults to ad-hoc, so these are the whole change:
 
 ```sh

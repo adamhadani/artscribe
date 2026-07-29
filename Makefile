@@ -82,7 +82,12 @@ app:
 	@if [ "$(ARTSCRIBE_SIGN_IDENTITY)" = "-" ]; then \
 		echo "signed AD-HOC — fine locally, rejected by Gatekeeper on download"; \
 	else \
-		echo "signed with $(ARTSCRIBE_SIGN_IDENTITY) — run 'make notarize' next"; \
+		echo "signed with a real identity — run 'make notarize' next"; \
+		codesign -dv --verbose=2 "$(APP)" 2>&1 \
+			| awk -F'[=:]' '/^Authority=/ && ++n == 1 { print "  certificate kind:", $$2 }'; \
+		codesign -dv --verbose=2 "$(APP)" 2>&1 \
+			| grep -q "^Authority=Developer ID Application" \
+			|| echo "  NOT a Developer ID — Gatekeeper will reject this on download"; \
 	fi
 	@echo
 	@echo "built $(APP)"
