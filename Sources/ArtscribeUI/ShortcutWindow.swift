@@ -240,37 +240,27 @@ public struct ShortcutWindow: View {
     /// unbundled `swift run` binary has no state-restoration file to write into,
     /// so the frame would be forgotten in exactly the configuration every agent
     /// and every developer on this project actually runs.
+    /// Hands the window over, and with it the whole of the focus model.
+    ///
+    /// **The filter must not open holding the keyboard**, and must be escapable
+    /// once it does. SwiftUI gives the `TextField` first responder as soon as
+    /// the scene appears — measured in a running app, where the window's
+    /// `firstResponder` is `_SystemTextFieldFieldEditor` (an `NSTextView`)
+    /// before anything has been clicked, on *every* open and not merely the
+    /// first. `ModifierMonitor` reads exactly that to decide a modifier press is
+    /// text being typed rather than a layer request, so the header's promise —
+    /// "Hold ⇧ ⌥ ⌘" — was dead from the instant the window appeared.
+    ///
+    /// Weakening that rule is the worse trade: it is what stops the whole
+    /// keyboard strobing while you type a capital into the filter. So the focus
+    /// is made a two-way state instead, in `ShortcutFocusMonitor`, which the
+    /// controller owns because this view's `onAppear` runs once and the window
+    /// is reopened all day.
     private func configure(_ window: NSWindow?) {
-        shortcuts.window = window
+        shortcuts.adopt(window: window)
         guard let window else { return }
         _ = window.setFrameAutosaveName(ShortcutWindowController.windowID)
         window.isRestorable = true
-        releaseTheFilterField(window)
-    }
-
-    /// **The filter must not open holding the keyboard.**
-    ///
-    /// SwiftUI gives the `TextField` first responder as soon as the window
-    /// exists — measured in a running app, where the window's `firstResponder`
-    /// is `_SystemTextFieldFieldEditor` (an `NSTextView`) before anything has
-    /// been clicked. `ModifierMonitor` reads exactly that to decide a modifier
-    /// press is text being typed rather than a layer request, so the header's
-    /// promise — "Hold ⇧ ⌥ ⌘" — was dead from the instant the window appeared
-    /// and could never come back while it was the key window.
-    ///
-    /// The alternative was to weaken that rule, and it is the worse trade: the
-    /// rule is what stops the whole keyboard strobing while you type a capital
-    /// into the filter, and this window is a thing you *read* far more often
-    /// than a thing you type into. One click still puts the caret in the field.
-    ///
-    /// Deferred a turn because SwiftUI assigns the responder after the view has
-    /// moved to the window; measured to stay cleared afterwards, so this does
-    /// not fight it every frame.
-    private func releaseTheFilterField(_ window: NSWindow) {
-        DispatchQueue.main.async {
-            guard window.firstResponder is NSTextView else { return }
-            window.makeFirstResponder(nil)
-        }
     }
 }
 

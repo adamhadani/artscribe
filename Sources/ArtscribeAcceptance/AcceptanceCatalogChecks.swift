@@ -24,9 +24,14 @@ extension AcceptanceRun {
         outputDirectory: String
     ) async {
         await checkMenusMirrorTheCatalog(context: context, log: &log)
+        let document = NSApp.keyWindow ?? NSApp.windows.first
         await checkShortcutWindow(
             model: model, theme: theme, shortcuts: context.shortcuts, log: &log,
             outputDirectory: outputDirectory)
+        await checkScrollingTheListNeverWedges(
+            model: model, shortcuts: context.shortcuts, log: &log)
+        await checkShortcutFocus(
+            model: model, shortcuts: context.shortcuts, document: document, log: &log)
     }
 
     /// Every item in every menu, against the catalog — in both directions.

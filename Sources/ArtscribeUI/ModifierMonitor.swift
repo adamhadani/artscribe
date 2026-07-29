@@ -38,13 +38,14 @@ extension KeyModifiers {
 /// responder chain is what tells the two apart. Without this the window
 /// visibly strobes while you type, which was the first thing this got wrong.
 ///
-/// **That rule is why `ShortcutWindow` takes the keyboard away from the filter
-/// when the window opens.** SwiftUI hands the `TextField` first responder as
-/// soon as the window exists, and this test cannot tell that apart from someone
-/// mid-word — so with the field focused from the start, "Hold ⇧ ⌥ ⌘" was dead
-/// the whole time the window was key, which is exactly what the user reported.
-/// The two halves have to be read together: narrow this and the strobe comes
-/// back; refocus the field on open and the layers go away again.
+/// **That rule is why the shortcut window's filter is a two-way door.** SwiftUI
+/// hands the `TextField` first responder as soon as the window exists, and this
+/// test cannot tell that apart from someone mid-word — so with the field focused
+/// from the start, "Hold ⇧ ⌥ ⌘" was dead the whole time the window was key, and
+/// with no way back out of the field it stayed dead after the first click. Both
+/// halves are `ShortcutFocusMonitor`'s, and all three have to be read together:
+/// narrow this and the strobe comes back; let the field keep the keyboard and
+/// the layers go away again.
 @MainActor
 final class ModifierMonitor {
     private var monitor: Any?
@@ -76,8 +77,11 @@ final class ModifierMonitor {
     }
 
     /// Whether this modifier press belongs to text being typed.
+    ///
+    /// One line, because the rule itself lives in `TextFocus` — the same rule
+    /// `⌘A` and the shortcut window's click-to-unfocus turn on, and a rule
+    /// spelled three ways is a rule that drifts.
     private static func isTyping(_ event: NSEvent) -> Bool {
-        let window = event.window ?? NSApp?.keyWindow
-        return window?.firstResponder is NSTextView
+        TextFocus.editor(in: event.window ?? NSApp?.keyWindow) != nil
     }
 }

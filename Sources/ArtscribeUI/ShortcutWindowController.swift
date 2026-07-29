@@ -56,6 +56,14 @@ public final class ShortcutWindowController {
     /// created.
     @ObservationIgnored public weak var window: NSWindow?
 
+    /// Where the keyboard is in that window — see `ShortcutFocusMonitor`.
+    ///
+    /// Held **here** rather than in the view because the view's `onAppear` runs
+    /// once and this window is closed and reopened all day: SwiftUI hands the
+    /// filter first responder on every reopen, so a monitor with the view's
+    /// lifetime would have covered only the first one.
+    @ObservationIgnored private let focusMonitor = ShortcutFocusMonitor()
+
     private static let listWidthKey = "shortcutWindow.listWidth"
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -171,6 +179,21 @@ public final class ShortcutWindowController {
         if window.isKeyWindow { return true }
         guard NSApp?.keyWindow == nil else { return false }
         return NSApp?.orderedWindows.first { $0.isVisible } === window
+    }
+
+    /// Told which `NSWindow` the reference ended up in, by the view inside it.
+    ///
+    /// The two things that need the object rather than the scene id are set
+    /// together: `⌘/`'s toggle, which has to know whether this window is in
+    /// front, and the focus monitor, which has to know which window's clicks
+    /// are its business.
+    public func adopt(window: NSWindow?) {
+        self.window = window
+        guard let window else { return focusMonitor.stop() }
+        focusMonitor.start(
+            window: window,
+            filter: { [weak self] in self?.query ?? "" },
+            clearFilter: { [weak self] in self?.query = "" })
     }
 
     /// Pins a layer, comparing first.
