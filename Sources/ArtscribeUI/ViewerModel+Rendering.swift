@@ -19,17 +19,17 @@ extension ViewerModel {
     /// Here rather than beside its stored `appearance` because what it does is
     /// invalidate the bitmap cache, which is this file's whole subject.
     public func setAppearance(_ appearance: Appearance) {
-        guard appearance != self.appearance else { return }
-        self.appearance = appearance
+        guard appearance != cache.appearance else { return }
+        cache.appearance = appearance
         refresh()
     }
 
     func refresh() {
         guard let pyramid, let audio else {
-            waveformImage = nil
-            overviewImage = nil
-            renderedKey = nil
-            overviewKey = nil
+            cache.waveformImage = nil
+            cache.overviewImage = nil
+            cache.renderedKey = nil
+            cache.overviewKey = nil
             return
         }
         refreshLanes(audio: audio, pyramid: pyramid)
@@ -37,39 +37,39 @@ extension ViewerModel {
     }
 
     private func refreshLanes(audio: DecodedAudio, pyramid: PeakPyramid) {
-        let width = Int((laneSize.width * scale).rounded())
-        let height = Int((laneSize.height * scale).rounded())
+        let width = Int((laneSize.width * cache.scale).rounded())
+        let height = Int((laneSize.height * cache.scale).rounded())
         let key = WaveformRenderer.Key(
             generation: generation,
-            appearance: appearance,
+            appearance: cache.appearance,
             startFrame: viewport.startFrame,
             framesPerPixel: viewport.framesPerPixel,
             visibleFrames: viewport.visibleFrames,
             pixelWidth: width,
             pixelHeight: height)
-        guard key != renderedKey else { return }
-        renderedKey = key
-        waveformImage = WaveformRenderer.render(
+        guard key != cache.renderedKey else { return }
+        cache.renderedKey = key
+        cache.waveformImage = WaveformRenderer.render(
             audio: audio, pyramid: pyramid, key: key)
     }
 
     private func refreshOverview(audio: DecodedAudio, pyramid: PeakPyramid) {
-        let width = Int((overviewSize.width * scale).rounded())
-        let height = Int((overviewSize.height * scale).rounded())
+        let width = Int((overviewSize.width * cache.scale).rounded())
+        let height = Int((overviewSize.height * cache.scale).rounded())
         // The overview is at constant scale, so its key deliberately omits the
         // viewport: it survives every zoom and pan and is redrawn only when the
         // file, the theme, the strip size or the display scale changes.
         let key = WaveformRenderer.Key(
             generation: generation,
-            appearance: appearance,
+            appearance: cache.appearance,
             startFrame: 0,
             framesPerPixel: 0,
             visibleFrames: totalFrames,
             pixelWidth: width,
             pixelHeight: height)
-        guard key != overviewKey else { return }
-        overviewKey = key
-        overviewImage = WaveformRenderer.render(
+        guard key != cache.overviewKey else { return }
+        cache.overviewKey = key
+        cache.overviewImage = WaveformRenderer.render(
             audio: audio, pyramid: pyramid, key: key)
     }
 }

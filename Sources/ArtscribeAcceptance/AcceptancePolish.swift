@@ -19,7 +19,7 @@ extension AcceptanceRun {
     static func checkSpeedEmphasis(
         model: ViewerModel, log: inout Logger, outputDirectory: String
     ) async {
-        let amber = colour(Palette.of(model.appearance).emphasis)
+        let amber = colour(Palette.of(model.cache.appearance).emphasis)
         let band = statusBarRect()
         model.setSpeedPreset(1.0)
         await settle(seconds: 0.3)
@@ -145,15 +145,15 @@ extension AcceptanceRun {
         let wasPlaying = model.isPlaying
         let position = model.playhead
         let viewport = model.viewport
-        let inDark = bitmapCount(Palette.dark.waveform, in: model.waveformImage)
+        let inDark = bitmapCount(Palette.dark.waveform, in: model.cache.waveformImage)
         let darkPanelOnScreen = pixelCount(near: colour(Palette.dark.panel), in: lanes)
         snapshot(to: "\(outputDirectory)/09-theme-dark.png")
 
         theme.preference = .light
         await settle(seconds: 0.8)
-        let inLight = bitmapCount(Palette.light.waveform, in: model.waveformImage)
-        let leftOver = bitmapCount(Palette.dark.waveform, in: model.waveformImage)
-        let overviewLeftOver = bitmapCount(Palette.dark.waveform, in: model.overviewImage)
+        let inLight = bitmapCount(Palette.light.waveform, in: model.cache.waveformImage)
+        let leftOver = bitmapCount(Palette.dark.waveform, in: model.cache.waveformImage)
+        let overviewLeftOver = bitmapCount(Palette.dark.waveform, in: model.cache.overviewImage)
         let lightPanelOnScreen = pixelCount(near: colour(Palette.light.panel), in: lanes)
         snapshot(to: "\(outputDirectory)/09-theme-light.png")
 
@@ -171,7 +171,9 @@ extension AcceptanceRun {
         log.check("no dark waveform pixels survive in the overview bitmap", overviewLeftOver == 0)
         log.check("the window itself repainted (dark panel)", darkPanelOnScreen > 1000)
         log.check("the window itself repainted (light panel)", lightPanelOnScreen > 1000)
-        log.check("the model followed the window into the light theme", model.appearance == .light)
+        log.check(
+            "the model followed the window into the light theme",
+            model.cache.appearance == .light)
         log.check("the switch did not stop playback", model.isPlaying == wasPlaying)
         log.check("the switch did not move the viewport", model.viewport == viewport)
         log.check(
@@ -182,7 +184,7 @@ extension AcceptanceRun {
         await settle(seconds: 0.6)
         log.check(
             "switching back restores the dark waveform",
-            bitmapCount(Palette.dark.waveform, in: model.waveformImage) > 200)
+            bitmapCount(Palette.dark.waveform, in: model.cache.waveformImage) > 200)
 
         // Ask AppKit what this Mac is set to — but only with `System` selected,
         // because `applyToApplication` sets `NSApp.appearance` for the explicit
@@ -205,14 +207,14 @@ extension AcceptanceRun {
         await settle(seconds: 0.6)
         log.check(
             "the app is on \(opposite), the opposite of this Mac's \(macOS)",
-            model.appearance == oppositeAppearance)
+            model.cache.appearance == oppositeAppearance)
 
         theme.preference = .system
         await settle(seconds: 0.6)
-        log.note("System resolves to", "\(model.appearance) (macOS is \(macOS))")
+        log.note("System resolves to", "\(model.cache.appearance) (macOS is \(macOS))")
         log.check(
             "System resolves to whatever macOS is set to",
-            model.appearance == macOS)
+            model.cache.appearance == macOS)
         // The seam the resolution rests on: `ThemeController` reads the global
         // `AppleInterfaceStyle` default rather than `NSApp.effectiveAppearance`,
         // because the latter reads back the app's own override. With `System`

@@ -76,16 +76,16 @@ struct ThemeTests {
     func modelKeyChanges() {
         let model = makeModel()
         model.setAppearance(.dark)
-        let before = model.renderedKey
-        let overviewBefore = model.overviewKey
+        let before = model.cache.renderedKey
+        let overviewBefore = model.cache.overviewKey
         #expect(before != nil)
 
         model.setAppearance(.light)
 
-        #expect(model.renderedKey != before)
-        #expect(model.overviewKey != overviewBefore)
-        #expect(model.renderedKey?.appearance == .light)
-        #expect(model.overviewKey?.appearance == .light)
+        #expect(model.cache.renderedKey != before)
+        #expect(model.cache.overviewKey != overviewBefore)
+        #expect(model.cache.renderedKey?.appearance == .light)
+        #expect(model.cache.overviewKey?.appearance == .light)
     }
 
     // MARK: - The pixels
@@ -94,14 +94,14 @@ struct ThemeTests {
     func lanesRepaint() {
         let model = makeModel()
         model.setAppearance(.dark)
-        #expect(count(Palette.dark.waveform, in: model.waveformImage) > 0)
-        #expect(count(Palette.light.waveform, in: model.waveformImage) == 0)
+        #expect(count(Palette.dark.waveform, in: model.cache.waveformImage) > 0)
+        #expect(count(Palette.light.waveform, in: model.cache.waveformImage) == 0)
 
         model.setAppearance(.light)
 
-        #expect(count(Palette.light.waveform, in: model.waveformImage) > 0)
+        #expect(count(Palette.light.waveform, in: model.cache.waveformImage) > 0)
         #expect(
-            count(Palette.dark.waveform, in: model.waveformImage) == 0,
+            count(Palette.dark.waveform, in: model.cache.waveformImage) == 0,
             "dark waveform pixels survived a switch to the light theme")
     }
 
@@ -111,12 +111,12 @@ struct ThemeTests {
     func overviewRepaints() {
         let model = makeModel()
         model.setAppearance(.dark)
-        #expect(count(Palette.dark.waveform, in: model.overviewImage) > 0)
+        #expect(count(Palette.dark.waveform, in: model.cache.overviewImage) > 0)
 
         model.setAppearance(.light)
 
-        #expect(count(Palette.light.waveform, in: model.overviewImage) > 0)
-        #expect(count(Palette.dark.waveform, in: model.overviewImage) == 0)
+        #expect(count(Palette.light.waveform, in: model.cache.overviewImage) > 0)
+        #expect(count(Palette.dark.waveform, in: model.cache.overviewImage) == 0)
     }
 
     /// Switching theme must not disturb what you were doing.
@@ -145,9 +145,9 @@ struct ThemeTests {
     func idempotentSwitch() {
         let model = makeModel()
         model.setAppearance(.light)
-        let image = model.waveformImage
+        let image = model.cache.waveformImage
         model.setAppearance(.light)
-        #expect(model.waveformImage === image)
+        #expect(model.cache.waveformImage === image)
     }
 
     // MARK: - The preference

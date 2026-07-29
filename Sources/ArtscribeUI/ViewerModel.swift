@@ -215,22 +215,11 @@ public final class ViewerModel {
     @ObservationIgnored var wrapTracker = LoopWrapTracker()
     @ObservationIgnored let clock = PlayheadClock()
 
-    /// Written only by `refresh()` in `ViewerModel+Rendering`, which is why the
-    /// setter is module-internal rather than private.
-    public internal(set) var waveformImage: CGImage?
-    public internal(set) var overviewImage: CGImage?
-
-    /// Which look the cached bitmaps were rasterised in.
-    ///
-    /// The model has to know the theme even though it draws nothing itself:
-    /// `WaveformRenderer` writes colours straight into the bitmap, so a theme
-    /// change has to invalidate the cache and re-render, and the cache key is
-    /// here. The view layer pushes this in from the environment's colour scheme
-    /// (`DocumentView`), which is also what makes `system` follow macOS.
-    /// `internal(set)` for the reason the rest of this class's state is: its
-    /// one writer, `setAppearance`, lives in `ViewerModel+Rendering` beside
-    /// the cache it invalidates. Nothing outside the module can write it.
-    public internal(set) var appearance: Appearance = .dark
+    /// The rasterised waveform and overview, their cache keys, the backing
+    /// scale, and the appearance they were drawn in — a child `@Observable`, so
+    /// a view reading only the bitmap is not woken when the theme changes. See
+    /// `WaveformCache` for why a class and not a struct.
+    public let cache = WaveformCache()
 
     public var sampleRate: Double { audio?.sampleRate ?? 0 }
     public var channels: Int { audio?.channels ?? 0 }
@@ -272,9 +261,6 @@ public final class ViewerModel {
     /// and a dictionary rewritten on every layout pass would invalidate the
     /// window if it were observed.
     @ObservationIgnored public internal(set) var transportFrames: [TransportControl: CGRect] = [:]
-    var scale: CGFloat = 2
-    var renderedKey: WaveformRenderer.Key?
-    var overviewKey: WaveformRenderer.Key?
     /// Module-internal, not private, so `ViewerModel+Loading` can reach it —
     /// Swift has no stored properties in extensions.
     var loadTask: Task<Void, Never>?
@@ -333,9 +319,9 @@ public final class ViewerModel {
 
     public func setLaneSize(_ size: CGSize, scale: CGFloat) {
         guard size.width > 0, size.height > 0 else { return }
-        let changed = size != laneSize || scale != self.scale
+        let changed = size != laneSize || scale != cache.scale
         laneSize = size
-        self.scale = Swift.max(1, scale)
+        cache.scale = Swift.max(1, scale)
         guard changed else { return }
         viewport.resize(widthPixels: lanePointWidth)
         refresh()

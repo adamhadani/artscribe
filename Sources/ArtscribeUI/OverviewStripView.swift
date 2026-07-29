@@ -37,7 +37,7 @@ struct OverviewStripView: View {
         ZStack(alignment: .topLeading) {
             palette.panel.color()
 
-            if let image = model.overviewImage {
+            if let image = model.cache.overviewImage {
                 Image(decorative: image, scale: displayScale)
                     .resizable()
                     .interpolation(.none)

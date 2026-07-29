@@ -223,7 +223,7 @@ extension AcceptanceRun {
         model.loopFromSelection()
         if model.loop.isEnabled { model.toggleLoop() }
         await settle(seconds: 0.35)
-        let violet = colour(Palette.of(model.appearance).loop)
+        let violet = colour(Palette.of(model.cache.appearance).loop)
         // A wider window than the speed check's, because this ink is a mid-tone
         // and the capture's colour round-trip moves it further — see
         // `pixelCount(near:in:tolerance:)`. The loop-off control below is what
@@ -234,10 +234,10 @@ extension AcceptanceRun {
         model.toggleLoop()
         await settle(seconds: 0.35)
         let whenOn = pixelCount(near: violet, in: band, tolerance: tolerance)
-        snapshot(to: "\(outputDirectory)/10-loop-on-\(model.appearance.rawValue).png")
+        snapshot(to: "\(outputDirectory)/10-loop-on-\(model.cache.appearance.rawValue).png")
 
         log.note(
-            "status-bar loop pixels (\(model.appearance))",
+            "status-bar loop pixels (\(model.cache.appearance))",
             "loop off: \(whenOff), loop on: \(whenOn)")
         log.check("an engaged loop is emphasised in the status bar", whenOn > 15)
         log.check("a disengaged loop is not", whenOff == 0)

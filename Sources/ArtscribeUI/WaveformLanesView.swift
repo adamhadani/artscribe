@@ -69,7 +69,7 @@ struct WaveformLanesView: View {
         ZStack(alignment: .topLeading) {
             palette.panel.color()
 
-            if let image = model.waveformImage {
+            if let image = model.cache.waveformImage {
                 // The bitmap is produced at `displayScale`, so this maps one
                 // image pixel to one screen pixel and needs no smoothing.
                 // `.resizable()` only matters for the frame between a live

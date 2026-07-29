@@ -323,13 +323,13 @@ extension AcceptanceRun {
             "window resize updates the viewport width (\(beforeWidth) -> "
                 + "\(model.viewport.widthPixels))",
             model.viewport.widthPixels < beforeWidth)
-        log.check("waveform re-rendered at the new width", model.waveformImage != nil)
+        log.check("waveform re-rendered at the new width", model.cache.waveformImage != nil)
     }
 
     @MainActor
     static func checkBadFile(model: ViewerModel, url: URL, log: inout Logger) async {
         let keptName = model.fileName
-        let keptImage = model.waveformImage
+        let keptImage = model.cache.waveformImage
         model.open(url: url)
         let started = Date()
         while model.errorMessage == nil, Date().timeIntervalSince(started) < 20 {

@@ -105,8 +105,8 @@ enum AcceptanceRun {
             await settle(seconds: 0.05)
         }
         log.check("loads reference file", model.hasTrack)
-        log.check("waveform bitmap produced", model.waveformImage != nil)
-        log.check("overview bitmap produced", model.overviewImage != nil)
+        log.check("waveform bitmap produced", model.cache.waveformImage != nil)
+        log.check("overview bitmap produced", model.cache.overviewImage != nil)
         log.note("frames", "\(model.totalFrames) @ \(model.sampleRate) Hz x\(model.channels)")
         log.note(
             "file-chosen to waveform-on-screen",
