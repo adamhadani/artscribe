@@ -18,6 +18,11 @@ public final class IdentityStretcher: TimeStretcher {
     public init() {}
 
     public var timeRatio: Double = 1.0
+    /// Recorded and otherwise ignored. This stretcher passes audio through
+    /// untouched by definition, so honouring a pitch scale would make it not an
+    /// identity — the tests that use it are asserting what the *rest* of the
+    /// graph does, and a resampling pass here would corrupt that.
+    public var pitchScale: Double = 1.0
     public var startDelay: Int { 0 }
 
     public func configure(sampleRate: Double, channels: Int, maxBlock: Int) {

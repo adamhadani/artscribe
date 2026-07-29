@@ -19,6 +19,11 @@ import ArtscribeKit
 public enum PlaybackCommand: Equatable, Sendable {
     case seek(FrameIndex)
     case setTimeRatio(Double)
+    /// Rubber Band's pitch scale, independent of the time ratio. A plain
+    /// `Double` like the rest of this enum: the ring is a fixed-size POD queue
+    /// and must stay trivially copyable, so the cents live in the model and
+    /// only the computed scale crosses to the render thread.
+    case setPitchScale(Double)
     case setLoop(FrameRange, Bool)
     case setPlaying(Bool)
 }

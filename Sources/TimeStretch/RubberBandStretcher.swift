@@ -15,6 +15,7 @@ public final class RubberBandStretcher: TimeStretcher {
     private var state: RubberBandState?
     private let engine: StretchEngine
     private var pendingRatio: Double = 1.0
+    private var pendingPitch: Double = 1.0
 
     public init(engine: StretchEngine) {
         self.engine = engine
@@ -31,7 +32,8 @@ public final class RubberBandStretcher: TimeStretcher {
             ? RubberBandOptionEngineFiner.rawValue
             : RubberBandOptionEngineFaster.rawValue
         let opts = RubberBandOptions(RubberBandOptionProcessRealTime.rawValue | engineFlag)
-        let newState = rubberband_new(UInt32(sampleRate), UInt32(channels), opts, pendingRatio, 1.0)
+        let newState = rubberband_new(
+            UInt32(sampleRate), UInt32(channels), opts, pendingRatio, pendingPitch)
         // Not expected to fail under normal parameters (there's no documented
         // failure mode for rubberband_new), but proceeding silently on a null
         // state would contradict "never degrade silently" — fail loudly instead.
@@ -39,6 +41,10 @@ public final class RubberBandStretcher: TimeStretcher {
         state = newState
         // Pre-size so process()/retrieve() never allocate on the render thread.
         rubberband_set_max_process_size(newState, UInt32(maxBlock))
+        // Re-applied here for the same reason `pendingRatio` is: a pitch chosen
+        // before the engine existed, or before an engine switch rebuilt it,
+        // would otherwise be silently dropped on the floor.
+        rubberband_set_pitch_scale(newState, pendingPitch)
     }
 
     public var timeRatio: Double {
@@ -46,6 +52,14 @@ public final class RubberBandStretcher: TimeStretcher {
         set {
             pendingRatio = newValue
             if let state { rubberband_set_time_ratio(state, newValue) }
+        }
+    }
+
+    public var pitchScale: Double {
+        get { state.map { rubberband_get_pitch_scale($0) } ?? pendingPitch }
+        set {
+            pendingPitch = newValue
+            if let state { rubberband_set_pitch_scale(state, newValue) }
         }
     }
 

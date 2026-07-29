@@ -126,6 +126,14 @@ public enum MenuPlan {
         .action(.speedPreset33),
         .action(.speedEngineToggle),
         .separator,
+        // Its own group: pitch is not a speed setting, and the separator is what
+        // says so in a menu that would otherwise imply they are one control.
+        .action(.pitchDown),
+        .action(.pitchUp),
+        .action(.pitchDownFine),
+        .action(.pitchUpFine),
+        .action(.pitchReset),
+        .separator,
         .action(.volumeUp),
         .action(.volumeDown),
         .action(.volumeUpFine),

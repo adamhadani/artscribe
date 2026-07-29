@@ -16,6 +16,9 @@
 /// pretending it read one (spec §8).
 public struct SessionState: Equatable, Sendable {
     public var speed: SpeedState
+    /// Transposition. Durable like the speed, and for the same reason: it is a
+    /// decision about the material, not a transient view state.
+    public var pitch: PitchState
     public var loop: LoopRegion
     public var viewport: ViewportState
     public var playhead: FrameIndex
@@ -35,6 +38,7 @@ public struct SessionState: Equatable, Sendable {
 
     public init(
         speed: SpeedState = SpeedState(),
+        pitch: PitchState = PitchState(),
         loop: LoopRegion = LoopRegion(),
         viewport: ViewportState = .fitted,
         playhead: FrameIndex = 0,
@@ -42,6 +46,7 @@ public struct SessionState: Equatable, Sendable {
         showTrackMarks: Bool = true
     ) {
         self.speed = speed
+        self.pitch = pitch
         self.loop = loop
         self.viewport = viewport
         self.playhead = playhead
@@ -57,10 +62,24 @@ public struct SessionState: Equatable, Sendable {
             schemaVersion: SessionFile.currentSchemaVersion,
             track: track,
             speed: speed,
+            pitch: pitch,
             loop: loop,
             viewport: viewport,
             playhead: playhead,
             showTrackMarks: showTrackMarks)
+    }
+
+    /// The fields that cannot be damaged, and so cannot be repaired.
+    ///
+    /// A `Bool` has no invalid value, and `PitchState`'s own decoder clamps
+    /// before this is ever reached — so neither can contribute a
+    /// `SessionRepair`, and neither belongs in the body of `restoring`, which
+    /// is about values that *can* be wrong. Absent means "take the default" in
+    /// both cases, which is what a sidecar written before these fields existed
+    /// says.
+    mutating func adoptUnrepairableFields(from file: SessionFile) {
+        if let pitch = file.pitch { self.pitch = pitch }
+        if let showTrackMarks = file.showTrackMarks { self.showTrackMarks = showTrackMarks }
     }
 
     /// Turns an untrusted payload into a state the app can run on, and reports
@@ -99,9 +118,7 @@ public struct SessionState: Equatable, Sendable {
         // the key is there and is honoured, or it is absent and the default
         // stands. Absent is the normal case for every sidecar written before
         // this field existed, which is why it is not reported as damage.
-        if let showTrackMarks = file.showTrackMarks {
-            state.showTrackMarks = showTrackMarks
-        }
+        state.adoptUnrepairableFields(from: file)
 
         if let speed = file.speed {
             // No clamping needed here and none wanted: `SpeedState`'s own
@@ -284,6 +301,9 @@ public struct SessionFile: Equatable, Sendable, Codable {
     public var schemaVersion: Int?
     public var track: TrackIdentity?
     public var speed: SpeedState?
+    /// Absent in sidecars written before pitch existed; absent means "original
+    /// key", which is the honest reading rather than damage.
+    public var pitch: PitchState?
     public var loop: LoopRegion?
     public var viewport: ViewportState?
     public var playhead: FrameIndex?
@@ -296,6 +316,7 @@ public struct SessionFile: Equatable, Sendable, Codable {
         schemaVersion: Int? = nil,
         track: TrackIdentity? = nil,
         speed: SpeedState? = nil,
+        pitch: PitchState? = nil,
         loop: LoopRegion? = nil,
         viewport: ViewportState? = nil,
         playhead: FrameIndex? = nil,
@@ -304,6 +325,7 @@ public struct SessionFile: Equatable, Sendable, Codable {
         self.schemaVersion = schemaVersion
         self.track = track
         self.speed = speed
+        self.pitch = pitch
         self.loop = loop
         self.viewport = viewport
         self.playhead = playhead
@@ -314,6 +336,7 @@ public struct SessionFile: Equatable, Sendable, Codable {
         case schemaVersion
         case track
         case speed
+        case pitch
         case loop
         case viewport
         case playhead
@@ -333,6 +356,7 @@ public struct SessionFile: Equatable, Sendable, Codable {
         schemaVersion = try? container.decodeIfPresent(Int.self, forKey: .schemaVersion)
         track = try? container.decodeIfPresent(TrackIdentity.self, forKey: .track)
         speed = try? container.decodeIfPresent(SpeedState.self, forKey: .speed)
+        pitch = try? container.decodeIfPresent(PitchState.self, forKey: .pitch)
         loop = try? container.decodeIfPresent(LoopRegion.self, forKey: .loop)
         viewport = try? container.decodeIfPresent(ViewportState.self, forKey: .viewport)
         playhead = try? container.decodeIfPresent(FrameIndex.self, forKey: .playhead)
