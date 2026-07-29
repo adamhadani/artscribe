@@ -1,3 +1,10 @@
+// Homebrew's Rubber Band is a macOS dylib; there is no iOS build of it to link
+// against, so the module simply is not there for an iOS destination. Guarding on
+// `canImport` rather than `os(macOS)` keeps the condition to the actual fact —
+// whether the library is available — and matches the conditional dependency in
+// `Package.swift`.
+#if canImport(CRubberBand)
+
 import ArtscribeKit
 import CRubberBand
 
@@ -100,3 +107,5 @@ public final class RubberBandStretcher: TimeStretcher {
         rubberband_reset(state)
     }
 }
+
+#endif

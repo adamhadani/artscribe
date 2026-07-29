@@ -1,4 +1,4 @@
-.PHONY: bootstrap format format-check lint test coverage check app dist notarize clean
+.PHONY: bootstrap format format-check lint test coverage check ios-check app dist notarize clean
 
 # Where the Xcode build lands. Inside .build so `make clean` and .gitignore
 # already cover it.
@@ -50,6 +50,20 @@ coverage:
 
 # The single gate. Run before every commit.
 check: format-check lint test
+
+# Proof that the audio stack is still portable.
+#
+# `ArtscribeKit`, `AudioDecode`, `Waveform`, `TimeStretch` and `Playback` build for
+# iOS; `ArtscribeUI` and above are AppKit and do not. Nothing in a macOS build
+# notices when that stops being true — an `AVAudioSession` call, an AppKit import,
+# a HAL property left outside its `#if` — so it is compiled for real against the
+# iOS SDK rather than reasoned about.
+#
+# Deliberately not part of `check`: it needs the iOS SDK and takes about a minute
+# against `check`'s three seconds. CI runs it as its own job.
+ios-check:
+	xcodebuild build -scheme Playback -destination 'generic/platform=iOS' \
+	    -derivedDataPath $(XCODE_DERIVED)-ios -quiet
 
 # The double-clickable app. `project.yml` is the source of truth; the
 # .xcodeproj it generates is disposable and gitignored, so it is rebuilt every

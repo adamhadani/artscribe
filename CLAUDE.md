@@ -209,6 +209,47 @@ ArtscribeKit ← AudioDecode / Waveform / TimeStretch ← Playback ← Artscribe
 it belongs in `ArtscribeKit`. `Playback` must never import UI. `ArtscribeApp` is the shell
 only; the acceptance harness has its own target and must stay out of the product binary.
 
+**There is a second boundary crossing the same diagram: platform.** Everything up to and
+including `Playback` builds for **iOS as well as macOS**, and CI builds it for iOS on every
+push so it stays that way. `ArtscribeUI` and above are AppKit and are macOS-only. When adding
+to `Playback`, that is the line to keep — `swift build --destination` will not tell you, but
+`make ios-check` will.
+
+The two platform differences in the audio stack are both narrow, and both are behind a seam
+rather than sprayed through the code as `#if`:
+
+- **Choosing an output device is a macOS idea.** The HAL enumeration
+  (`CoreAudioDeviceSource`) is wholly inside `#if os(macOS)`; iOS gets
+  `CurrentRouteDeviceSource`, which reports the one route the system chose, because routing
+  there belongs to the user via Control Centre and an app that fought that would be wrong.
+  `AudioOutput.setOutputDevice` is a HAL call on macOS and a **documented no-op** on iOS —
+  it must *succeed*, because a throw would make `OutputDeviceController` publish "could not
+  switch output" about a switch nobody asked for.
+- **Being interrupted is an iOS idea.** `AudioSessionCoordinator` is injected into
+  `AudioOutput`; it is `AVAudioSessionCoordinator` on iOS and `UnmanagedAudioSession` — inert,
+  and *correctly* inert rather than a stub — on macOS. `PlatformAudio` is the single place
+  that picks, so call sites say `PlatformAudio.makeDeviceSource()` and carry no `#if`.
+
+**The decision about an interruption is a pure function, and that is the point.**
+`AudioSessionPolicy.response(to:wasPlaying:)` holds every rule; the `AVAudioSession` observer
+only translates notification payloads into the event vocabulary. So the behaviour that is
+expensive to get wrong on a device is unit-tested on the Mac it is developed on, where a phone
+call cannot arrive. Two rules there are worth knowing before touching it:
+
+- **Resuming needs both halves** — the system's `shouldResume` *and* having actually been
+  playing when the interruption began. The flag alone resumes something the user had paused;
+  `wasPlaying` alone resumes out of a phone call, which is the case the flag exists to veto.
+- **`isRunning` is already false by the time an interruption ends.** What was true when it
+  *began* has to be remembered (`wasPlayingWhenInterrupted`) and consumed once, or a repeated
+  `interruptionEnded` — the system does repeat them — resumes a track the user has since
+  paused.
+
+**Rubber Band is macOS-only, and that is a Homebrew fact, not a design one.** The formula
+builds a macOS dylib and nothing else, so `CRubberBand` is a `.when(platforms: [.macOS])`
+dependency and `RubberBandStretcher.swift` sits behind `#if canImport(CRubberBand)`. On iOS
+`TimeStretch` is the protocol plus `IdentityStretcher` — enough for `Playback` to compile, and
+exactly the seam a second backend plugs into.
+
 ## Speed vs time ratio
 
 User-facing **speed ratio** (0.5 = half speed) is the reciprocal of Rubber Band's **time
