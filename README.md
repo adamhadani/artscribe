@@ -194,8 +194,18 @@ prints Apple's own reasons on failure. If you script this yourself, do the same.
 #### In CI
 
 `.github/workflows/release.yml` builds and publishes on a `v*` tag. Without secrets it
-falls through to an ad-hoc build, so the path stays exercised; add these under **Settings ▸
-Secrets and variables ▸ Actions** to turn on real signing:
+falls through to an ad-hoc build, so the path stays exercised.
+
+Put the signing secrets in an **environment** named `release`, not on the repository —
+Settings ▸ Environments ▸ **New environment** ▸ `release`, then add them there. The job
+declares `environment: release`, so it will not see them anywhere else. The reason to prefer
+an environment is that it can be scoped: under **Deployment branches and tags**, select
+*Selected branches and tags* and add the tag pattern `v*`, and the Developer ID key becomes
+unreachable from a workflow run on an ordinary branch. Repository secrets have no such
+scoping — every workflow in the repo can read them. Adding **Required reviewers** puts a
+human approval in front of every release as well.
+
+The secrets to add:
 
 | Secret | What it is |
 |---|---|
@@ -238,6 +248,25 @@ The two secrets are not equally precious:
 `.p12` greyed out on export means you selected the certificate rather than the *identity*.
 Use the **My Certificates** category, or expand the certificate and select it together with
 its private key.
+
+#### Secrets in a public repository
+
+Making the repository public does not expose them. Secrets are **write-only**: once saved,
+nobody can read them back through the UI or the API — not collaborators, not even the owner.
+You can only overwrite or delete.
+
+The real exposure on a public repo is a workflow that runs untrusted code *with* secrets in
+scope. Two facts keep this one safe:
+
+- Workflows triggered by `pull_request` from a fork **never** receive secrets. This is
+  GitHub's default and it is why `pull_request_target` — which does — should be avoided.
+- This workflow only triggers on `push` of a `v*` tag and on `workflow_dispatch`, both of
+  which require write access to the repository.
+
+The honest caveat: **write access is effectively secret access.** Anyone who can merge a
+workflow change to the default branch can write one that prints a decoded secret. GitHub
+masks known secret values in logs, but that is best-effort, not a boundary. Scope the
+environment to `v*` tags and require a reviewer if the repository ever gains collaborators.
 
 #### What already works regardless
 

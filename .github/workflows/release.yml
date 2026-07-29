@@ -21,6 +21,13 @@ jobs:
     # Same image as CI, for the same reason: macos-15 cannot build
     # platforms: [.macOS(.v26)].
     runs-on: macos-26
+    # The signing secrets live in this environment rather than on the repository,
+    # and **the job has to name it or it cannot see them**. Environment secrets
+    # can carry protection rules — restrict deployment to tags matching `v*`, and
+    # optionally require a reviewer — so the Developer ID key is unreachable from
+    # a workflow run on an ordinary branch. Repository secrets have no such
+    # scoping: every workflow in the repo can read them.
+    environment: release
     steps:
       - uses: actions/checkout@v4
 
