@@ -24,9 +24,22 @@ stem separation — which has been researched in depth but deliberately not star
 
 ## Running Artscribe
 
-There are two ways in, and they are for different people.
+There are three ways in, and they are for different people.
 
-### `make app` — to use it
+### Download a release — to just use it
+
+Grab the newest `Artscribe-<version>.zip` from
+[Releases](https://github.com/adamhadani/artscribe/releases), unzip it, and drag
+`Artscribe.app` to `/Applications`.
+
+**macOS 26 on Apple Silicon.** Homebrew ships arm64-only libraries and this has never been
+an Intel product, so the bundle is `arm64` rather than universal.
+
+> **If macOS says the app "cannot be opened"** the build was not notarised. Right-click it ▸
+> **Open** and confirm, or `xattr -d com.apple.quarantine Artscribe.app`. See
+> [Signing](#signing) for why, and for what makes it stop happening.
+
+### `make app` — to build it yourself
 
 ```sh
 make app
@@ -87,22 +100,75 @@ flag, and Gatekeeper rejects an ad-hoc signature outright — `spctl --assess` s
 right-click ▸ **Open**, or `xattr -d com.apple.quarantine Artscribe.app`, but they should
 not have to.
 
-Doing it properly needs an Apple Developer account, which this project does not have. With
-one, the additional steps would be:
+Doing it properly needs an **Apple Developer account** ($99/yr). The build is already wired
+for one: signing comes from three environment variables, so switching it on changes **no
+tracked file**.
 
-1. A **Developer ID Application** certificate in the login keychain, and
-   `CODE_SIGN_IDENTITY` in `project.yml` set to it instead of `-`.
-2. **Hardened runtime on** (`ENABLE_HARDENED_RUNTIME: YES`). The entitlements file already
-   carries `com.apple.security.cs.disable-library-validation`, which a hardened process
-   needs before it will load the embedded Homebrew dylibs; without it they would have to be
-   re-signed with the same Team ID.
-3. Every embedded dylib signed with that same identity, inside-out, before the bundle —
-   which is the order `App/embed-dependencies.sh` already uses.
-4. **Notarisation**: `xcrun notarytool submit dist/Artscribe-<version>.zip --wait` with an
-   app-specific password or an App Store Connect API key, then `xcrun stapler staple
-   Artscribe.app` and re-zip so the ticket travels with the app.
+#### Locally, once you have the account
 
-None of that has been attempted here, and none of it is wired into the Makefile.
+Get a **Developer ID Application** certificate into your login keychain (Xcode ▸ Settings ▸
+Accounts ▸ Manage Certificates ▸ +, or developer.apple.com ▸ Certificates). Then find its
+exact name and your team ID:
+
+```sh
+security find-identity -v -p codesigning
+# 1) A1B2C3... "Developer ID Application: Your Name (TEAMID)"
+```
+
+Export those and build. The Makefile defaults to ad-hoc, so these are the whole change:
+
+```sh
+export ARTSCRIBE_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+export ARTSCRIBE_TEAM_ID=TEAMID
+export ARTSCRIBE_HARDENED_RUNTIME=YES
+
+make dist        # signs with the real identity, hardened runtime on
+```
+
+Store notarisation credentials once, then notarise:
+
+```sh
+xcrun notarytool store-credentials artscribe-notary \
+    --apple-id you@example.com --team-id TEAMID --password <app-specific-password>
+
+make notarize    # submits, waits, staples, re-zips, and runs spctl
+```
+
+The password is an **app-specific password** (appleid.apple.com ▸ Sign-In and Security ▸
+App-Specific Passwords), not your Apple ID password. `make notarize` ends by running
+`spctl --assess`, which is what Gatekeeper will say on the recipient's Mac — the only check
+that proves the whole chain rather than one link of it.
+
+#### In CI
+
+`.github/workflows/release.yml` builds and publishes on a `v*` tag. Without secrets it
+falls through to an ad-hoc build, so the path stays exercised; add these under **Settings ▸
+Secrets and variables ▸ Actions** to turn on real signing:
+
+| Secret | What it is |
+|---|---|
+| `MACOS_CERTIFICATE` | The Developer ID cert as a base64 `.p12`: export from Keychain Access, then `base64 -i cert.p12 \| pbcopy` |
+| `MACOS_CERTIFICATE_PASSWORD` | The password you set on that `.p12` export |
+| `MACOS_SIGN_IDENTITY` | `Developer ID Application: Your Name (TEAMID)` |
+| `MACOS_TEAM_ID` | The 10-character team ID |
+| `APPLE_API_KEY` | An App Store Connect API key (`.p8`), base64-encoded |
+| `APPLE_API_KEY_ID` | That key's ID |
+| `APPLE_API_ISSUER_ID` | The issuer ID from App Store Connect ▸ Users and Access ▸ Integrations |
+
+An API key rather than an app-specific password in CI, because it is scopeable and
+revocable on its own. The workflow imports the certificate into a **throwaway keychain**
+that dies with the job, never the login keychain.
+
+#### What already works regardless
+
+The entitlements file carries `com.apple.security.cs.disable-library-validation`, which a
+hardened process needs before it will load the embedded Homebrew dylibs, and
+`App/embed-dependencies.sh` already signs those dylibs inside-out before the bundle — the
+order notarisation requires. Neither needs changing.
+
+The one thing an account will never buy: **the Mac App Store is permanently out**. Artscribe
+links Rubber Band under the GPL, and the GPL is incompatible with the App Store's terms.
+Developer-ID-signed downloads, a Homebrew cask, or source are the routes.
 
 ## Why it sounds better
 

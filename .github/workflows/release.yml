@@ -1,0 +1,127 @@
+name: Release
+
+# Tag-triggered, because a release is a deliberate act. Tag the commit you mean:
+#
+#   git tag -a v0.1.0 -m "Artscribe 0.1.0" && git push origin v0.1.0
+#
+# The tag's version must match MARKETING_VERSION in project.yml; the job checks
+# that and fails rather than publishing an archive whose name disagrees with the
+# version inside the bundle.
+on:
+  push:
+    tags: ["v*"]
+  # So the whole path can be exercised without cutting a real release.
+  workflow_dispatch:
+
+permissions:
+  contents: write # to create the release and upload the archive
+
+jobs:
+  release:
+    # Same image as CI, for the same reason: macos-15 cannot build
+    # platforms: [.macOS(.v26)].
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install rubberband xcodegen
+
+      # A tag that disagrees with the bundle's version produces an archive
+      # nobody can reason about later. Caught before anything is built.
+      - name: Check the tag matches MARKETING_VERSION
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          project_version=$(awk -F'"' '/MARKETING_VERSION/ {print $2; exit}' project.yml)
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$project_version" != "$tag_version" ]; then
+            echo "tag $GITHUB_REF_NAME says $tag_version, project.yml says $project_version"
+            exit 1
+          fi
+          echo "version $project_version"
+
+      # The gate runs here too. A release built from code that does not pass is
+      # not a release, and "CI was green on main" is not the same statement as
+      # "this tag is green".
+      - name: Gate
+        run: |
+          brew install swiftlint
+          swift format lint --strict --recursive Package.swift Sources Tests
+          swiftlint lint --quiet --strict
+          swift test
+
+      # Signing. Absent secrets this is a no-op and the build falls through to
+      # ad-hoc, which still produces a usable — if Gatekeeper-rejected — bundle.
+      # That keeps the workflow honest before the Developer ID exists rather
+      # than failing at the last step.
+      - name: Import the Developer ID certificate
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          # A throwaway keychain, unlocked for this job only. Never the login
+          # keychain: a runner is a shared machine and the certificate must not
+          # outlive the build.
+          keychain="$RUNNER_TEMP/build.keychain"
+          password=$(uuidgen)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" \
+            -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          # Without this, codesign blocks on a GUI prompt that no one can answer.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$password" "$keychain" >/dev/null
+          security list-keychain -d user -s "$keychain" login.keychain-db
+          rm -f "$RUNNER_TEMP/certificate.p12"
+
+      - name: Build the app
+        env:
+          ARTSCRIBE_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY || '-' }}
+          ARTSCRIBE_TEAM_ID: ${{ secrets.MACOS_TEAM_ID }}
+          ARTSCRIBE_HARDENED_RUNTIME: ${{ secrets.MACOS_SIGN_IDENTITY != '' && 'YES' || 'NO' }}
+        run: make dist
+
+      - name: Notarise and staple
+        if: env.APPLE_API_KEY_ID != ''
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          version=$(awk -F'"' '/MARKETING_VERSION/ {print $2; exit}' project.yml)
+          app=.build/xcode/Build/Products/Release/Artscribe.app
+          echo "$APPLE_API_KEY" | base64 --decode > "$RUNNER_TEMP/key.p8"
+          xcrun notarytool submit "dist/Artscribe-$version.zip" \
+            --key "$RUNNER_TEMP/key.p8" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" --wait
+          # Stapling writes into the .app, so the archive made before it does
+          # not carry the ticket and has to be rebuilt.
+          xcrun stapler staple "$app"
+          rm -f "dist/Artscribe-$version.zip" "$RUNNER_TEMP/key.p8"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "dist/Artscribe-$version.zip"
+          # What Gatekeeper will say on the recipient's Mac. The only check that
+          # proves the whole chain rather than one link of it.
+          spctl --assess --type execute --verbose=4 "$app"
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
+          # Said out loud on the release page rather than left for the user to
+          # discover when the app refuses to open.
+          body: |
+            Requires macOS 26 on Apple Silicon.
+
+            **If macOS says the app "cannot be opened"**, this build was not
+            notarised. Right-click the app ▸ **Open**, then confirm — or run
+            `xattr -d com.apple.quarantine Artscribe.app`. A notarised build
+            opens normally.
+
+            Artscribe is GPLv3. It links Rubber Band (GPLv2-or-later) and
+            libsamplerate, whose licences travel inside the bundle.

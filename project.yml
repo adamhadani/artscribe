@@ -37,13 +37,20 @@ settings:
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
-    # Ad-hoc. Enough for this machine and for anyone willing to right-click ▸
-    # Open once; a real Developer ID needs an Apple Developer account, which
-    # this project does not have. README ▸ Signing spells out what would change.
-    CODE_SIGN_IDENTITY: "-"
+    # Signing is taken from the environment so that turning on a real Developer
+    # ID needs no edit to a tracked file — `make app` exports these, defaulting
+    # to ad-hoc. See README ▸ Signing for the four things to set once you have
+    # an Apple Developer account.
+    #
+    # Ad-hoc ("-") is enough for the machine that built it and for anyone
+    # willing to right-click ▸ Open once. It is not enough for a download.
+    CODE_SIGN_IDENTITY: "$(ARTSCRIBE_SIGN_IDENTITY)"
     CODE_SIGN_STYLE: Manual
-    DEVELOPMENT_TEAM: ""
-    ENABLE_HARDENED_RUNTIME: NO
+    DEVELOPMENT_TEAM: "$(ARTSCRIBE_TEAM_ID)"
+    # Notarisation requires the hardened runtime, and the hardened runtime
+    # requires the library-validation exception already in the entitlements
+    # file before it will load the embedded Homebrew dylibs.
+    ENABLE_HARDENED_RUNTIME: "$(ARTSCRIBE_HARDENED_RUNTIME)"
     DEAD_CODE_STRIPPING: YES
 
 targets:

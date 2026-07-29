@@ -8,10 +8,21 @@
 // Run standalone with `swift App/GenerateIcon.swift`, or let
 // `App/generate-icon.sh` decide whether it needs re-running.
 //
-// The mark: a slowed-down waveform. The left half is at full width, the right
-// half is the same shape stretched, drawn in the app's own amber emphasis
-// colour over the dark panel — which is the one thing Artscribe does that
-// nothing else on the dock does.
+// The mark: nine bars of a waveform, the last three in the app's amber. Slate
+// is the audio, amber is the passage you have picked out and slowed down —
+// which is the one thing Artscribe does that nothing else on the dock does.
+//
+// **Drawn for 16 points, not for 512.** An icon is looked at in a dock, a
+// Finder list and a ⌘-Tab strip, and the earlier design — a dense
+// forty-bar envelope with a loop bracket around half of it — was a grey smear
+// at every one of those sizes. Nine bars with real gaps survive the whole
+// ladder. The loop bracket went with it: a 2pt rectangle is invisible at 32
+// points, and the amber already says which part is picked out.
+//
+// Two defects went at the same time, both of which read as bugs rather than
+// choices: the bracket's right edge sat inside the corner radius and was
+// visibly clipped by it, and the bars ran to the plate's edge and were clipped
+// too. Everything now lives inside a safe area well clear of the curve.
 import AppKit
 import CoreGraphics
 import Foundation
@@ -20,18 +31,22 @@ import Foundation
 // Duplicated rather than imported because this runs as a script outside the
 // package, and a build-tool dependency on ArtscribeUI to draw an icon would be
 // a worse trade than two colours copied.
-let background = (r: 0.086, g: 0.098, b: 0.118)
-let waveform = (r: 0.298, g: 0.686, b: 0.941)
-let emphasis = (r: 0.965, g: 0.694, b: 0.208)
+//
+// These are the app's real inks. The previous icon's waveform was a generic
+// blue that appeared nowhere in the product.
+let background = (r: 0.075, g: 0.078, b: 0.090)  // 0x131417, the app background
+let waveform = (r: 0.478, g: 0.533, b: 0.604)  // 0x7A889A, the waveform slate
+let emphasis = (r: 0.941, g: 0.639, b: 0.369)  // 0xF0A35E, the selection amber
 
-/// The waveform envelope, as a function of position across the icon. Sampled
-/// twice at different rates to make the "same passage, slowed down" idea read.
-func envelope(_ t: Double) -> Double {
-    let slow = sin(t * 2.9) * 0.5 + 0.5
-    let fast = sin(t * 11.3) * 0.5 + 0.5
-    let grain = sin(t * 37.0) * 0.5 + 0.5
-    return 0.20 + 0.44 * slow * (0.55 + 0.45 * fast) + 0.16 * grain
-}
+/// The bar heights, as fractions of the lane.
+///
+/// Hand-chosen rather than sampled from a sine: nine bars is too few for a
+/// formula to look like anything, and this shape reads as a phrase with a peak
+/// in it — loud, quieter, loud again — at every size in the ladder.
+let bars: [Double] = [0.30, 0.55, 0.80, 1.00, 0.72, 0.92, 0.60, 0.38, 0.24]
+
+/// How many of the bars, from the right, are the picked-out passage.
+let emphasised = 3
 
 func draw(size: Int) -> CGImage? {
     let space = CGColorSpaceCreateDeviceRGB()
@@ -62,40 +77,27 @@ func draw(size: Int) -> CGImage? {
             transform: nil))
     context.clip()
 
-    // The lane the waveform lives in, and the seam where the speed changes.
-    let laneHeight = rect.height * 0.62
-    let centre = rect.midY
-    let columns = max(24, size / 6)
-    let columnWidth = rect.width / Double(columns)
-    let seam = Double(columns) * 0.5
+    // The safe area. Well inside the corner radius, so nothing is ever clipped
+    // by the curve — the defect this replaced.
+    let safe = rect.insetBy(dx: rect.width * 0.14, dy: rect.height * 0.14)
+    let slot = safe.width / Double(bars.count)
+    // Rounded ends, which is what keeps a bar from reading as a hard rectangle
+    // once it is only a few pixels wide.
+    let cornerRadius = slot * 0.22
 
-    for column in 0..<columns {
-        let x = rect.minX + Double(column) * columnWidth
-        // Left half plays at 1×; right half is the same envelope stretched over
-        // twice the distance, which is what 50% speed looks like on screen.
-        let slowed = Double(column) >= seam
-        let phase =
-            slowed
-            ? seam + (Double(column) - seam) * 0.5
-            : Double(column)
-        let amplitude = envelope(phase * 12.0 / Double(columns)) * laneHeight * 0.5
-        let colour = slowed ? emphasis : waveform
+    for (index, height) in bars.enumerated() {
+        let amplitude = height * safe.height * 0.44
+        let colour = index >= bars.count - emphasised ? emphasis : waveform
         context.setFillColor(CGColor(red: colour.r, green: colour.g, blue: colour.b, alpha: 1))
-        context.fill(
-            CGRect(
-                x: x + columnWidth * 0.18, y: centre - amplitude,
-                width: columnWidth * 0.64, height: amplitude * 2))
+        let bar = CGRect(
+            x: safe.minX + Double(index) * slot + slot * 0.24, y: safe.midY - amplitude,
+            width: slot * 0.52, height: amplitude * 2)
+        context.addPath(
+            CGPath(
+                roundedRect: bar, cornerWidth: cornerRadius, cornerHeight: cornerRadius,
+                transform: nil))
+        context.fillPath()
     }
-
-    // The loop bracket around the slowed half — the other half of what the app
-    // is for.
-    let markWidth = max(1.0, side * 0.018)
-    context.setStrokeColor(CGColor(red: emphasis.r, green: emphasis.g, blue: emphasis.b, alpha: 1))
-    context.setLineWidth(markWidth)
-    let bracket = CGRect(
-        x: rect.minX + rect.width * 0.5, y: centre - laneHeight * 0.62,
-        width: rect.width * 0.5 - markWidth, height: laneHeight * 1.24)
-    context.stroke(bracket)
 
     context.restoreGState()
     return context.makeImage()
