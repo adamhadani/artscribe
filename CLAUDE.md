@@ -101,6 +101,21 @@ is untouched, so the volume checks still read back the value the user's control 
 - Verified by `aSilencedGraphEmitsExactlyZero`, which renders the real graph offline and
   asserts every sample is exactly 0 against a control that is not.
 
+**Match the fix to the tool.** Small contained changes — a layout tweak, a one-file fix, a
+doc correction — should just be made. Spawning a subagent costs 20–80 minutes and 200–400k
+tokens because it re-reads this file, re-establishes context, runs the acceptance harness and
+writes a report; for a one-line change that overhead dwarfs the work. Six dispatches went into
+the keyboard-shortcut window, more than the entire audio engine. Batch several pieces of
+feedback into one pass rather than one dispatch each.
+
+**Ask how UI should look before building it.** The shortcut reference was built as an
+inspector page, shown, and rebuilt as a separate window — a whole task discarded because
+nobody asked first.
+
+**Check you can verify before you build.** Four fixes to that window were made blind, because
+`NSApp.activate()` silently fails from a background shell and no window could become key
+(`activate(ignoringOtherApps: true)` works). Blind fixes address symptoms and leave causes.
+
 **Plan code is not pre-verified.** Reviews found well over a dozen genuine defects in
 plan-authored code, including three separate silent-truncation bugs. Treat code in a plan as
 a proposal to check, not an answer.
