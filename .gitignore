@@ -72,3 +72,6 @@ Tests/Media/
 *.crash
 *.trace
 *.xcresult/
+
+# direnv
+.envrc
