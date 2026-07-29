@@ -12,12 +12,13 @@ on:
       - "docs/**"
       - "LICENSE"
       - ".gitignore"
+  # **No `paths-ignore` on pull_request, deliberately.** `build-and-test` is a
+  # *required* status check on main, and a required check that never runs is
+  # never reported — so a documentation-only PR sits at "Expected — waiting for
+  # status" and can never merge. Observed on PR #2, which was MERGEABLE and
+  # BLOCKED with zero checks. The saving is not worth a class of PR that cannot
+  # land, and on a public repository the runners are free anyway.
   pull_request:
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - "LICENSE"
-      - ".gitignore"
 
 # One run per branch. Pushing three commits in a minute used to start three full
 # macOS runs and pay for all of them; now the older two are cancelled the moment
