@@ -241,6 +241,9 @@ public struct PracticeWindow: View {
     /// an unbundled `swift run` binary has no state-restoration file to write
     /// into, which is the configuration this project is actually run in.
     private func configure(_ window: NSWindow?) {
+        // Reported so `⌘P` can tell "open and in front" from "open but behind"
+        // — without it the toggle has no window to ask and could only ever open.
+        context.practice.adopt(window: window)
         guard let window else { return }
         _ = window.setFrameAutosaveName(PracticeWindowController.windowID)
         window.isRestorable = true

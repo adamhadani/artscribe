@@ -129,7 +129,7 @@ extension ActionInvoker {
         // you did nothing at all, which reads as a dead key. See
         // `ShortcutWindowController.toggle`.
         .helpShortcuts: { $0.shortcuts.toggle() },
-        .practiceShow: { $0.practice.show() }
+        .practiceShow: { $0.practice.toggle() }
     ]
 
     /// Cut, Copy and Paste are sent down the responder chain by hand, because

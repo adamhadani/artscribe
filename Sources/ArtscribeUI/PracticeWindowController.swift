@@ -1,3 +1,4 @@
+import AppKit
 import ArtscribeKit
 import Foundation
 import SwiftUI
@@ -22,21 +23,31 @@ public final class PracticeWindowController {
     /// meant.
     public static let windowID = "practice"
 
+    /// Opening, raising, focusing and closing — shared with the shortcut window
+    /// rather than copied from it. See `AuxiliaryWindow`: this controller had
+    /// both of the defects that window was fixed for, because it was written as
+    /// a near-copy before either fix existed.
+    public let windowState = AuxiliaryWindow()
+
     /// Installed by the scene. Plumbing written once at launch.
-    public var present: (@MainActor () -> Void)?
+    public var present: (@MainActor () -> Void)? {
+        get { windowState.present }
+        set { windowState.present = newValue }
+    }
 
     public init() {}
 
-    /// `⌘P`, and **View ▸ Practice**.
-    ///
-    /// Opens, and brings forward if it is already open — which is what
-    /// `openWindow(id:)` does for an existing `Window` scene. Not a toggle, for
-    /// the same reason the shortcut window is not: it costs the document nothing,
-    /// has a close button and answers ⌘W, so a key that also closed it would be a
-    /// third behaviour for no gain.
-    public func show() {
-        present?()
-    }
+    /// `⌘P`, and **View ▸ Practice**. Opens, raises, and gives it the keyboard.
+    public func show() { windowState.show() }
+
+    /// `⌘P` again puts it away, matching `⌘/`. The earlier claim that a toggle
+    /// would be "a third behaviour for no gain" was wrong in the same way it was
+    /// wrong for the shortcut window: pressed while the window is already in
+    /// front, a non-toggling key does *nothing at all*, which reads as broken.
+    public func toggle() { windowState.toggle() }
+
+    /// Told which `NSWindow` the ramp ended up in, by the view inside it.
+    public func adopt(window: NSWindow?) { windowState.window = window }
 }
 
 extension View {
