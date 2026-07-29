@@ -76,9 +76,25 @@ cp -f "$repo_root/LICENSE" "$resources/LICENSE.txt"
 # Sign the vendored libraries — install_name_tool invalidates any signature they
 # arrived with — then the bundle. Inner code first, outermost last, which is the
 # order codesign requires.
+#
+# **A real identity needs a secure timestamp and the hardened runtime here too,
+# not just on the bundle.** This used to sign with `--timestamp=none`
+# unconditionally, which is right for ad-hoc — Apple's timestamp server is a
+# network round trip nobody wants on every local build — and fatal for
+# distribution: notarisation rejected the archive with "The signature does not
+# include a secure timestamp" against both dylibs, having accepted the app
+# itself. Nested code is notarised on its own terms.
 identity=${EXPANDED_CODE_SIGN_IDENTITY:-${CODE_SIGN_IDENTITY:--}}
+if [ "$identity" = "-" ]; then
+    timestamp_flag="--timestamp=none"
+    runtime_flag=""
+else
+    timestamp_flag="--timestamp"
+    runtime_flag="--options runtime"
+fi
 for lib in "$frameworks"/*.dylib; do
-    codesign --force --sign "$identity" --timestamp=none "$lib"
+    # shellcheck disable=SC2086 # runtime_flag is deliberately word-split or empty
+    codesign --force --sign "$identity" $timestamp_flag $runtime_flag "$lib"
 done
 
 # Then confirm nothing outside the bundle and the OS is still being asked for.

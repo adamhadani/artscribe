@@ -124,8 +124,22 @@ NOTARY_PROFILE ?= artscribe-notary
 notarize: dist
 	@test "$(ARTSCRIBE_SIGN_IDENTITY)" != "-" || { \
 		echo "notarisation needs a Developer ID; set ARTSCRIBE_SIGN_IDENTITY"; exit 1; }
-	xcrun notarytool submit "$(DIST)/Artscribe-$(VERSION).zip" \
-		--keychain-profile "$(NOTARY_PROFILE)" --wait
+	@# `notarytool submit --wait` exits 0 even when the verdict is Invalid, so
+	@# the status has to be read rather than inferred from the exit code. Without
+	@# this the recipe walked on to `stapler`, which failed with a "Record not
+	@# found" and error 65 — an error about the wrong thing entirely, three steps
+	@# after the real one.
+	@set -e; \
+	id=$$(xcrun notarytool submit "$(DIST)/Artscribe-$(VERSION).zip" \
+		--keychain-profile "$(NOTARY_PROFILE)" --wait --output-format json \
+		| tee /dev/stderr | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])'); \
+	status=$$(xcrun notarytool info "$$id" --keychain-profile "$(NOTARY_PROFILE)" \
+		--output-format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])'); \
+	if [ "$$status" != "Accepted" ]; then \
+		echo; echo "notarisation $$status — Apple's reasons:"; \
+		xcrun notarytool log "$$id" --keychain-profile "$(NOTARY_PROFILE)"; \
+		exit 1; \
+	fi
 	xcrun stapler staple "$(APP)"
 	rm -f "$(DIST)/Artscribe-$(VERSION).zip"
 	ditto -c -k --sequesterRsrc --keepParent "$(APP)" "$(DIST)/Artscribe-$(VERSION).zip"
