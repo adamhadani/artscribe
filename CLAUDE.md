@@ -272,8 +272,19 @@ configured for Float32; the default path can return Int16 and silently discard 8
 Integration tests read `$ARTSCRIBE_TEST_MEDIA_DIR` and **skip cleanly when unset**, so CI is
 green without it. Never commit audio over 100 KB — pre-commit enforces this.
 
-Known issue: the full suite hangs when `$ARTSCRIBE_TEST_MEDIA_DIR` is set. `make check` is
-unaffected. Root-causing is tracked.
+That hang is **fixed**, and it was never about the media: Swift Testing runs tests
+concurrently and every `@MainActor` test serialises on the main actor, so one test blocking
+it leaves the rest queued forever. Setting the media directory brought more tests into the
+schedule and made the deadlock reliable; without it, it surfaced as the intermittent ~1-in-10
+`make check` failure that was being blamed on audio hardware. `swift test --no-parallel` runs
+all 838 in 26 s with the media directory set. CI and the release workflow both pass it.
+
+**`swift test` runs in parallel, and `@MainActor` tests serialise behind each other.** On a
+GitHub runner that deadlocked outright: 886 tests started, 506 finished, and every one of the
+~380 that never finished was `@MainActor`. It is not a bad test — it is the scheduling. Use
+`--no-parallel` when a run hangs or when you need the log to name a culprit, because under
+parallelism the blocked test is invisible among hundreds of others that merely never got a
+turn. Both workflows pass it, and the suite is *faster* serially anyway (14.9 s).
 
 ## Testing conventions
 
