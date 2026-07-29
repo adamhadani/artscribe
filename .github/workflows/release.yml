@@ -55,7 +55,7 @@ jobs:
       # That keeps the workflow honest before the Developer ID exists rather
       # than failing at the last step.
       - name: Import the Developer ID certificate
-        if: env.MACOS_CERTIFICATE != ''
+        if: ${{ secrets.MACOS_CERTIFICATE != '' }}
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -85,7 +85,7 @@ jobs:
         run: make dist
 
       - name: Notarise and staple
-        if: env.APPLE_API_KEY_ID != ''
+        if: ${{ secrets.APPLE_API_KEY_ID != '' }}
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
@@ -94,10 +94,21 @@ jobs:
           version=$(awk -F'"' '/MARKETING_VERSION/ {print $2; exit}' project.yml)
           app=.build/xcode/Build/Products/Release/Artscribe.app
           echo "$APPLE_API_KEY" | base64 --decode > "$RUNNER_TEMP/key.p8"
-          xcrun notarytool submit "dist/Artscribe-$version.zip" \
-            --key "$RUNNER_TEMP/key.p8" \
-            --key-id "$APPLE_API_KEY_ID" \
-            --issuer "$APPLE_API_ISSUER_ID" --wait
+          # `--wait` exits 0 even when the verdict is Invalid, so the status is
+          # read rather than inferred — otherwise the job would staple a
+          # rejected build and fail three steps later with an error about the
+          # wrong thing. Same defect, and same fix, as `make notarize`.
+          creds="--key $RUNNER_TEMP/key.p8 --key-id $APPLE_API_KEY_ID --issuer $APPLE_API_ISSUER_ID"
+          id=$(xcrun notarytool submit "dist/Artscribe-$version.zip" $creds --wait \
+                 --output-format json | tee /dev/stderr \
+                 | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+          status=$(xcrun notarytool info "$id" $creds --output-format json \
+                     | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')
+          if [ "$status" != "Accepted" ]; then
+            echo "notarisation $status — Apple's reasons:"
+            xcrun notarytool log "$id" $creds
+            exit 1
+          fi
           # Stapling writes into the .app, so the archive made before it does
           # not carry the ticket and has to be rebuilt.
           xcrun stapler staple "$app"

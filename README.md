@@ -157,9 +157,39 @@ make notarize    # submits, waits, staples, re-zips, and runs spctl
 ```
 
 The password is an **app-specific password** (appleid.apple.com ▸ Sign-In and Security ▸
-App-Specific Passwords), not your Apple ID password. `make notarize` ends by running
-`spctl --assess`, which is what Gatekeeper will say on the recipient's Mac — the only check
-that proves the whole chain rather than one link of it.
+App-Specific Passwords), not your Apple ID password. It is stored in your keychain under the
+profile name, so this is a once-per-machine step.
+
+A successful run ends like this, and all three lines matter:
+
+```
+status: Accepted                       ← Apple's verdict
+The staple and validate action worked  ← the ticket is now inside the .app
+accepted (source=Notarized Developer ID)  ← what Gatekeeper tells the recipient
+```
+
+`codesign --verify --strict` passing means very little on its own — it passes on builds
+Gatekeeper refuses. `spctl --assess` is the check that counts, and its *reason* is
+diagnostic: `rejected (source=Unnotarized Developer ID)` means the signature is right and
+only notarisation is missing, which is a different problem from a bare `rejected`.
+
+To test what a recipient actually experiences, quarantine a copy the way a browser would:
+
+```sh
+xattr -w com.apple.quarantine "0081;$(printf %x $(date +%s));Safari;" Artscribe.app
+spctl --assess --type execute --verbose=4 Artscribe.app   # must still say: accepted
+```
+
+**Nested code is notarised on its own terms.** The first real submission here was rejected
+with *"The signature does not include a secure timestamp"* against both embedded dylibs,
+while the app itself was fine. `App/embed-dependencies.sh` re-signs those dylibs after
+`install_name_tool` invalidates them, and its flags follow the identity — ad-hoc keeps
+`--timestamp=none`, a real identity gets `--timestamp` and `--options runtime`. Nothing to
+configure; it is recorded here because the error names the symptom and not the cause.
+
+Note that `notarytool submit --wait` **exits 0 even when the verdict is `Invalid`**.
+`make notarize` reads the status out of the JSON instead of trusting the exit code, and
+prints Apple's own reasons on failure. If you script this yourself, do the same.
 
 #### In CI
 
@@ -178,8 +208,36 @@ Secrets and variables ▸ Actions** to turn on real signing:
 | `APPLE_API_ISSUER_ID` | The issuer ID from App Store Connect ▸ Users and Access ▸ Integrations |
 
 An API key rather than an app-specific password in CI, because it is scopeable and
-revocable on its own. The workflow imports the certificate into a **throwaway keychain**
-that dies with the job, never the login keychain.
+revocable on its own, and independent of anyone's Apple ID. The workflow imports the
+certificate into a **throwaway keychain** that dies with the job, never the login keychain.
+
+Cutting a release is then:
+
+```sh
+git tag -a v0.1.0 -m "Artscribe 0.1.0" && git push origin v0.1.0
+```
+
+The job refuses a tag whose version disagrees with `MARKETING_VERSION`, runs the full gate
+before building — "CI was green on main" is not the same statement as "this tag is green" —
+and publishes the notarised zip to Releases. With no secrets set it still runs end to end and
+produces an ad-hoc build, so the path stays exercised before the certificate exists.
+
+#### Keep the private key, not the password
+
+The two secrets are not equally precious:
+
+- The **app-specific password** is disposable. You cannot read it back after creating it, and
+  you do not need to: revoke it and make another in under a minute. Losing the Mac it was
+  stored on costs nothing.
+- The **Developer ID private key** cannot be recreated. Without it you cannot sign or re-sign
+  anything, and recovering means revoking the certificate and spending one of the **five**
+  Developer ID Application certificates an account ever gets. Export it once
+  (Keychain Access ▸ **My Certificates** ▸ the identity ▸ Export ▸ `.p12`) and keep it in a
+  password manager or other durable secret storage.
+
+`.p12` greyed out on export means you selected the certificate rather than the *identity*.
+Use the **My Certificates** category, or expand the certificate and select it together with
+its private key.
 
 #### What already works regardless
 

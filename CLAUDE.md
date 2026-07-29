@@ -164,6 +164,36 @@ click in silence — and the loop button read as broken for a whole run purely b
 button's action removed, the preroll button's action removed, the edge drag ignoring where
 the pointer moved to — were each confirmed to turn the run red before the work was trusted.
 
+**Signing and notarisation: nested code is judged on its own terms.** The bundle can be
+signed, verified and hardened, and Apple will still reject the archive because an embedded
+dylib lacks a *secure timestamp*. `embed-dependencies.sh` re-signs the two Homebrew dylibs
+after `install_name_tool` invalidates them, and its flags follow the identity: ad-hoc keeps
+`--timestamp=none` (Apple's timestamp server is a network round trip nobody wants on every
+local build), a real identity gets `--timestamp` **and** `--options runtime`.
+
+**`notarytool submit --wait` exits 0 on a rejected verdict.** It reports `Current status:
+Invalid` and returns success, so a recipe that trusts the exit code walks on to `stapler`
+and dies with "Record not found" and error 65 — an error about the wrong thing, three steps
+after the real one. Read `status` out of `--output-format json` and print `notarytool log`
+on anything but `Accepted`. Both `make notarize` and the release workflow do this.
+
+**`spctl --assess` is the only check that means anything.** `codesign --verify --strict`
+passes on a build Gatekeeper will refuse. The verdict also names the *reason* — `rejected
+(source=Unnotarized Developer ID)` says the signature is right and only notarisation is
+missing, which is a different problem from `rejected` with no source. To test what a
+recipient actually gets, stamp a copy with `com.apple.quarantine` and assess that.
+
+**An `Apple Development` certificate is not a `Developer ID Application` one.** The first is
+what Xcode issues from a free Apple ID and signs for your own machines; only the second is
+accepted from a download, and it needs an *active paid* membership. Worse, the bracketed
+name in an Apple Development certificate is a **per-person identifier, not the team ID** —
+copying it into `ARTSCRIBE_TEAM_ID` disagrees silently with what the signature carries. Read
+the real one with `codesign -dv --verbose=4 <app> 2>&1 | grep TeamIdentifier`.
+
+**Never echo the signing identity.** `make app` used to print `$(ARTSCRIBE_SIGN_IDENTITY)`,
+which puts a developer's name and team into every build log — including one pasted into a
+chat. It prints the certificate *kind* now, read back off the bundle.
+
 **Plan code is not pre-verified.** Reviews found well over a dozen genuine defects in
 plan-authored code, including three separate silent-truncation bugs. Treat code in a plan as
 a proposal to check, not an answer.
