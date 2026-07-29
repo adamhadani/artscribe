@@ -20,7 +20,7 @@ import SwiftUI
 @main
 struct AcceptanceMain: App {
     @State private var model = ViewerModel()
-    @State private var devices = OutputDeviceController(source: CoreAudioDeviceSource())
+    @State private var devices = OutputDeviceController(source: PlatformAudio.makeDeviceSource())
     /// Both on their own defaults suite: an acceptance run must not rewrite the
     /// theme the user left the real app in, nor drop its test file into their
     /// Open Recent menu. The theme also needs a known starting point.

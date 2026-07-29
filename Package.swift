@@ -9,9 +9,17 @@ let sharedSwiftSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "Artscribe",
-    platforms: [.macOS(.v26)],
+    // iOS is declared for the *lower* half of the stack — `ArtscribeKit`,
+    // `AudioDecode`, `Waveform`, `TimeStretch`, `Playback` — which is portable
+    // and is built for iOS in CI to keep it that way. `ArtscribeUI` and up are
+    // AppKit and remain macOS-only; declaring the platform does not claim
+    // otherwise, it only stops SwiftPM refusing the destination outright.
+    platforms: [.macOS(.v26), .iOS(.v26)],
     products: [
         .library(name: "ArtscribeKit", targets: ["ArtscribeKit"]),
+        // The audio engine, as its own product so an iOS app target can depend
+        // on it and so `xcodebuild` has a scheme to build for iOS.
+        .library(name: "Playback", targets: ["Playback"]),
         // Everything but the app shell, as one product. It exists so the Xcode
         // target generated from `project.yml` can depend on the package: Xcode
         // can only consume *products*, and `ArtscribeApp` is an executable
@@ -60,9 +68,18 @@ let package = Package(
             dependencies: ["Waveform"],
             swiftSettings: sharedSwiftSettings
         ),
+        // Rubber Band comes from Homebrew, which builds a macOS dylib and
+        // nothing else, so the dependency is macOS-only and
+        // `RubberBandStretcher.swift` is behind `#if canImport(CRubberBand)`.
+        // On iOS the module is the `TimeStretcher` protocol and
+        // `IdentityStretcher`, which is enough for `Playback` to compile and
+        // exactly the seam a second backend plugs into.
         .target(
             name: "TimeStretch",
-            dependencies: ["ArtscribeKit", "CRubberBand"],
+            dependencies: [
+                "ArtscribeKit",
+                .target(name: "CRubberBand", condition: .when(platforms: [.macOS]))
+            ],
             swiftSettings: sharedSwiftSettings
         ),
         .testTarget(

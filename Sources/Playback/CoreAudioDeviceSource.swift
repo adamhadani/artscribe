@@ -1,10 +1,16 @@
+#if os(macOS)
+
 import CoreAudio
 import Foundation
 
 /// Reads the CoreAudio HAL. Facts only — every *decision* about what these facts
 /// mean lives in `OutputDeviceResolver`, which needs no hardware to test.
 ///
-/// There is no `AVAudioSession` on macOS (it is iOS-only), so device enumeration
+/// macOS only, and the whole file is behind `#if os(macOS)` rather than just the
+/// unavailable calls: the HAL's device *list* is a macOS idea. Picking an output
+/// out of everything attached to the machine is what a Mac app does; on iOS the
+/// system owns routing and `CurrentRouteDeviceSource` reports the one route it
+/// has chosen. There is no `AVAudioSession` here to ask instead, so enumeration
 /// goes through `AudioObjectGetPropertyData` directly.
 public enum CoreAudioHAL {
 
@@ -160,3 +166,5 @@ public final class CoreAudioDeviceSource: AudioDeviceSource {
         self.registration = registration
     }
 }
+
+#endif

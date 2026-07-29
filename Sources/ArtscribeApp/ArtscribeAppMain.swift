@@ -73,7 +73,7 @@ struct ArtscribeAppMain: App {
     /// Owns the output-device selection for the whole app. It exists before any
     /// track is loaded and outlives every `AudioOutput`, which is why the
     /// selection lives here rather than inside the audio graph.
-    @State private var devices = OutputDeviceController(source: CoreAudioDeviceSource())
+    @State private var devices = OutputDeviceController(source: PlatformAudio.makeDeviceSource())
     /// The Open Recent list. Application state, like the two above: it outlives
     /// every loaded track.
     @State private var recents = RecentFiles()

@@ -1,15 +1,26 @@
 import AVFAudio
 import ArtscribeKit
-import CoreAudio
 import Foundation
 import Synchronization
+
+#if os(macOS)
+import CoreAudio
+#endif
 
 /// The only place CoreAudio touches the engine.
 ///
 /// The render block does nothing but validate the buffer layout and forward to
 /// `PlaybackEngine.render`. Everything else here — starting, stopping, switching
 /// device, reacting to a route change — happens on the main actor, never on the
-/// render thread.
+/// render thread. The block itself lives in `AudioOutput+Render.swift`: it is the
+/// one piece of this class that runs under spec §5's real-time rules, and keeping
+/// it in its own file is what stops main-actor code drifting into it.
+///
+/// Portable, and the two platform differences are both narrow. Choosing an output
+/// device is a macOS idea, so `setOutputDevice` has a HAL implementation there and
+/// is a documented no-op elsewhere. Being interrupted is an iOS idea, so the
+/// session that reports it is injected (`AudioSessionCoordinator`) and is
+/// `UnmanagedAudioSession` — correctly inert — on the Mac.
 @MainActor
 public final class AudioOutput: AudioOutputDeviceSink {
 
@@ -24,7 +35,11 @@ public final class AudioOutput: AudioOutputDeviceSink {
     /// captures are: reading a strong reference from the render thread is
     /// retain/release traffic, which spec §5 forbids. It points at a process-wide
     /// singleton, so there is nothing for it to dangle against.
-    fileprivate final class RenderContext: Sendable {
+    ///
+    /// `internal` rather than `fileprivate` only because the render block that
+    /// captures it lives in `AudioOutput+Render.swift`; nothing outside this class
+    /// touches it.
+    final class RenderContext: Sendable {
         let layoutMismatches = Atomic<UInt64>(0)
         unowned(unsafe) let audibility: OutputAudibility
 
@@ -44,11 +59,36 @@ public final class AudioOutput: AudioOutputDeviceSink {
     /// Preallocated so the render block never allocates.
     private let channelPointers: UnsafeMutablePointer<UnsafeMutablePointer<Float>?>
     private var configurationObserver: (any NSObjectProtocol)?
+    private let session: any AudioSessionCoordinator
 
     public private(set) var isRunning = false
     /// Set when a route change forced a reconfiguration. Never overwritten with
     /// `nil` by the engine itself — the UI clears it once it has been shown.
     public private(set) var notice: String?
+
+    /// The platform stopped us and the transport must say so. Never called on
+    /// macOS, where nothing can take the output away mid-passage.
+    ///
+    /// The graph is already stopped by the time this runs; what the owner has to
+    /// do is bring its own idea of "playing" back into line. `AudioOutput` cannot
+    /// do that itself — the transport state lives in `PlaybackEngine` and the
+    /// model above it, and having two owners of "is it playing" is how they come
+    /// to disagree.
+    public var onInterrupted: (@MainActor () -> Void)?
+
+    /// The interruption is over and it is reasonable to carry on: the user was
+    /// playing when it started, and the system says resuming is appropriate (it
+    /// says so for a timer, and does not for a phone call).
+    ///
+    /// A request, not an instruction, and it deliberately does not restart the
+    /// graph — the owner calls `play`, which starts the graph on the way past. See
+    /// `AudioSessionPolicy` for both halves of the rule.
+    public var onResumeRequested: (@MainActor () -> Void)?
+
+    /// Whether the transport was playing when the current interruption began.
+    /// Remembered here because the session cannot tell us: by the time the
+    /// interruption *ends*, `isRunning` has long since been false.
+    private var wasPlayingWhenInterrupted = false
 
     /// The file's sample rate, which is the rate the render block produces.
     public let sourceSampleRate: Double
@@ -68,9 +108,17 @@ public final class AudioOutput: AudioOutputDeviceSink {
     ///
     /// `sampleRate` stays a parameter: a wrong one is audible — the track plays at the
     /// wrong speed — but it cannot make anything read or write out of bounds.
-    public init(engine: PlaybackEngine, sampleRate: Double) throws {
+    ///
+    /// - Parameter session: the platform's audio session. Defaults to the right one for
+    ///   the platform; the tests pass a double so that interruption handling can be
+    ///   driven on a Mac, where no interruption can actually happen.
+    public init(
+        engine: PlaybackEngine, sampleRate: Double,
+        session: any AudioSessionCoordinator = PlatformAudio.makeSession()
+    ) throws {
         self.engine = engine
         self.sourceSampleRate = sampleRate
+        self.session = session
         let channels = engine.channelCount
 
         guard
@@ -95,6 +143,11 @@ public final class AudioOutput: AudioOutputDeviceSink {
         avEngine.attach(sourceNode)
         avEngine.connect(sourceNode, to: avEngine.mainMixerNode, format: format)
         observeConfigurationChanges()
+
+        // After the graph exists, so an event arriving during configuration has
+        // something to act on.
+        session.onEvent = { [weak self] event in self?.handle(event) }
+        try session.configure()
     }
 
     isolated deinit {
@@ -102,79 +155,23 @@ public final class AudioOutput: AudioOutputDeviceSink {
             NotificationCenter.default.removeObserver(configurationObserver)
         }
         avEngine.stop()
+        // After the engine, and unconditionally: a loaded track being replaced by
+        // another one destroys this object without necessarily passing through
+        // `stop()`, and an iOS session left active would keep another app's audio
+        // ducked for a track that no longer exists.
+        session.deactivate()
         channelPointers.deinitialize(count: Int(format.channelCount))
         channelPointers.deallocate()
-    }
-
-    /// Built as a static function so the block captures exactly four values and
-    /// never `self` — `self` is main-actor isolated, and touching it from the
-    /// render thread would be both a concurrency violation and ARC traffic.
-    ///
-    /// `unowned(unsafe)` on both objects: they are owned by the `AudioOutput`
-    /// that owns this block and cannot outlive it, because `deinit` stops the
-    /// engine (tearing the block down) before releasing either.
-    private static func makeRenderBlock(
-        engine: PlaybackEngine, context: RenderContext, channels: Int,
-        into pointers: UnsafeMutablePointer<UnsafeMutablePointer<Float>?>
-    ) -> AVAudioSourceNodeRenderBlock {
-        { [unowned(unsafe) engine, unowned(unsafe) context] _, _, frameCount, rawList in
-            let buffers = UnsafeMutableAudioBufferListPointer(rawList)
-            let frames = Int(frameCount)
-
-            // `standardFormatWithSampleRate` is *deinterleaved* float, so this
-            // should always be one single-channel buffer per channel. Verified
-            // by `eachChannelLandsInItsOwnBuffer`, but not assumed here: if the
-            // layout were ever anything else, the per-channel mapping below
-            // would write channel 1 into channel 0's buffer and past its end.
-            // Exactly one buffer per channel, no more: a longer list would leave
-            // buffers we never wrote, and undefined memory is worse than silence.
-            var planar = buffers.count == channels
-            if planar {
-                for i in 0..<channels where !Self.isPlanarFloat(buffers[i], frames: frames) {
-                    planar = false
-                }
-            }
-            guard planar else {
-                for i in 0..<buffers.count {
-                    if let data = buffers[i].mData {
-                        memset(data, 0, Int(buffers[i].mDataByteSize))
-                    }
-                }
-                context.layoutMismatches.wrappingAdd(1, ordering: .relaxed)
-                return noErr
-            }
-
-            for i in 0..<channels {
-                pointers[i] = buffers[i].mData?.assumingMemoryBound(to: Float.self)
-            }
-            _ = engine.render(into: pointers, frames: frames)
-
-            // The silence gate (see `OutputAudibility`). Deliberately *after* the
-            // render: the engine still advances, so the position it publishes is
-            // still real time and every position-based check still measures the
-            // real render thread — only the samples are discarded. This node is
-            // the graph's one signal source, so zeros here are silence at the DAC.
-            if context.audibility.isSilenced {
-                for i in 0..<channels {
-                    if let channel = pointers[i] {
-                        memset(channel, 0, frames * MemoryLayout<Float>.size)
-                    }
-                }
-            }
-            return noErr
-        }
-    }
-
-    @inline(__always)
-    private static func isPlanarFloat(_ buffer: AudioBuffer, frames: Int) -> Bool {
-        buffer.mNumberChannels == 1
-            && Int(buffer.mDataByteSize) >= frames * MemoryLayout<Float>.size
     }
 
     // MARK: - Transport
 
     public func start() throws {
         guard !isRunning else { return }
+        // Before `prepare()`: on iOS the session's activation is what decides the
+        // hardware sample rate and buffer size the engine then negotiates
+        // against, so preparing first would negotiate against the old route.
+        try session.activate()
         // `prepare()` belongs here rather than in `init`: it *initialises* the
         // engine, and an initialised engine refuses `enableManualRenderingMode`
         // (-80801), which is how the tests drive this exact graph offline.
@@ -187,6 +184,9 @@ public final class AudioOutput: AudioOutputDeviceSink {
         guard isRunning else { return }
         avEngine.stop()
         isRunning = false
+        // After the engine, so nothing is still rendering into a session we have
+        // handed back. Non-throwing by design — see `deactivate`.
+        session.deactivate()
     }
 
     // MARK: - Level
@@ -234,6 +234,25 @@ public final class AudioOutput: AudioOutputDeviceSink {
         avEngine.outputNode.presentationLatency
     }
 
+    #if !os(macOS)
+
+    /// iOS and iPadOS route output themselves.
+    ///
+    /// There is no equivalent of `kAudioOutputUnitProperty_CurrentDevice`, and
+    /// there should not be: the user picks the destination in Control Centre or
+    /// with the AirPlay picker, and an app that overrode that would be taking a
+    /// decision that is not its to take. `CurrentRouteDeviceSource` reports
+    /// whatever the system chose as the single available device, so
+    /// `OutputDeviceController` asks for exactly that one and this succeeds
+    /// without doing anything.
+    ///
+    /// Succeeding rather than throwing is the point: a throw here would make the
+    /// controller publish "could not switch output", which would be a false
+    /// alarm about a switch nobody asked for.
+    public func setOutputDevice(_ id: AudioDeviceIdentifier) throws {}
+
+    #else
+
     /// Routes output to `id`, preserving playback state.
     ///
     /// The `AVAudioEngine` has to be stopped across the change, but nothing here
@@ -272,6 +291,8 @@ public final class AudioOutput: AudioOutputDeviceSink {
         }
     }
 
+    #endif
+
     /// Render blocks whose `AudioBufferList` did not have the expected
     /// deinterleaved layout. Always 0 in practice; non-zero means the assumption
     /// behind the per-channel mapping is wrong on this system, and the block in
@@ -301,6 +322,61 @@ public final class AudioOutput: AudioOutputDeviceSink {
         }
     }
 
+    /// Turns a platform event into the graph work it implies, and hands the rest
+    /// to the owner.
+    ///
+    /// The *decision* is not made here — `AudioSessionPolicy` makes it, so that
+    /// it can be tested on a platform where none of these events occur. This
+    /// function only carries it out, and its one piece of real logic is which
+    /// "was playing" to ask about.
+    private func handle(_ event: AudioSessionEvent) {
+        // `isRunning` is false by the time an interruption *ends* — the system
+        // stopped us when it began. So the end of an interruption is judged
+        // against what was remembered at its start, and everything else against
+        // the graph as it is now.
+        if case .interruptionBegan = event { wasPlayingWhenInterrupted = isRunning }
+        let wasPlaying: Bool
+        if case .interruptionEnded = event {
+            wasPlaying = wasPlayingWhenInterrupted
+            // Consumed, not merely read. The system does repeat these, and a flag
+            // left standing would resume a track the user has since paused.
+            wasPlayingWhenInterrupted = false
+        } else {
+            wasPlaying = isRunning
+        }
+
+        switch AudioSessionPolicy.response(to: event, wasPlaying: wasPlaying) {
+        case .none:
+            break
+
+        case .pause:
+            // Stop before notifying, so `isRunning` is already honest when the
+            // owner reads it from inside the callback.
+            stop()
+            notice = Self.pauseNotice(for: event)
+            onInterrupted?()
+
+        case .resume:
+            onResumeRequested?()
+
+        case .reconfigure:
+            handleConfigurationChange()
+        }
+    }
+
+    /// Spec §8: never degrade silently. Playback has stopped on its own, so the
+    /// user is owed the reason — the two causes want different words, and
+    /// "audio was interrupted" for unplugged headphones would be a puzzle rather
+    /// than an explanation.
+    private static func pauseNotice(for event: AudioSessionEvent) -> String {
+        switch event {
+        case .outputDeviceDisappeared:
+            return "Playback paused: the output device was disconnected."
+        default:
+            return "Playback was interrupted by another app or by the system."
+        }
+    }
+
     private func handleConfigurationChange() {
         let wasRunning = isRunning
         reconnect()
@@ -313,23 +389,6 @@ public final class AudioOutput: AudioOutputDeviceSink {
             notice =
                 "Audio output was reconfigured and could not be restarted: "
                 + error.localizedDescription
-        }
-    }
-}
-
-public enum AudioOutputError: Error, LocalizedError, Equatable {
-    case unsupportedFormat(sampleRate: Double, channels: Int)
-    case noOutputUnit
-    case deviceSwitchFailed(status: OSStatus)
-
-    public var errorDescription: String? {
-        switch self {
-        case .unsupportedFormat(let rate, let channels):
-            return "Cannot create an output format for \(channels) channels at \(rate) Hz."
-        case .noOutputUnit:
-            return "The audio output unit is unavailable."
-        case .deviceSwitchFailed(let status):
-            return "The audio device refused the switch (CoreAudio status \(status))."
         }
     }
 }

@@ -71,3 +71,29 @@ jobs:
         # about which test is at fault. Serial execution names the culprit: it
         # is simply the last one to start.
         run: swift test --no-parallel
+
+  # The audio stack — ArtscribeKit, AudioDecode, Waveform, TimeStretch, Playback —
+  # is portable; ArtscribeUI and above are AppKit and are not. A macOS build
+  # notices neither an AppKit import that has crept downward nor an AVAudioSession
+  # call left outside its `#if`, so portability is *compiled*, against the real iOS
+  # SDK, rather than asserted.
+  #
+  # Its own job rather than a step in the one above: it needs no Homebrew and no
+  # test run, so it starts immediately and reports independently — a portability
+  # break should not read as "the tests failed".
+  ios-build:
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      # No `brew install rubberband`, and that is the point. Homebrew builds a
+      # macOS dylib only, so `CRubberBand` is a macOS-conditional dependency and
+      # `RubberBandStretcher` is behind `#if canImport(CRubberBand)`. If this job
+      # ever needs Rubber Band installed to pass, the conditional has been
+      # breached.
+      - name: Build the audio stack for iOS
+        run: |
+          xcodebuild build -scheme Playback \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath .build/xcode-ios -quiet
