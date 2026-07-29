@@ -7,7 +7,7 @@
 extension ActionCatalog {
     static let allEntries: [ActionEntry] =
         transportEntries + navigationEntries + loopEntries + loopMoveEntries + practiceEntries
-        + speedEntries + volumeEntries + selectionEntries + viewEntries + fileEntries
+        + speedEntries + pitchEntries + volumeEntries + selectionEntries + viewEntries + fileEntries
         + applicationEntries
 
     // MARK: - Playback ▸ transport
@@ -134,6 +134,37 @@ extension ActionCatalog {
         ActionEntry(
             .speedEngineToggle, "Use Fast Engine", .speed,
             chords: [.key("e", .option)], menu: .playback, enablement: .track)
+    ]
+
+    // MARK: - Playback ▸ pitch
+    //
+    // `[` and `]` are the bracket pair immediately right of `P`, they read as
+    // "down" and "up" by shape, and no layer used them. Deliberately *not* on
+    // the `Q W` speed keys: pitch and speed being independent is the feature,
+    // and putting them on adjacent keys of the same cluster would invite exactly
+    // the confusion the separation exists to avoid. `⇧` gives the one-cent step,
+    // matching every other fine variant in this catalog.
+    static let pitchEntries: [ActionEntry] = [
+        ActionEntry(
+            .pitchUp, "Pitch Up", .speed,
+            chords: [.key("]")], menu: .playback, enablement: .track,
+            note: "One semitone, independent of speed"),
+        ActionEntry(
+            .pitchDown, "Pitch Down", .speed,
+            chords: [.key("[")], menu: .playback, enablement: .track,
+            note: "One semitone, independent of speed"),
+        ActionEntry(
+            .pitchUpFine, "Pitch Up (Fine)", .speed,
+            chords: [.key("]", .shift)], menu: .playback, enablement: .track,
+            note: "One cent"),
+        ActionEntry(
+            .pitchDownFine, "Pitch Down (Fine)", .speed,
+            chords: [.key("[", .shift)], menu: .playback, enablement: .track,
+            note: "One cent"),
+        ActionEntry(
+            .pitchReset, "Reset Pitch", .speed,
+            chords: [.key("]", .option)], menu: .playback, enablement: .track,
+            note: "Back to the original key")
     ]
 
     private static func preset(_ id: ActionID, _ title: String, _ key: Character) -> ActionEntry {

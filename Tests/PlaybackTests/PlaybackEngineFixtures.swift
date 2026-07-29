@@ -95,6 +95,9 @@ final class FakeStretcher: TimeStretcher {
     }
 
     var timeRatio: Double = 1.0
+    /// Recorded so a test can assert the engine forwarded a pitch command,
+    /// and otherwise inert — this fake does no resampling.
+    var pitchScale: Double = 1.0
     var startDelay: Int { delay }
 
     func configure(sampleRate: Double, channels: Int, maxBlock: Int) {

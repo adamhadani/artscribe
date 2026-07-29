@@ -81,6 +81,7 @@ extension ViewerModel {
         guard hasTrack else { return nil }
         return SessionState(
             speed: speed,
+            pitch: pitch,
             loop: loop,
             viewport: viewport.state,
             playhead: playhead,
@@ -268,6 +269,7 @@ extension ViewerModel {
         preservedSidecar = read.original
         let state = read.restoration.state
         speed = state.speed
+        pitch = state.pitch
         loop = state.loop
         playhead = Swift.max(0, Swift.min(state.playhead, totalFrames))
         reachedEnd = playhead >= totalFrames && totalFrames > 0

@@ -277,6 +277,17 @@ public final class PlaybackEngine: @unchecked Sendable {
                 } else {
                     rejectedCounter.wrappingAdd(1, ordering: .relaxed)
                 }
+            case .setPitchScale(let scale):
+                // Same sanitiser as the time ratio: both are multipliers a
+                // hand-edited sidecar or an arithmetic slip could make NaN, and
+                // handing NaN to Rubber Band poisons the whole output stream.
+                // The bounds coincide too — one octave either way is inside
+                // SpeedState's 0.1...2.0 window.
+                if let sane = Self.sanitize(scale) {
+                    stretcher.pitchScale = sane
+                } else {
+                    rejectedCounter.wrappingAdd(1, ordering: .relaxed)
+                }
             case .setLoop(let range, let enabled):
                 loop = LoopRegion(range: range.clamped(to: totalFrames), isEnabled: enabled)
                 if sourceExhausted && loop.isActive { resumeAfterEndOfFile() }

@@ -49,6 +49,11 @@ extension ActionInvoker {
         // Task 21. Start/stop only — the schedule is edited in the Practice
         // window, and the ramp itself lives on the model (`ViewerModel+Practice`).
         .practiceRampToggle: { $0.model.toggleRamp() },
+        .pitchUp: { $0.model.adjustPitch(byCents: ViewerModel.semitoneStep) },
+        .pitchDown: { $0.model.adjustPitch(byCents: -ViewerModel.semitoneStep) },
+        .pitchUpFine: { $0.model.adjustPitch(byCents: ViewerModel.centStep) },
+        .pitchDownFine: { $0.model.adjustPitch(byCents: -ViewerModel.centStep) },
+        .pitchReset: { $0.model.resetPitch() },
         .viewTrackMarksToggle: { $0.model.toggleTrackMarks() }
     ]
 

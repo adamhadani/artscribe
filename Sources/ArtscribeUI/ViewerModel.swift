@@ -79,6 +79,10 @@ public final class ViewerModel {
     // properties live here because Swift has no stored properties in extensions.
 
     public internal(set) var speed = SpeedState()
+    /// Transposition, in cents, independent of `speed`. Kept beside it because
+    /// they are the two halves of the same control surface, and deliberately
+    /// separate because slowing a passage down must not move its pitch.
+    public internal(set) var pitch = PitchState()
     public internal(set) var loop = LoopRegion()
     /// How far `Z`/`X`, `⇧Z`/`⇧X` and `⌥Z`/`⌥X` move (spec §6.2).
     /// The working preferences — nudge and selection-move amounts, the preroll,

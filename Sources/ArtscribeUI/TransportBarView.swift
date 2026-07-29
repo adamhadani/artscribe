@@ -1,3 +1,4 @@
+import ArtscribeKit
 import SwiftUI
 
 /// The transport: a row of control-surface buttons directly above the status
@@ -45,6 +46,8 @@ struct TransportBarView: View {
                 if index > 0 { separator }
                 row(controls)
             }
+            separator
+            pitchControl
             Spacer(minLength: 8)
         }
         .padding(.horizontal, 10)
@@ -141,5 +144,48 @@ struct TransportBarView: View {
             )
             .frame(width: 46)
             .help("Speed  (1–4, Q, W)")
+    }
+
+    /// Transposition, beside the speed it is independent of.
+    ///
+    /// **A slider rather than the −/+ buttons the speed uses.** Pitch has a
+    /// natural centre and a symmetric range, so a slider shows *where you are*
+    /// in that range at a glance and returns to the middle by feel; speed has
+    /// neither property. The keyboard remains the precise route — the slider
+    /// steps in semitones, and `⇧[`/`⇧]` reach the cents it cannot.
+    ///
+    /// Bound through `setPitch(cents:)` rather than to `model.pitch` directly,
+    /// so a drag goes down the same path as a key press and there is still one
+    /// place a pitch reaches the render thread.
+    private var pitchControl: some View {
+        HStack(spacing: 6) {
+            Slider(
+                value: Binding(
+                    get: { Double(model.pitch.cents) },
+                    set: { model.setPitch(cents: Int($0.rounded())) }
+                ),
+                in: Double(PitchState.minCents)...Double(PitchState.maxCents),
+                step: Double(PitchState.centsPerSemitone)
+            )
+            .controlSize(.mini)
+            .frame(width: 92)
+            .disabled(!state.hasTrack)
+            .help("Pitch, independent of speed  ([, ], ⇧ for cents, ⌥] to reset)")
+
+            // Fixed width, so the bar does not reflow as the readout appears and
+            // disappears — the same reason the speed readout is a fixed 46.
+            Text(model.pitchLabel.isEmpty ? "±0" : model.pitchLabel)
+                .font(
+                    model.pitch.isAltered ? Typography.readoutEmphasis : Typography.readout
+                )
+                .monospacedDigit()
+                .foregroundStyle(
+                    state.hasTrack
+                        ? (model.pitch.isAltered
+                            ? palette.emphasis.color() : palette.text.color())
+                        : palette.dimmed.color()
+                )
+                .frame(width: 58, alignment: .leading)
+        }
     }
 }

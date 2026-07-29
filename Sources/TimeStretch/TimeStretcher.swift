@@ -8,6 +8,13 @@ public protocol TimeStretcher: AnyObject {
     /// Safe to set from the render thread.
     var timeRatio: Double { get set }
 
+    /// Rubber Band's pitch scale: 2.0 is an octave up. **Not** a reciprocal —
+    /// unlike `timeRatio`, where the user-facing speed is the inverse of what
+    /// the engine takes. Independent of `timeRatio`, which is the whole point:
+    /// slowing a passage down must not transpose it. Safe to set from the
+    /// render thread.
+    var pitchScale: Double { get set }
+
     /// Output frames of priming to discard after `configure`/`reset`.
     var startDelay: Int { get }
 
