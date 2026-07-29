@@ -24,19 +24,29 @@ public struct SessionState: Equatable, Sendable {
     /// different edit, or a re-rip at another sample rate describes a passage
     /// that is no longer there.
     public var track: TrackIdentity
+    /// Whether the cue-sheet track-marker lane is shown.
+    ///
+    /// Defaults to **true**, so a file that has a cue sheet shows its markers
+    /// the first time it is opened — the discoverable behaviour. Only a user
+    /// who deliberately put the lane away has anything to persist, and a
+    /// sidecar written before this field existed reads as absent and gets the
+    /// default rather than a hidden lane.
+    public var showTrackMarks: Bool
 
     public init(
         speed: SpeedState = SpeedState(),
         loop: LoopRegion = LoopRegion(),
         viewport: ViewportState = .fitted,
         playhead: FrameIndex = 0,
-        track: TrackIdentity = TrackIdentity()
+        track: TrackIdentity = TrackIdentity(),
+        showTrackMarks: Bool = true
     ) {
         self.speed = speed
         self.loop = loop
         self.viewport = viewport
         self.playhead = playhead
         self.track = track
+        self.showTrackMarks = showTrackMarks
     }
 
     /// The on-disk form. Everything is present, because the app only ever
@@ -49,7 +59,8 @@ public struct SessionState: Equatable, Sendable {
             speed: speed,
             loop: loop,
             viewport: viewport,
-            playhead: playhead)
+            playhead: playhead,
+            showTrackMarks: showTrackMarks)
     }
 
     /// Turns an untrusted payload into a state the app can run on, and reports
@@ -82,6 +93,14 @@ public struct SessionState: Equatable, Sendable {
 
         if file.schemaVersion != SessionFile.currentSchemaVersion {
             repairs.append(.schemaVersion)
+        }
+
+        // A `Bool` has no invalid value to clamp and nothing to repair — either
+        // the key is there and is honoured, or it is absent and the default
+        // stands. Absent is the normal case for every sidecar written before
+        // this field existed, which is why it is not reported as damage.
+        if let showTrackMarks = file.showTrackMarks {
+            state.showTrackMarks = showTrackMarks
         }
 
         if let speed = file.speed {
@@ -268,6 +287,10 @@ public struct SessionFile: Equatable, Sendable, Codable {
     public var loop: LoopRegion?
     public var viewport: ViewportState?
     public var playhead: FrameIndex?
+    /// Absent in every sidecar written before Task 27, which is exactly why it
+    /// is optional: an older file reads as `nil` and takes the default rather
+    /// than being reported as damaged.
+    public var showTrackMarks: Bool?
 
     public init(
         schemaVersion: Int? = nil,
@@ -275,7 +298,8 @@ public struct SessionFile: Equatable, Sendable, Codable {
         speed: SpeedState? = nil,
         loop: LoopRegion? = nil,
         viewport: ViewportState? = nil,
-        playhead: FrameIndex? = nil
+        playhead: FrameIndex? = nil,
+        showTrackMarks: Bool? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.track = track
@@ -283,6 +307,7 @@ public struct SessionFile: Equatable, Sendable, Codable {
         self.loop = loop
         self.viewport = viewport
         self.playhead = playhead
+        self.showTrackMarks = showTrackMarks
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -292,6 +317,7 @@ public struct SessionFile: Equatable, Sendable, Codable {
         case loop
         case viewport
         case playhead
+        case showTrackMarks
     }
 
     /// `try?` per field, deliberately.
@@ -310,5 +336,6 @@ public struct SessionFile: Equatable, Sendable, Codable {
         loop = try? container.decodeIfPresent(LoopRegion.self, forKey: .loop)
         viewport = try? container.decodeIfPresent(ViewportState.self, forKey: .viewport)
         playhead = try? container.decodeIfPresent(FrameIndex.self, forKey: .playhead)
+        showTrackMarks = try? container.decodeIfPresent(Bool.self, forKey: .showTrackMarks)
     }
 }

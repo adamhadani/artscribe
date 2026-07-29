@@ -84,7 +84,8 @@ extension ViewerModel {
             loop: loop,
             viewport: viewport.state,
             playhead: playhead,
-            track: TrackIdentity(sampleRate: sampleRate, frameCount: totalFrames))
+            track: TrackIdentity(sampleRate: sampleRate, frameCount: totalFrames),
+            showTrackMarks: markers.isVisible)
     }
 
     /// What the Save As… panel opens on: the canonical sidecar, which is both
@@ -271,6 +272,11 @@ extension ViewerModel {
         playhead = Swift.max(0, Swift.min(state.playhead, totalFrames))
         reachedEnd = playhead >= totalFrames && totalFrames > 0
         viewport.restore(state.viewport)
+        // The lane is only *shown* when the file also has a cue sheet, which
+        // `showsTrackMarks` decides — this restores the user's choice, not the
+        // presence of markers, so a sidecar saying "hidden" does not have to be
+        // rewritten when its album has no cue sheet to hide.
+        markers.setVisible(state.showTrackMarks)
         // Recorded *after* the restore, so it is the state the app is actually
         // running rather than the file's literal contents. A hand-edited value
         // that had to be clamped therefore does not register as "the file is out
