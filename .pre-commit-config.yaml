@@ -23,6 +23,11 @@ repos:
       # $ARTSCRIBE_TEST_MEDIA_DIR instead.
       - id: check-added-large-files
         args: [--maxkb=100]
+      # A key pasted into a source file is not caught by .gitignore, which only
+      # knows about filenames. This reads content, and it is the hook that would
+      # notice a Developer ID private key or an App Store Connect .p8 inlined
+      # into a script "temporarily".
+      - id: detect-private-key
 
   # swift-format ships inside the Swift 6.3 toolchain — do NOT brew install it.
   # swiftlint comes from `make bootstrap`.
@@ -40,3 +45,13 @@ repos:
         language: system
         types: [swift]
         pass_filenames: false
+
+  # Broad secret scanning, for everything `detect-private-key` does not model:
+  # cloud credentials, personal access tokens, and high-entropy strings. Run on
+  # every commit rather than only in CI, because the point is to stop a secret
+  # entering history at all — once it is in a public repo's history it must be
+  # treated as compromised and rotated, not merely removed.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks

@@ -75,3 +75,27 @@ Tests/Media/
 
 # direnv
 .envrc
+
+# Credentials, keys and certificates — never committed, and named here so an
+# accident is prevented rather than merely regretted. The signing setup involves
+# a .p12 (the Developer ID private key, which cannot be recreated) and a .p8
+# (the App Store Connect API key); both get exported to disk during setup, and
+# both are exactly the sort of thing that lands in a repo root "just for a
+# minute". `detect-private-key` in .pre-commit-config.yaml is the second line.
+*.p12
+*.pfx
+*.p8
+*.pem
+*.key
+*.cer
+*.crt
+*.der
+*.keystore
+*.jks
+*.mobileprovision
+AuthKey_*
+id_rsa*
+id_ed25519*
+.env
+.env.*
+!.env.example
