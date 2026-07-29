@@ -217,6 +217,13 @@ The secrets to add:
 | `APPLE_API_KEY_ID` | That key's ID |
 | `APPLE_API_ISSUER_ID` | The issuer ID from App Store Connect ▸ Users and Access ▸ Integrations |
 
+**The API key must be a Team Key with the `Developer` role.** App Store Connect ▸ Users and
+Access ▸ Integrations offers *Team Keys* and *Individual Keys* on separate tabs, and an
+individual key **cannot use the Notary API** — it authenticates and then fails, which is a
+confusing way to spend an hour. `Developer` is sufficient; nothing broader is needed. The
+`.p8` downloads exactly once. The Key ID is the 10-character string beside the key; the
+Issuer ID is the UUID above the table, shared across every key on the team.
+
 An API key rather than an app-specific password in CI, because it is scopeable and
 revocable on its own, and independent of anyone's Apple ID. The workflow imports the
 certificate into a **throwaway keychain** that dies with the job, never the login keychain.
