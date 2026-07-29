@@ -159,21 +159,42 @@ enum TrackpadAction: Equatable, Sendable {
     /// Whether this scroll belongs to the viewer at all.
     ///
     /// A local monitor sees every scroll the *application* receives, including
-    /// ones over the open panel, and the frames the anchor is hit-tested against
-    /// are the viewer's. Without this, rolling the wheel over the file list in
-    /// `⌘O` zooms the waveform behind the panel — and the panel does not scroll,
-    /// because the monitor swallows what it handles.
+    /// ones over the open panel and over every other window this app has, and
+    /// the frames the anchor is hit-tested against are the viewer's. Without
+    /// this, rolling the wheel over the file list in `⌘O` zooms the waveform
+    /// behind the panel — and the panel does not scroll, because the monitor
+    /// swallows what it handles.
     ///
-    /// Known limit: this recognises a panel and a modal session, not an
-    /// arbitrary second window. Task 14's Settings scene is a plain window and
-    /// will need the viewer's own window identity to be threaded through here.
+    /// Task 25's shortcut window turned that known limit into a P0: its list is
+    /// a `ScrollView`, and every wheel notch over it was eaten here and spent on
+    /// the waveform behind. So the test is now the window's **identity**, which
+    /// `KeyWindowTracker` already holds because the menus needed the same fact.
+    /// Key status is deliberately *not* the test: a scroll is delivered to the
+    /// window under the pointer whether or not it is the one taking keystrokes,
+    /// and on a screen-locked login session nothing is key at all.
     @MainActor
     private static func isOverTheViewer(_ event: NSEvent) -> Bool {
-        guard NSApp?.modalWindow == nil else { return false }
-        // A synthesised event carries no window; the acceptance harness posts
-        // those, and nothing else in this app produces one.
-        guard let window = event.window else { return true }
-        return !(window is NSPanel)
+        belongsToTheViewer(
+            modalIsUp: NSApp?.modalWindow != nil,
+            window: event.window,
+            isPanel: event.window is NSPanel,
+            isDocument: event.window.map { KeyWindowTracker.shared.isDocument($0) } ?? false)
+    }
+
+    /// The rule above, as a pure function, so all four of its states can be
+    /// driven in a test — including the two an acceptance run cannot reach.
+    ///
+    /// - Parameter window: `nil` for a **synthesised** event. The acceptance
+    ///   harness posts those (`NSEvent(cgEvent:)` carries no window) and nothing
+    ///   else in this app produces one, so they are taken as the viewer's; the
+    ///   anchor then falls back to the live pointer over the document window.
+    static func belongsToTheViewer(
+        modalIsUp: Bool, window: AnyObject?, isPanel: Bool, isDocument: Bool
+    ) -> Bool {
+        guard !modalIsUp else { return false }
+        guard window != nil else { return true }
+        guard !isPanel else { return false }
+        return isDocument
     }
 
     /// The pointer position in the window's content view, with a top-left origin
@@ -196,7 +217,14 @@ enum TrackpadAction: Equatable, Sendable {
         // it does not — and touching `NSApplication.shared` there would create
         // one as a side effect of asking where the pointer is.
         guard let app = NSApp else { return nil }
-        guard let window = event.window ?? app.keyWindow ?? app.windows.first,
+        // The document window first: a synthesised event's anchor is hit-tested
+        // against the *viewer's* lanes, and `keyWindow` is whichever window
+        // happens to be taking keystrokes — the shortcut window, on the run that
+        // opens it. `windows.first` is creation order, which is only the
+        // document by luck.
+        guard
+            let window = event.window ?? KeyWindowTracker.shared.documentWindow ?? app.keyWindow
+                ?? app.windows.first,
             let view = window.contentView
         else { return nil }
         let inWindow =
@@ -228,7 +256,9 @@ final class TrackpadMonitor {
                 action.apply(to: model)
                 return true
             }
-            // Nothing else in this window scrolls, so a handled event stops here.
+            // Only an event the viewer actually claimed stops here. Everything
+            // else — the shortcut window's list, the open panel's file list —
+            // is handed straight back, which is what `isOverTheViewer` is for.
             return handled ? nil : event
         }
     }

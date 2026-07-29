@@ -57,9 +57,12 @@ struct ActionDispatchTests {
         shortcuts.present = { counter.count += 1 }
         shortcuts.show()
         shortcuts.show()
-        // Deliberately not a toggle: a separate window has a close button and
-        // answers ⌘W, so a key that also closed it would be a third behaviour.
         #expect(counter.count == 2)
+        // `toggle` with no window yet is `show` — it cannot close what has
+        // never been opened, and it must still work before the scene has
+        // reported its `NSWindow` back.
+        shortcuts.toggle()
+        #expect(counter.count == 3)
     }
 
     /// A box for the count, because `present` is an escaping `@MainActor`

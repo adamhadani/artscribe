@@ -317,6 +317,54 @@ struct TrackpadActionTests {
         #expect(TrackpadAction(event: event) == mapped)
     }
 
+    // MARK: - Which window the gesture belongs to
+
+    /// The P0 this rule exists for: the shortcut window's list is a
+    /// `ScrollView`, the monitor is a **local** one and so sees every scroll the
+    /// application receives, and it returns `nil` for anything it handles. Any
+    /// answer but "not the viewer's" here is a wheel notch eaten in one window
+    /// and spent panning the waveform in another.
+    ///
+    /// Driven as a pure function because two of these four states cannot be
+    /// produced in a running acceptance harness: it posts synthesised events,
+    /// which carry no window at all.
+    @Test("a scroll in another plain window is not the viewer's")
+    func scrollInASecondWindowIsNotOurs() {
+        let other = NSObject()
+        #expect(
+            !TrackpadAction.belongsToTheViewer(
+                modalIsUp: false, window: other, isPanel: false, isDocument: false))
+    }
+
+    @Test("a scroll in the document window is the viewer's")
+    func scrollInTheDocumentIsOurs() {
+        #expect(
+            TrackpadAction.belongsToTheViewer(
+                modalIsUp: false, window: NSObject(), isPanel: false, isDocument: true))
+    }
+
+    /// A synthesised event — what the acceptance harness posts — carries no
+    /// window, and nothing else in this app produces one. Refusing it would take
+    /// every trackpad, wheel and pinch check in the run down with it.
+    @Test("a synthesised event with no window is the viewer's")
+    func synthesisedEventIsOurs() {
+        #expect(
+            TrackpadAction.belongsToTheViewer(
+                modalIsUp: false, window: nil, isPanel: false, isDocument: false))
+    }
+
+    /// The two cases the rule already had, kept: the open panel's file list, and
+    /// anything at all while a modal session is up.
+    @Test("a scroll over a panel or under a modal is never the viewer's")
+    func panelsAndModalsAreNeverOurs() {
+        #expect(
+            !TrackpadAction.belongsToTheViewer(
+                modalIsUp: false, window: NSObject(), isPanel: true, isDocument: true))
+        #expect(
+            !TrackpadAction.belongsToTheViewer(
+                modalIsUp: true, window: nil, isPanel: false, isDocument: true))
+    }
+
     private func scrollEvent(units: CGScrollEventUnit, wheel1: Int32) -> NSEvent? {
         CGEvent(
             scrollWheelEvent2Source: nil, units: units, wheelCount: 2, wheel1: wheel1, wheel2: 0,

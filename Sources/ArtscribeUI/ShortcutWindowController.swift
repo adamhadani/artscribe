@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -43,6 +44,18 @@ public final class ShortcutWindowController {
     /// every view that can open the window depend on the act of installing it.
     @ObservationIgnored public var present: (@MainActor () -> Void)?
 
+    /// The `NSWindow`, reported by the view once it is in one.
+    ///
+    /// Held rather than looked up by title for the reason
+    /// `AcceptanceCatalogChecks` records about the *document* window: a title is
+    /// not an identity. Weak, because the window is owned by its scene and
+    /// closing it must not be prevented by this reference.
+    ///
+    /// `@ObservationIgnored` for the same reason `present` is — it is plumbing,
+    /// and a view that observed it would re-render every time the window was
+    /// created.
+    @ObservationIgnored public weak var window: NSWindow?
+
     private static let listWidthKey = "shortcutWindow.listWidth"
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -77,15 +90,87 @@ public final class ShortcutWindowController {
 
     /// `⌘/`, and **View ▸ Keyboard Shortcuts**.
     ///
-    /// Opens, and brings forward if it is already open — which is what
-    /// `openWindow(id:)` does for an existing `Window` scene. Deliberately
-    /// *not* a toggle: the inspector's `⌘/` closed itself again because it took
-    /// width from the waveform and there was no other way to put it back. A
-    /// separate window costs the document nothing, has a close button and
-    /// answers ⌘W, so a key that also closed it would be a third behaviour for
-    /// no gain.
+    /// **Show it if you cannot use it; put it away if you can.** Measured, not
+    /// assumed: `openWindow(id:)` *does* bring an already-open window forward
+    /// (a run pushed the document in front and watched the shortcut window come
+    /// back to the top on the next `show()`), so the only state where `⌘/` did
+    /// nothing at all was the one where the window was already frontmost — and
+    /// that is exactly the state the user pressed it in.
+    ///
+    /// So the third behaviour is closing, and only from the front. Closing a
+    /// window that is *behind* the viewer would be the surprising reading: the
+    /// key was pressed to see the reference, the reference is not what you are
+    /// looking at, and the natural answer to "show me" is to raise it — while a
+    /// close from there would throw away a window you cannot see, along with the
+    /// filter and the divider you set in it, with no visible cause. Task 25's
+    /// original argument against toggling — that the inspector had to close
+    /// because it stole width from the waveform — was an argument against
+    /// closing *reflexively*, and it still holds for the behind case.
+    public func toggle() {
+        switch Self.action(isOpen: window?.isVisible == true, isFrontmost: isFrontmost) {
+        case .close:
+            // `performClose`, not `close`: it is what the close button and ⌘W
+            // do, so all three routes out of this window are one path.
+            window?.performClose(nil)
+        case .present:
+            show()
+        }
+    }
+
+    /// What `⌘/` should do, as a pure function of the two facts it turns on.
+    ///
+    /// Split out because the interesting half of it — a window that is open and
+    /// *behind* — cannot be produced on a screen-locked login session, where no
+    /// window can become key at all.
+    public enum Action: Equatable, Sendable {
+        case present
+        case close
+    }
+
+    public nonisolated static func action(isOpen: Bool, isFrontmost: Bool) -> Action {
+        isOpen && isFrontmost ? .close : .present
+    }
+
+    /// Opens it, brings it forward, and gives it the keyboard.
+    ///
+    /// The last of those is not what `openWindow(id:)` alone was doing for the
+    /// user: without a key window the filter field cannot take a keystroke, so
+    /// `⌘C` and `⌘V` — which this app sends down the *key* window's responder
+    /// chain, having replaced the standard pasteboard group — reached nothing.
+    /// Asking AppKit directly costs one line and removes the dependency on what
+    /// SwiftUI happens to do about activation.
     public func show() {
         present?()
+        focus()
+    }
+
+    /// `makeKeyAndOrderFront` on the next turn of the run loop when the window
+    /// does not exist yet: `present?()` creates it, and the view inside it does
+    /// not report the `NSWindow` back until it has been laid out.
+    private func focus() {
+        NSApp?.activate()
+        guard let window else {
+            DispatchQueue.main.async { [weak self] in
+                self?.window?.makeKeyAndOrderFront(nil)
+            }
+            return
+        }
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Whether this window is the one in front of the reader.
+    ///
+    /// `isKeyWindow` is the honest test and the one that runs on a real
+    /// machine. The fallback exists because agents drive this app on a
+    /// screen-locked login session where **no** window can become key — the
+    /// same fact `KeyWindowTracker.forcedDocumentIsKey` was added for — and
+    /// without it `⌘/` would there be a key that could open the window and never
+    /// close it, which is the defect this method exists to fix.
+    private var isFrontmost: Bool {
+        guard let window, window.isVisible else { return false }
+        if window.isKeyWindow { return true }
+        guard NSApp?.keyWindow == nil else { return false }
+        return NSApp?.orderedWindows.first { $0.isVisible } === window
     }
 
     /// Pins a layer, comparing first.

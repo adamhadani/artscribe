@@ -345,6 +345,33 @@ struct ShortcutWindowTests {
         #expect(!short.hasMoreBelow)
     }
 
+    // MARK: - What ⌘/ does the second time
+
+    /// The defect: `openWindow(id:)` brings a backgrounded window forward, but
+    /// does nothing at all for one that is already in front — so `⌘/` at the
+    /// window you are looking at was a dead key.
+    @Test("⌘/ at the window in front of you puts it away")
+    func toggleClosesFromTheFront() {
+        #expect(ShortcutWindowController.action(isOpen: true, isFrontmost: true) == .close)
+    }
+
+    /// The decision worth stating: **behind is not closed**. The key was pressed
+    /// to see the reference; raising it is the answer, and closing a window you
+    /// cannot see would discard the filter and the divider you set in it with no
+    /// visible cause.
+    @Test("⌘/ at a window that is open but behind raises it rather than closing it")
+    func toggleRaisesFromBehind() {
+        #expect(ShortcutWindowController.action(isOpen: true, isFrontmost: false) == .present)
+    }
+
+    @Test("⌘/ with the window closed opens it")
+    func toggleOpensWhenClosed() {
+        #expect(ShortcutWindowController.action(isOpen: false, isFrontmost: false) == .present)
+        // A window that is not open cannot be the frontmost one; the rule must
+        // not be able to answer "close" for a window that does not exist.
+        #expect(ShortcutWindowController.action(isOpen: false, isFrontmost: true) == .present)
+    }
+
     // MARK: - Colour
 
     /// Colour is how the keyboard is read at a glance, so a category with no

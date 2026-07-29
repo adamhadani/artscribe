@@ -96,7 +96,10 @@ extension ActionInvoker {
         .zoomToSelection: { $0.model.zoomToSelection() },
         .viewScrollLeft: { $0.model.scrollLeft() },
         .viewScrollRight: { $0.model.scrollRight() },
-        .helpShortcuts: { $0.shortcuts.show() },
+        // Toggles rather than shows: ⌘/ pressed at a window already in front of
+        // you did nothing at all, which reads as a dead key. See
+        // `ShortcutWindowController.toggle`.
+        .helpShortcuts: { $0.shortcuts.toggle() },
         .practiceShow: { $0.practice.show() }
     ]
 

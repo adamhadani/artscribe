@@ -37,6 +37,14 @@ extension KeyModifiers {
 /// shifted layer; the field editor is an `NSTextView`, and its presence in the
 /// responder chain is what tells the two apart. Without this the window
 /// visibly strobes while you type, which was the first thing this got wrong.
+///
+/// **That rule is why `ShortcutWindow` takes the keyboard away from the filter
+/// when the window opens.** SwiftUI hands the `TextField` first responder as
+/// soon as the window exists, and this test cannot tell that apart from someone
+/// mid-word — so with the field focused from the start, "Hold ⇧ ⌥ ⌘" was dead
+/// the whole time the window was key, which is exactly what the user reported.
+/// The two halves have to be read together: narrow this and the strobe comes
+/// back; refocus the field on open and the layers go away again.
 @MainActor
 final class ModifierMonitor {
     private var monitor: Any?

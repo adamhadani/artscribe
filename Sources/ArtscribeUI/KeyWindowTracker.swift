@@ -72,6 +72,24 @@ public final class KeyWindowTracker {
         refresh()
     }
 
+    /// The document window itself, for the one caller that needs the object and
+    /// not the verdict: `TrackpadMonitor`, whose anchor is hit-tested against
+    /// this window's content view and so must resolve to it even for an event
+    /// that arrived carrying no window of its own.
+    public var documentWindow: NSWindow? { document }
+
+    /// Whether an event that arrived in `window` belongs to the document.
+    ///
+    /// **Permissive before the first layout pass**, exactly as `documentIsKey`
+    /// is and for the same reason: `adopt(document:)` is called by a
+    /// `WindowReader` inside the view, so until it runs the app has one window
+    /// and it is this one. A rule that refused there would make the scroll and
+    /// pinch gestures dead for the first frames after launch.
+    public func isDocument(_ window: NSWindow) -> Bool {
+        guard let document else { return true }
+        return window === document
+    }
+
     /// Compared before assigning: this runs on every window activation in the
     /// process, and an unconditional write would invalidate both menus' items
     /// each time (see CLAUDE.md on `@Observable` and `_modify`).
