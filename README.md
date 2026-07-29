@@ -179,9 +179,9 @@ beside the loop, both of which show the current state.
 | `⇧A` `⇧S` / `⇧D` `⇧F` | Move the loop's in / out point (add `⌥` for the bigger step) |
 | `⇧C` / `⇧V` | Move the whole loop, keeping its length |
 | `⌘S` / `⇧⌘S` | Save the session sidecar / save it elsewhere |
-| `⌘P` | Open the Practice window — the ramping loop |
+| `⌘P` | Show or hide the Practice window — the ramping loop |
 | `⌥P` | Start / stop the speed ramp |
-| `⌘/` | Open the keyboard shortcut window |
+| `⌘/` | Show or hide the keyboard shortcut window |
 | `⌘,` | Settings — preroll, nudge and move amounts, zoom direction, theme |
 
 Drag in the lanes to select, shift-drag to extend, click to place the playhead, double-click
