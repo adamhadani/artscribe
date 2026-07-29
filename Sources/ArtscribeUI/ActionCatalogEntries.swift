@@ -230,8 +230,16 @@ extension ActionCatalog {
     static let viewEntries: [ActionEntry] = [
         ActionEntry(.zoomFit, "Fit Whole File", .view, chords: [.key("0", .command)], menu: .view),
         ActionEntry(
+            // Enablement deliberately left at the default, matching `zoomFit`
+            // beside it. An earlier version greyed this out via a
+            // `trackZoomTarget` case, which *also* required the document window
+            // to hold the keyboard — so after any run that opened the shortcut
+            // window, ⌘9 silently did nothing while ⌘0 still worked. Greying out
+            // "there is nothing to zoom to" was a nicety; making one of two
+            // adjacent zoom commands focus-sensitive and the other not was a
+            // bug. The command guards itself.
             .zoomToSelection, "Zoom to Selection", .view,
-            chords: [.key("9", .command)], menu: .view, enablement: .trackZoomTarget,
+            chords: [.key("9", .command)], menu: .view,
             note: "Falls back to the loop when nothing is selected"),
         ActionEntry(
             .zoomIn, "Zoom In", .view,
