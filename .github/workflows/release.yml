@@ -28,6 +28,8 @@ jobs:
     # a workflow run on an ordinary branch. Repository secrets have no such
     # scoping: every workflow in the repo can read them.
     environment: release
+    # A release must not be able to occupy a runner until the six-hour ceiling.
+    timeout-minutes: 45
     # Job-level, because a step's `if:` may read the `env` context but **not**
     # the `secrets` context — GitHub rejects the workflow outright for that,
     # which is how this was caught. Referencing a secret here is safe: values
@@ -66,7 +68,11 @@ jobs:
           brew install swiftlint
           swift format lint --strict --recursive Package.swift Sources Tests
           swiftlint lint --quiet --strict
-          swift test
+          # `--no-parallel` for the same reason CI uses it: Swift Testing runs
+          # concurrently and every `@MainActor` test serialises on the main
+          # actor, which deadlocks on a runner. Fixing only ci.yml left this
+          # copy to hang the first real release.
+          swift test --no-parallel
 
       # Signing. Absent secrets this is a no-op and the build falls through to
       # ad-hoc, which still produces a usable — if Gatekeeper-rejected — bundle.
