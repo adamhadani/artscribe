@@ -1,26 +1,81 @@
-# Artscribe
+<div align="center">
 
-A keyboard-first music transcription tool for macOS. Load a track, select a passage,
-loop it, and slow it down without changing its pitch — driven almost entirely from the
-keyboard, because when you transcribe, your hands are usually on an instrument.
+# 🎼 Artscribe
 
-The reference point is [Transcribe!](https://www.seventhstring.com/xscribe/overview.html),
-which is functionally excellent and ergonomically dated. Artscribe targets its core loop
-with a modern treatment: native Apple Silicon, better time-stretch quality, and an
-architecture that admits MIDI pedals and spectral analysis without a rewrite.
+**A keyboard-first music transcription tool for macOS.**
 
-**Status: in development, and playable.** Load a file, hear it, select a passage, loop it
-seamlessly, and change speed — all from the keyboard.
+Load a track · select a passage · loop it seamlessly · slow it down without changing pitch.
+
+[![CI](https://github.com/adamhadani/artscribe/actions/workflows/ci.yml/badge.svg)](https://github.com/adamhadani/artscribe/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/adamhadani/artscribe?include_prereleases&sort=semver)](https://github.com/adamhadani/artscribe/releases)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%2026%20·%20Apple%20Silicon-lightgrey)](#-quick-start)
+[![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
+
+</div>
+
+---
+
+When you transcribe, your hands are on an instrument — not on a mouse. Artscribe is built
+around that: **every operation has a key**, the window is one uninterrupted waveform, and
+the passage you are working on stays where you put it.
+
+## ✨ What it does
+
+| | |
+|---|---|
+| 🔁 **Seamless looping** | The stretcher is never reset at a loop boundary, so a repeat is *inaudible* — verified as byte-identical to a continuous render, not just "sounds fine" |
+| 🐢 **Studio-grade slowdown** | Rubber Band R3 "Finer": **~0.00 cents** of pitch error at half speed |
+| ⌨️ **Keyboard-first** | ~90 actions, all rebindable-by-design, with a searchable shortcut window (`⌘/`) |
+| 🎯 **Preroll** | A resume rolls back a couple of seconds, so you land *before* the note you stopped on |
+| 📈 **Practice ramp** | Loop a phrase from slow to tempo automatically |
+| 💿 **CUE track markers** | One-file albums show where each track begins |
+| 📝 **Visible session files** | A plain `.artscribe` sidecar you can read and hand-edit |
+
+**Status: in development, and playable.** Load a file, hear it, select, loop, change speed —
+all from the keyboard. Not yet built: pitch shift, spectrum analysis, MIDI input, and
+[stem separation](docs/superpowers/research/2026-07-28-stem-separation.md) (researched in
+depth, deliberately not started).
+
+## 🚀 Quick start
 
 ```sh
 make bootstrap
 make app && open .build/xcode/Build/Products/Release/Artscribe.app
 ```
 
-Not yet built: markers, pitch shift, spectrum analysis, MIDI input, and
-stem separation — which has been researched in depth but deliberately not started, in
-`docs/superpowers/research/2026-07-28-stem-separation.md`. See the plan under
-`docs/superpowers/plans/`.
+Or grab a signed, notarised build from [**Releases**](https://github.com/adamhadani/artscribe/releases).
+
+## 🎹 The keys that matter
+
+| Key | Does |
+|---|---|
+| `Space` | Play / pause (with preroll) |
+| `⇧Space` | Play from the start of the loop, selection or track |
+| `A` `S` | Set loop in / out at the playhead |
+| `D` | Loop on / off |
+| `Q` `W` | Slower / faster |
+| `1` `2` `3` `4` | 100% · 75% · 50% · 33% |
+| `Z` `X` | Nudge back / forward |
+| `⌘9` `⌘0` | Zoom to selection (or loop) · fit whole file |
+| `⌘/` | The full shortcut reference |
+
+## 🔍 Alternatives
+
+Artscribe is not the only option, and for many people it should not be the first one tried.
+
+- **[Transcribe!](https://www.seventhstring.com/xscribe/overview.html)** (Seventh String) —
+  the long-standing standard, and genuinely excellent: deep, fast, thoroughly documented,
+  actively maintained, and cross-platform. Its feature set still goes well beyond this
+  project's. The interface simply feels of an earlier era, and that — not the engineering —
+  is what Artscribe reacts to. If you want a mature, supported, commercially backed tool
+  today, buy it; it is inexpensive and very good.
+- **[Amazing Slow Downer](https://www.ronimusic.com/)** — a focused, reliable
+  slow-down-and-loop player, on desktop and mobile.
+- **[Anytune](https://anytune.com/)** — macOS and iOS, strong on practice tooling.
+- **A full DAW** (Logic, Ableton, Reaper) — if you already live in one, it will slow audio
+  down and loop it perfectly well. It is simply a lot of software to open to learn eight
+  bars.
 
 ## Running Artscribe
 
@@ -90,6 +145,9 @@ Apple Silicon only. Homebrew ships arm64-only libraries and the project has neve
 Intel product, so the bundle is built `arm64` rather than universal.
 
 ### Signing
+
+<details>
+<summary><b>Full signing &amp; notarisation guide</b> — Developer ID, notarytool, CI secrets (click to expand)</summary>
 
 `make app` signs the bundle **ad-hoc** (`codesign --sign -`). That is enough to run it on
 the machine that built it, and enough for anyone who copies it across by hand.
@@ -286,10 +344,12 @@ The one thing an account will never buy: **the Mac App Store is permanently out*
 links Rubber Band under the GPL, and the GPL is incompatible with the App Store's terms.
 Developer-ID-signed downloads, a Homebrew cask, or source are the routes.
 
-## Why it sounds better
+</details>
 
-Slowing audio down without changing pitch is the hard part, and it is where Transcribe!
-shows its age. Artscribe uses [Rubber Band](https://breakfastquay.com/rubberband/) 4.0's
+## 🎧 Why it sounds better
+
+Slowing audio down without changing pitch is the hard part, and it is the reason this
+project exists at all. Artscribe uses [Rubber Band](https://breakfastquay.com/rubberband/) 4.0's
 **R3 "Finer"** engine — a multiresolution, phase-locked spectral stretcher in the same
 class as Ableton's Complex Pro.
 
