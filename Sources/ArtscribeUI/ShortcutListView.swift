@@ -64,10 +64,22 @@ struct ShortcutListView: View {
     /// the pane's edge cuts through; not so deep it hides one.
     private static let fadeHeight: Double = 26
 
+    /// Computed once per `body`, **not** inside the `LazyVStack`'s builder.
+    ///
+    /// `grouped` walks every category against the whole catalog and builds a
+    /// `haystack` string per entry — hundreds of array constructions and joins.
+    /// Inside the lazy builder the layout engine re-ran it on every placement
+    /// pass, and a scroll wedged the main thread at 100% CPU inside
+    /// `LazyStack.place` (sampled: `hang-sample-28409.txt`). Hoisting it here
+    /// makes it once per body evaluation instead of once per placement.
+    private var groups: [(category: ActionCategory, entries: [ActionEntry])] {
+        ShortcutSearch.grouped(query: query)
+    }
+
     var body: some View {
-        ScrollView {
+        let groups = groups
+        return ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
-                let groups = ShortcutSearch.grouped(query: query)
                 if groups.isEmpty {
                     Text("Nothing matches “\(query)”.")
                         .font(Typography.readout)
@@ -98,9 +110,21 @@ struct ShortcutListView: View {
         } action: { _, new in
             edges = new
         }
-        .overlay(alignment: .top) { fade(.top).opacity(edges.hasMoreAbove ? 1 : 0) }
-        .overlay(alignment: .bottom) { fade(.bottom).opacity(edges.hasMoreBelow ? 1 : 0) }
-        .animation(.easeOut(duration: 0.12), value: edges)
+        // The animation is scoped to each fade, **not** wrapped around the
+        // `ScrollView`. An implicit animation on a lazy container keeps its
+        // layout running for the animation's whole duration, and every scroll
+        // event arriving mid-flight restarts it — which is the other half of
+        // the 100% CPU wedge (see `groups` above).
+        .overlay(alignment: .top) {
+            fade(.top)
+                .opacity(edges.hasMoreAbove ? 1 : 0)
+                .animation(.easeOut(duration: 0.12), value: edges.hasMoreAbove)
+        }
+        .overlay(alignment: .bottom) {
+            fade(.bottom)
+                .opacity(edges.hasMoreBelow ? 1 : 0)
+                .animation(.easeOut(duration: 0.12), value: edges.hasMoreBelow)
+        }
     }
 
     /// A soft edge where the pane cuts the list, drawn in the pane's own colour
