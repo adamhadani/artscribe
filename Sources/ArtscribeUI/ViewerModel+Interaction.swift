@@ -190,10 +190,35 @@ extension ViewerModel {
         refresh()
     }
 
+    /// `⌘9`. Fills the view with the selection — or, failing that, the loop.
+    ///
+    /// **The selection wins when there is one**, because it is the more
+    /// transient of the two: you drag a selection out to look at something, and
+    /// a loop you set ten minutes ago should not override what you just did.
+    /// With no selection the loop is the only passage the user has named, and
+    /// zooming to it is obviously what was meant — the alternative, which is
+    /// what this used to do, was nothing at all, on the one key whose whole job
+    /// is "show me the bit I care about".
+    ///
+    /// The loop counts whether or not it is *engaged*: its range is a marked
+    /// passage either way, and refusing to zoom to a loop you can plainly see
+    /// because playback is not currently cycling it would be a distinction
+    /// without a difference.
     public func zoomToSelection() {
-        guard hasTrack, !selection.isEmpty else { return }
-        viewport.zoom(to: selection.range)
+        guard hasTrack, let range = zoomTarget else { return }
+        viewport.zoom(to: range)
         refresh()
+    }
+
+    /// What `⌘9` would zoom to, or `nil` when there is nothing to zoom to.
+    ///
+    /// Separate so the menu item can grey itself out on exactly the condition
+    /// the command acts on, rather than on a second copy of the rule that can
+    /// drift from it.
+    public var zoomTarget: FrameRange? {
+        if !selection.isEmpty { return selection.range }
+        if !loop.range.isEmpty { return loop.range }
+        return nil
     }
 
     public func scrollLeft() { scroll(byPoints: -panStep) }

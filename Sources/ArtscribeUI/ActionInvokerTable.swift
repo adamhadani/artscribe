@@ -48,7 +48,8 @@ extension ActionInvoker {
         .loopMoveRightFar: loopMove(.whole, .aggressive, .forward),
         // Task 21. Start/stop only — the schedule is edited in the Practice
         // window, and the ramp itself lives on the model (`ViewerModel+Practice`).
-        .practiceRampToggle: { $0.model.toggleRamp() }
+        .practiceRampToggle: { $0.model.toggleRamp() },
+        .viewTrackMarksToggle: { $0.model.toggleTrackMarks() }
     ]
 
     private static func loopMove(

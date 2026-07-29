@@ -93,6 +93,11 @@ public enum MenuPlan {
         .action(.viewScrollLeft),
         .action(.viewScrollRight),
         .separator,
+        // Above the two window items rather than with them: this changes what
+        // the waveform shows, like the zoom items it follows, while Practice and
+        // Keyboard Shortcuts open windows.
+        .action(.viewTrackMarksToggle),
+        .separator,
         .action(.practiceShow),
         .action(.helpShortcuts)
     ]

@@ -86,6 +86,7 @@ public enum ActionInvoker {
         // is the right reading: the ramp is over, and clicking the item starts a
         // fresh one from the top.
         case .practiceRampToggle: return model.ramp.isRunning
+        case .viewTrackMarksToggle: return model.markers.isVisible
         default:
             guard let ratio = presetRatio(id) else { return nil }
             return SpeedStepping.isActive(preset: ratio, ratio: model.speed.ratio)

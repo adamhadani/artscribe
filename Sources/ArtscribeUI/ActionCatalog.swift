@@ -28,6 +28,11 @@ public enum ActionEnablement: Hashable, Sendable {
     case trackLoop
     /// A track, and a selection that is not empty.
     case trackSelection
+    /// A track, and *either* a selection or a loop region to zoom to. Its own
+    /// case rather than `trackSelection` because `⌘9` falls back to the loop —
+    /// an item greyed out on "no selection" while the command would happily
+    /// zoom to the loop is a menu lying about what the key does.
+    case trackZoomTarget
 }
 
 /// Whether the menu draws a button or a checkmark for this action.

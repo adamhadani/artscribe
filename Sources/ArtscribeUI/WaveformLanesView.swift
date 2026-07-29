@@ -46,6 +46,10 @@ struct WaveformLanesView: View {
         let playhead: FrameIndex
         let loop: LoopRegion
         let isPlaying: Bool
+        /// Where each track begins, or empty when the lane is not showing. Just
+        /// the frames: the hairline needs no title, and copying 13 strings into
+        /// this snapshot on every redraw would be waste.
+        let trackMarks: [FrameIndex]
     }
 
     var body: some View {
@@ -64,7 +68,8 @@ struct WaveformLanesView: View {
             hasTrack: model.hasTrack,
             playhead: model.playhead,
             loop: model.loop,
-            isPlaying: model.isPlaying)
+            isPlaying: model.isPlaying,
+            trackMarks: model.showsTrackMarks ? model.markers.starts : [])
 
         ZStack(alignment: .topLeading) {
             palette.panel.color()
@@ -158,8 +163,31 @@ struct WaveformLanesView: View {
         drawSelection(
             in: &context, size: size, range: state.selectionRange, viewport: state.viewport)
         drawLoop(in: &context, size: size, state: state)
+        // Under the playhead and over the loop: a track boundary is standing
+        // scenery, the playhead is where you are, and the playhead must never be
+        // the thing that gets hidden.
+        drawTrackMarks(in: &context, size: size, state: state)
         drawPlayhead(in: &context, size: size, state: state)
         drawChannelLabels(in: &context, size: size, channels: state.channels)
+    }
+
+    /// The cue-sheet boundaries, continued down over the audio as hairlines.
+    ///
+    /// The marker lane above carries the names; this is what makes a boundary
+    /// visible where you are actually looking. Deliberately faint and 1pt: it is
+    /// a reference line behind the waveform, not a selection edge, and at album
+    /// zoom there may be thirteen of them.
+    private func drawTrackMarks(
+        in context: inout GraphicsContext, size: CGSize, state: OverlayState
+    ) {
+        guard state.hasTrack, !state.trackMarks.isEmpty else { return }
+        let colour = palette.marker.color(opacity: 0.45)
+        for frame in state.trackMarks {
+            let x = state.viewport.pixel(forFrame: frame)
+            guard x >= -1, x <= size.width + 1 else { continue }
+            context.fill(
+                Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .color(colour))
+        }
     }
 
     private func drawChannelRules(in context: inout GraphicsContext, size: CGSize, channels: Int) {

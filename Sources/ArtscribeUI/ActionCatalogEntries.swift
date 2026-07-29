@@ -200,7 +200,8 @@ extension ActionCatalog {
         ActionEntry(.zoomFit, "Fit Whole File", .view, chords: [.key("0", .command)], menu: .view),
         ActionEntry(
             .zoomToSelection, "Zoom to Selection", .view,
-            chords: [.key("9", .command)], menu: .view),
+            chords: [.key("9", .command)], menu: .view, enablement: .trackZoomTarget,
+            note: "Falls back to the loop when nothing is selected"),
         ActionEntry(
             .zoomIn, "Zoom In", .view,
             chords: [.key("r")], menu: .view, enablement: .documentKey),
@@ -212,6 +213,14 @@ extension ActionCatalog {
         // trackpad and the overview strip.
         ActionEntry(.viewScrollLeft, "Scroll Left", .view, menu: .view, enablement: .documentKey),
         ActionEntry(.viewScrollRight, "Scroll Right", .view, menu: .view, enablement: .documentKey),
+        // Task 27's cue-sheet track marks. A `.toggle`, so the menu shows
+        // whether the lane is up rather than switching its own title between
+        // "Show" and "Hide" — the checkmark is what macOS already uses for a
+        // mode. `T` for Track, and it was unbound on every layer.
+        ActionEntry(
+            .viewTrackMarksToggle, "Track Marks", .view,
+            chords: [.key("t")], menu: .view, enablement: .track, kind: .toggle,
+            note: "Where each track starts, from the album's .cue sheet"),
         ActionEntry(
             .helpShortcuts, "Keyboard Shortcuts", .view,
             chords: [.key("/", .command)], menu: .view),

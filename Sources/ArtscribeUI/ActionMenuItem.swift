@@ -90,6 +90,7 @@ enum ActionAvailability {
         case .trackLoopToggle: return ready && !(model.loop.range.isEmpty && !model.loop.isEnabled)
         case .trackLoop: return ready && !model.loop.range.isEmpty
         case .trackSelection: return ready && !model.selection.isEmpty
+        case .trackZoomTarget: return ready && model.zoomTarget != nil
         }
     }
 }

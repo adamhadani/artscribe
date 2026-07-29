@@ -82,6 +82,12 @@ public struct DocumentView: View {
                 OverviewStripView(model: model)
                     .frame(height: 58)
                 TimeRulerView(model: model)
+                // Only when the file has a cue sheet and the user has not put
+                // the lane away, so a track with no markers costs no height at
+                // all — which is most of them.
+                if model.showsTrackMarks {
+                    CueMarkerLaneView(model: model, appearance: appearance)
+                }
                 WaveformLanesView(model: model)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {

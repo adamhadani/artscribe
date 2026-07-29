@@ -98,6 +98,12 @@ extension ViewerModel {
         // Only on success: a file that could not be decoded is not somewhere you
         // want to be offered a shortcut back to.
         recents?.note(url)
+        // Before `adoptSession`, which may carry the user's own choice about
+        // whether to show them: the sheet has to be read first so there is
+        // something for that choice to apply to. Reading it is a few kilobytes
+        // of text off the same directory the audio just came from, so it stays
+        // on the main actor rather than earning a task of its own.
+        markers.adopt(CueSheetLoader.load(besides: url, sampleRate: loaded.audio.sampleRate))
         // Spec §7, and it has to happen *here* — after the audio is in place, so
         // everything read from the sidecar is clamped against the recording's
         // real length, and before the graph is built, because `openSession`

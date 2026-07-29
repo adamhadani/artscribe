@@ -196,6 +196,11 @@ public final class ViewerModel {
     /// `WaveformCache` for why a class and not a struct.
     public let cache = WaveformCache()
 
+    /// The open file's cue sheet, if it has one — where each track begins, and
+    /// whether the marker lane is showing. Another child `@Observable`, so the
+    /// marker lane is not redrawn every time the playhead moves.
+    public let markers = CueMarkers()
+
     public var sampleRate: Double { audio?.sampleRate ?? 0 }
     public var channels: Int { audio?.channels ?? 0 }
     public var totalFrames: FrameIndex { audio?.frameCount ?? 0 }

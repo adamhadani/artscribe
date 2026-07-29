@@ -68,6 +68,17 @@ public struct Palette: Equatable, Sendable {
     /// teal: the loop and the selection are shown at the same time and mean
     /// different things, so they must not be told apart by brightness alone.
     public let loop: RGB
+    /// Cue-sheet track marks.
+    ///
+    /// **Not the yellow that was suggested**, and the reason is measurable. The
+    /// three inks already drawn on the lane sit at hues 29° (selection amber),
+    /// 174° (accent teal, which is also the playhead) and 250° (loop violet); a
+    /// yellow lands around 50°, three weeks' worth of squinting away from the
+    /// amber it would have to be told apart from in a 1pt hairline. The widest
+    /// gap on the wheel runs from the violet round to the amber, and its middle
+    /// is here. Magenta is also the one hue that stays itself in both themes
+    /// without going muddy on near-white.
+    public let marker: RGB
     /// Hairline between panels. Derived from `panel` so the chrome stays in family.
     public let rule: RGB
     /// The divider between stacked channel lanes. Darker than the lane in dark,
@@ -101,6 +112,7 @@ public struct Palette: Equatable, Sendable {
         dimmed: RGB(0x6F_7783),
         danger: RGB(0xE0_6C63),
         loop: RGB(0x8C_7BE6),
+        marker: RGB(0xE0_86C8),
         rule: RGB(0x2A_2D34),
         laneRule: RGB(0x13_1417),
         selectionFillOpacity: 0.13,
@@ -121,6 +133,7 @@ public struct Palette: Equatable, Sendable {
         dimmed: RGB(0x5B_6472),
         danger: RGB(0xB0_2A22),
         loop: RGB(0x53_40C4),
+        marker: RGB(0x9B_2C7A),
         rule: RGB(0xC9_CDD5),
         laneRule: RGB(0xC9_CDD5),
         selectionFillOpacity: 0.16,
