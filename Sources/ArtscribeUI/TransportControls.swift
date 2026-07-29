@@ -193,14 +193,23 @@ extension ViewerModel {
 
     /// The other half of `perform`, split only to keep each switch inside the
     /// project's complexity limit. The dispatch is still one case per control.
+    /// **Exhaustive on purpose — do not add a `default`.** This switch used to
+    /// end in `default: break`, and a `.preroll` case added to the enum then
+    /// compiled cleanly while its button did nothing: the key and the menu item
+    /// worked, the button was inert, and no test failed because the both-paths
+    /// test below enumerates controls by hand rather than walking `allCases`.
+    /// Listing the cases `perform` already handled costs six words and turns the
+    /// next omission into a build error instead of a silent dead button.
     private func performSpeedOrView(_ control: TransportControl) {
         switch control {
         case .loop: toggleLoop()
+        case .preroll: togglePreroll()
         case .slower: slower(fine: false)
         case .faster: faster(fine: false)
         case .zoomOut: zoomOut()
         case .zoomIn: zoomIn()
-        default: break
+        case .rewind, .nudgeBackward, .playPause, .nudgeForward, .skip, .playFromStart:
+            preconditionFailure("\(control) is handled by perform(_:) and cannot reach here")
         }
     }
 }

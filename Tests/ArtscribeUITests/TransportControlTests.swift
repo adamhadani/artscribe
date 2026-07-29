@@ -206,6 +206,19 @@ struct TransportControlTests {
         byButton.perform(.nudgeForward)
         #expect(byButton.playhead == byKey.playhead)
 
+        byKey.toggleLoop()
+        byButton.perform(.loop)
+        #expect(byButton.loop.isEnabled == byKey.loop.isEnabled)
+
+        // The preroll button shipped inert: `.preroll` was added to the enum
+        // while `performSpeedOrView` still ended in `default: break`, so the key
+        // and the menu toggled it and the button did nothing. The switch is now
+        // exhaustive, which is the real guard; this pins the behaviour too.
+        byKey.togglePreroll()
+        byButton.perform(.preroll)
+        #expect(byButton.prerollEnabled == byKey.prerollEnabled)
+        #expect(!byButton.prerollEnabled, "the button must actually flip it, not no-op")
+
         byKey.nudge(.coarse, direction: .backward)
         byButton.perform(.rewind)
         #expect(byButton.playhead == byKey.playhead)
