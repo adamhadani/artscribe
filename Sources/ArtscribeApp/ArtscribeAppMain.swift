@@ -185,9 +185,9 @@ struct ArtscribeAppMain: App {
         // one that is.
         model.attach(devices: devices)
         model.attach(recents: recents)
-        model.attach(nudge: nudge)
-        model.attach(interaction: interaction)
-        model.attach(preroll: preroll)
+        model.prefs.adopt(nudge: nudge)
+        model.prefs.adopt(interaction: interaction)
+        model.prefs.adopt(preroll: preroll)
         model.attach(sessions: sessions)
         model.attach(practice: practiceSettings)
         // Hands the delegate somewhere to send a file, and replays one that

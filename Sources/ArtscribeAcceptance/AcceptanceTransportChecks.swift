@@ -94,7 +94,7 @@ extension AcceptanceRun {
 
         model.seek(to: model.totalFrames / 2)
         let middle = model.playhead
-        let step = FrameIndex((model.nudgeAmounts[.normal] * model.sampleRate).rounded())
+        let step = FrameIndex((model.prefs.nudgeAmounts[.normal] * model.sampleRate).rounded())
         paths.insert(await activate(.nudgeForward, model: model))
         log.check(
             "pressing nudge-forward moves one normal tier (\(model.playhead - middle))",

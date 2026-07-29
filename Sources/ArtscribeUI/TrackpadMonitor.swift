@@ -282,7 +282,7 @@ extension TrackpadAction {
             // the switch governs both. The *defaults* still differ per device,
             // because a wheel is indirect and every application zooms in on a
             // forward roll; what the toggle promises is that both flip together.
-            let applied = model.invertZoomDrag && factor > 0 ? 1 / factor : factor
+            let applied = model.prefs.invertZoomDrag && factor > 0 ? 1 / factor : factor
             model.zoom(by: applied, at: anchor)
         }
     }

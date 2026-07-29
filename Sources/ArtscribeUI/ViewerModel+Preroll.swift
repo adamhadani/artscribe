@@ -57,53 +57,20 @@ extension ViewerModel {
             loopActive: loop.isActive,
             selectionStart: selection.isEmpty ? nil : selection.range.start)
         guard rewind == nil else { return playhead }
-        guard prerollEnabled else { return playhead }
+        guard prefs.prerollEnabled else { return playhead }
         return Preroll.target(
-            from: playhead, seconds: prerollSeconds, sampleRate: sampleRate,
+            from: playhead, seconds: prefs.prerollSeconds, sampleRate: sampleRate,
             totalFrames: totalFrames, loop: loop)
-    }
-
-    // MARK: - The preference
-
-    /// Attaches the persistent store and adopts what it holds.
-    ///
-    /// Called once, from the app shell, and read *here* rather than in `init`
-    /// for the reason `attach(nudge:)` records: a `ViewerModel` built by a unit
-    /// test stays on the shipped default and never reads the user's real
-    /// preferences.
-    public func attach(preroll settings: PrerollSettings) {
-        prerollStore = settings
-        let loaded = settings.load()
-        if loaded != prerollSeconds { prerollSeconds = loaded }
-        let enabled = settings.loadEnabled()
-        if enabled != prerollEnabled { prerollEnabled = enabled }
-    }
-
-    /// From the Settings window. Validated by `Preroll`, so a negative or an
-    /// absurd value cannot get in — but a **zero can**, and means off (spec §8
-    /// forbids degrading silently, not choosing to).
-    public func setPrerollSeconds(_ seconds: Double) {
-        applyPreroll(Preroll.validated(seconds))
     }
 
     /// `H`, the Playback menu's Preroll item, and the transport bar's button.
     ///
-    /// Leaves `prerollSeconds` alone, which is the whole point of having a mode
-    /// as well as an amount.
+    /// Kept on the model rather than on `Preferences` for the `hasTrack` guard:
+    /// with no file open there is nothing to roll back into, and a key that
+    /// silently changes a setting you cannot hear the effect of is worse than
+    /// one that does nothing.
     public func togglePreroll() {
         guard hasTrack else { return }
-        prerollEnabled.toggle()
-        prerollStore?.saveEnabled(prerollEnabled)
-    }
-
-    /// Settings ▸ Restore Defaults: 2 s.
-    public func restoreDefaultPreroll() {
-        applyPreroll(Preroll.defaultSeconds)
-    }
-
-    private func applyPreroll(_ next: Double) {
-        guard next != prerollSeconds else { return }
-        prerollSeconds = next
-        prerollStore?.save(next)
+        prefs.togglePreroll()
     }
 }

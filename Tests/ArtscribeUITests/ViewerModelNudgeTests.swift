@@ -114,14 +114,14 @@ struct ViewerModelNudgeTests {
     @Test("a changed amount takes effect on the very next nudge, and restores")
     func nudgeAmountsApplyLive() {
         let model = makeModel()
-        model.setNudgeAmount(5, for: .normal)
-        #expect(model.nudgeAmounts[.normal] == 5)
+        model.prefs.setNudgeAmount(5, for: .normal)
+        #expect(model.prefs.nudgeAmounts[.normal] == 5)
         model.seek(to: 0)
         model.nudge(.normal, direction: .forward)
         #expect(model.playhead == FrameIndex(5 * Self.sampleRate))
 
-        model.restoreDefaultNudgeAmounts()
-        #expect(model.nudgeAmounts == NudgeAmounts.defaults)
+        model.prefs.restoreDefaultNudgeAmounts()
+        #expect(model.prefs.nudgeAmounts == NudgeAmounts.defaults)
         model.seek(to: 0)
         model.nudge(.normal, direction: .forward)
         #expect(model.playhead == FrameIndex(2 * Self.sampleRate))
@@ -130,8 +130,8 @@ struct ViewerModelNudgeTests {
     @Test("an amount the model is asked to store is validated first")
     func nudgeAmountsAreValidated() {
         let model = makeModel()
-        model.setNudgeAmount(0, for: .normal)
-        #expect(model.nudgeAmounts[.normal] == NudgeAmounts.minimumSeconds)
+        model.prefs.setNudgeAmount(0, for: .normal)
+        #expect(model.prefs.nudgeAmounts[.normal] == NudgeAmounts.minimumSeconds)
         // Which is the whole point: a nudge still moves.
         model.seek(to: 0)
         model.nudge(.normal, direction: .forward)
@@ -156,7 +156,7 @@ struct ViewerModelNudgeTests {
         let model = makeModel()
         let counter = InvalidationCounter()
         withObservationTracking {
-            _ = model.nudgeAmounts
+            _ = model.prefs.nudgeAmounts
         } onChange: {
             MainActor.assumeIsolated { counter.bump() }
         }
@@ -180,10 +180,10 @@ struct ViewerModelNudgeTests {
         NudgeSettings(defaults: defaults).save(stored)
 
         let model = makeModel()
-        model.attach(nudge: NudgeSettings(defaults: defaults))
-        #expect(model.nudgeAmounts[.coarse] == 30)
+        model.prefs.adopt(nudge: NudgeSettings(defaults: defaults))
+        #expect(model.prefs.nudgeAmounts[.coarse] == 30)
         // And an edit goes back out to the same store.
-        model.setNudgeAmount(20, for: .coarse)
+        model.prefs.setNudgeAmount(20, for: .coarse)
         #expect(NudgeSettings(defaults: defaults).load()[.coarse] == 20)
     }
 }

@@ -81,8 +81,8 @@ extension AcceptanceRun {
         log.note("preroll measured at the key", String(format: "%.3f s", rolledBack))
         log.check(
             "Space resumes one preroll before where it paused "
-                + "(\(rolledBack) s vs the configured \(model.prerollSeconds) s)",
-            abs(rolledBack - model.prerollSeconds) < 0.01)
+                + "(\(rolledBack) s vs the configured \(model.prefs.prerollSeconds) s)",
+            abs(rolledBack - model.prefs.prerollSeconds) < 0.01)
         log.check("the prerolled resume is playing", model.isPlaying)
 
         // Deliberately compounding: each press is a fresh resume from wherever

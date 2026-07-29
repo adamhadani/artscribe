@@ -130,8 +130,8 @@ struct SelectionMovingTests {
     @Test("a Settings edit reaches the action without a relaunch")
     func amountsApplyLive() {
         let model = makeModel()
-        model.setSelectionMoveAmount(5, for: .gentle)
-        #expect(model.selectionMoveAmounts[.gentle] == 5)
+        model.prefs.setSelectionMoveAmount(5, for: .gentle)
+        #expect(model.prefs.selectionMoveAmounts[.gentle] == 5)
         select(model, from: frames(10), to: frames(11))
         model.moveSelection(.gentle, direction: .forward)
         #expect(model.selection.range.start == frames(15))
@@ -142,8 +142,8 @@ struct SelectionMovingTests {
     @Test("a fractional amount survives being stored and moves by exactly that much")
     func fractionalAmounts() {
         let model = makeModel()
-        model.setSelectionMoveAmount(0.02, for: .gentle)
-        #expect(model.selectionMoveAmounts[.gentle] == 0.02)
+        model.prefs.setSelectionMoveAmount(0.02, for: .gentle)
+        #expect(model.prefs.selectionMoveAmounts[.gentle] == 0.02)
         select(model, from: frames(10), to: frames(11))
         model.moveSelection(.gentle, direction: .forward)
         #expect(model.selection.range.start == frames(10) + FrameIndex((0.02 * 44100).rounded()))
@@ -153,14 +153,15 @@ struct SelectionMovingTests {
     @Test("an amount the model is asked to store is validated first")
     func amountsAreValidated() {
         let model = makeModel()
-        model.setSelectionMoveAmount(0, for: .gentle)
-        #expect(model.selectionMoveAmounts[.gentle] == NudgeAmounts.minimumSeconds)
-        model.setSelectionMoveAmount(-4, for: .aggressive)
-        #expect(model.selectionMoveAmounts[.aggressive] == NudgeAmounts.minimumSeconds)
-        model.setSelectionMoveAmount(.nan, for: .gentle)
-        #expect(model.selectionMoveAmounts[.gentle] == SelectionMoveTier.gentle.defaultSeconds)
-        model.setSelectionMoveAmount(1e9, for: .aggressive)
-        #expect(model.selectionMoveAmounts[.aggressive] == NudgeAmounts.maximumSeconds)
+        model.prefs.setSelectionMoveAmount(0, for: .gentle)
+        #expect(model.prefs.selectionMoveAmounts[.gentle] == NudgeAmounts.minimumSeconds)
+        model.prefs.setSelectionMoveAmount(-4, for: .aggressive)
+        #expect(model.prefs.selectionMoveAmounts[.aggressive] == NudgeAmounts.minimumSeconds)
+        model.prefs.setSelectionMoveAmount(.nan, for: .gentle)
+        #expect(
+            model.prefs.selectionMoveAmounts[.gentle] == SelectionMoveTier.gentle.defaultSeconds)
+        model.prefs.setSelectionMoveAmount(1e9, for: .aggressive)
+        #expect(model.prefs.selectionMoveAmounts[.aggressive] == NudgeAmounts.maximumSeconds)
 
         // The point of the validation: the action still moves.
         select(model, from: frames(10), to: frames(11))
@@ -171,9 +172,9 @@ struct SelectionMovingTests {
     @Test("Restore Defaults puts both amounts back")
     func restoreDefaults() {
         let model = makeModel()
-        model.setSelectionMoveAmount(7, for: .gentle)
-        model.restoreDefaultSelectionMoveAmounts()
-        #expect(model.selectionMoveAmounts == SelectionMoveAmounts.defaults)
+        model.prefs.setSelectionMoveAmount(7, for: .gentle)
+        model.prefs.restoreDefaultSelectionMoveAmounts()
+        #expect(model.prefs.selectionMoveAmounts == SelectionMoveAmounts.defaults)
     }
 
     /// The Settings tab has one Restore Defaults button for three sections, so
@@ -182,17 +183,17 @@ struct SelectionMovingTests {
     @Test("the one Restore Defaults button restores everything on the tab")
     func restoreEverything() {
         let model = makeModel()
-        #expect(!model.hasNonDefaultPreferences)
-        model.setSelectionMoveAmount(7, for: .gentle)
-        model.setNudgeAmount(9, for: .normal)
-        model.setInvertZoomDrag(true)
-        #expect(model.hasNonDefaultPreferences)
+        #expect(!model.prefs.hasNonDefaultPreferences)
+        model.prefs.setSelectionMoveAmount(7, for: .gentle)
+        model.prefs.setNudgeAmount(9, for: .normal)
+        model.prefs.setInvertZoomDrag(true)
+        #expect(model.prefs.hasNonDefaultPreferences)
 
-        model.restoreDefaults()
-        #expect(model.selectionMoveAmounts == SelectionMoveAmounts.defaults)
-        #expect(model.nudgeAmounts == NudgeAmounts.defaults)
-        #expect(!model.invertZoomDrag)
-        #expect(!model.hasNonDefaultPreferences)
+        model.prefs.restoreDefaults()
+        #expect(model.prefs.selectionMoveAmounts == SelectionMoveAmounts.defaults)
+        #expect(model.prefs.nudgeAmounts == NudgeAmounts.defaults)
+        #expect(!model.prefs.invertZoomDrag)
+        #expect(!model.prefs.hasNonDefaultPreferences)
     }
 
     // MARK: - Extending, which the Edit menu also carries
@@ -249,12 +250,12 @@ struct SelectionMovingTests {
             InteractionPreferences(invertZoomDrag: true, selectionMove: stored))
 
         let model = makeModel()
-        model.attach(interaction: InteractionSettings(defaults: defaults))
-        #expect(model.selectionMoveAmounts[.aggressive] == 4.5)
-        #expect(model.invertZoomDrag)
+        model.prefs.adopt(interaction: InteractionSettings(defaults: defaults))
+        #expect(model.prefs.selectionMoveAmounts[.aggressive] == 4.5)
+        #expect(model.prefs.invertZoomDrag)
 
         // And an edit goes back out to the same store.
-        model.setSelectionMoveAmount(0.02, for: .gentle)
+        model.prefs.setSelectionMoveAmount(0.02, for: .gentle)
         let reloaded = InteractionSettings(defaults: defaults).load()
         #expect(reloaded.selectionMove[.gentle] == 0.02)
     }

@@ -263,7 +263,7 @@ extension AcceptanceRun {
         await checkSelectionItemsStandDown(menu, log: &log)
 
         // The move amounts are in the titles, like the nudge amounts.
-        let gentle = NudgeAmounts.label(seconds: model.selectionMoveAmounts[.gentle])
+        let gentle = NudgeAmounts.label(seconds: model.prefs.selectionMoveAmounts[.gentle])
         log.check(
             "the move items name their amount (\(gentle))",
             titles.contains { $0.hasPrefix("Move Selection Left") && $0.hasSuffix(gentle) })

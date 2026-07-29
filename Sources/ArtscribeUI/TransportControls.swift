@@ -165,7 +165,7 @@ extension ViewerModel {
         state.isPlaying = isPlaying
         state.loopIsEmpty = loop.range.isEmpty
         state.loopIsEnabled = loop.isEnabled
-        state.prerollIsEnabled = prerollEnabled
+        state.prerollIsEnabled = prefs.prerollEnabled
         state.selectionIsEmpty = selection.isEmpty
         state.speedRatio = speed.ratio
         return state

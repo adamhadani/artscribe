@@ -21,8 +21,8 @@ extension AcceptanceRun {
         model.pause()
         model.fitWholeFile()
         let step = { (seconds: Double) in FrameIndex((seconds * model.sampleRate).rounded()) }
-        let gentle = step(model.selectionMoveAmounts[.gentle])
-        let aggressive = step(model.selectionMoveAmounts[.aggressive])
+        let gentle = step(model.prefs.selectionMoveAmounts[.gentle])
+        let aggressive = step(model.prefs.selectionMoveAmounts[.aggressive])
 
         // A loop well clear of both ends, wide enough that a far step does not
         // cross it — the crossings get their own check below.

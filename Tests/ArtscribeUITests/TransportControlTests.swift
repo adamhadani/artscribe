@@ -216,8 +216,8 @@ struct TransportControlTests {
         // exhaustive, which is the real guard; this pins the behaviour too.
         byKey.togglePreroll()
         byButton.perform(.preroll)
-        #expect(byButton.prerollEnabled == byKey.prerollEnabled)
-        #expect(!byButton.prerollEnabled, "the button must actually flip it, not no-op")
+        #expect(byButton.prefs.prerollEnabled == byKey.prefs.prerollEnabled)
+        #expect(!byButton.prefs.prerollEnabled, "the button must actually flip it, not no-op")
 
         byKey.nudge(.coarse, direction: .backward)
         byButton.perform(.rewind)

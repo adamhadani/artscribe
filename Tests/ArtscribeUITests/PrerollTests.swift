@@ -243,7 +243,7 @@ struct ViewerModelPrerollTests {
 
     @Test("a fresh model is on the shipped default")
     func shippedDefault() {
-        #expect(makeModel().prerollSeconds == Preroll.defaultSeconds)
+        #expect(makeModel().prefs.prerollSeconds == Preroll.defaultSeconds)
     }
 
     @Test("the resume point is the playhead less the preroll")
@@ -256,7 +256,7 @@ struct ViewerModelPrerollTests {
     @Test("a preroll of zero resumes exactly where it stopped")
     func offResumesInPlace() {
         let model = makeModel()
-        model.setPrerollSeconds(0)
+        model.prefs.setPrerollSeconds(0)
         model.seek(to: 220_500)
         #expect(model.prerollTarget == 220_500)
     }
@@ -289,34 +289,34 @@ struct ViewerModelPrerollTests {
     @Test("Settings validates on the way in, so a negative cannot be stored")
     func settingsValidates() {
         let model = makeModel()
-        model.setPrerollSeconds(-5)
-        #expect(model.prerollSeconds == 0)
-        model.setPrerollSeconds(.nan)
-        #expect(model.prerollSeconds == Preroll.defaultSeconds)
+        model.prefs.setPrerollSeconds(-5)
+        #expect(model.prefs.prerollSeconds == 0)
+        model.prefs.setPrerollSeconds(.nan)
+        #expect(model.prefs.prerollSeconds == Preroll.defaultSeconds)
     }
 
     @Test("a changed preroll counts as a non-default preference and Restore puts it back")
     func restoreDefaults() {
         let model = makeModel()
-        #expect(!model.hasNonDefaultPreferences)
-        model.setPrerollSeconds(0.75)
-        #expect(model.hasNonDefaultPreferences)
-        model.restoreDefaults()
-        #expect(model.prerollSeconds == Preroll.defaultSeconds)
-        #expect(!model.hasNonDefaultPreferences)
+        #expect(!model.prefs.hasNonDefaultPreferences)
+        model.prefs.setPrerollSeconds(0.75)
+        #expect(model.prefs.hasNonDefaultPreferences)
+        model.prefs.restoreDefaults()
+        #expect(model.prefs.prerollSeconds == Preroll.defaultSeconds)
+        #expect(!model.prefs.hasNonDefaultPreferences)
     }
 
     @Test("the preroll survives a relaunch")
     func persisted() {
         let defaults = makeSuite()
         let model = makeModel()
-        model.attach(preroll: PrerollSettings(defaults: defaults))
-        model.setPrerollSeconds(1.25)
+        model.prefs.adopt(preroll: PrerollSettings(defaults: defaults))
+        model.prefs.setPrerollSeconds(1.25)
         #expect(PrerollSettings(defaults: defaults).load() == 1.25)
 
         let reopened = makeModel()
-        reopened.attach(preroll: PrerollSettings(defaults: defaults))
-        #expect(reopened.prerollSeconds == 1.25)
+        reopened.prefs.adopt(preroll: PrerollSettings(defaults: defaults))
+        #expect(reopened.prefs.prerollSeconds == 1.25)
     }
 
     /// Storage is not a trusted source. `0` is the value that separates this

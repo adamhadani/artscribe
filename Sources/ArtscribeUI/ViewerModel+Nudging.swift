@@ -9,36 +9,6 @@ import ArtscribeKit
 /// action.
 extension ViewerModel {
 
-    /// Attaches the persistent store and adopts what it holds.
-    ///
-    /// Called once, from the app shell. The amounts are read *here* rather than
-    /// in `init` so a `ViewerModel` built by a unit test stays on the shipped
-    /// defaults and never reads the user's real preferences.
-    public func attach(nudge settings: NudgeSettings) {
-        nudgeStore = settings
-        let loaded = settings.load()
-        if loaded != nudgeAmounts { nudgeAmounts = loaded }
-    }
-
-    /// From the Settings window. The amount is validated by `NudgeAmounts`, so a
-    /// zero, a negative or an absurd value cannot get in here (spec §8).
-    public func setNudgeAmount(_ seconds: Double, for tier: NudgeTier) {
-        var next = nudgeAmounts
-        next[tier] = seconds
-        applyNudgeAmounts(next)
-    }
-
-    /// Settings ▸ Restore Defaults: 50 ms / 2 s / 10 s.
-    public func restoreDefaultNudgeAmounts() {
-        applyNudgeAmounts(.defaults)
-    }
-
-    private func applyNudgeAmounts(_ next: NudgeAmounts) {
-        guard next != nudgeAmounts else { return }
-        nudgeAmounts = next
-        nudgeStore?.save(next)
-    }
-
     /// Moves the playhead by one tier's amount.
     ///
     /// Works stopped or playing, and does not restart audio either way: the only
@@ -56,7 +26,7 @@ extension ViewerModel {
     public func nudge(_ tier: NudgeTier, direction: NudgeDirection) {
         guard hasTrack else { return }
         let target = NudgeStepping.target(
-            from: playhead, bySeconds: nudgeAmounts[tier] * direction.sign,
+            from: playhead, bySeconds: prefs.nudgeAmounts[tier] * direction.sign,
             sampleRate: sampleRate, totalFrames: totalFrames)
         // Already there — at either end of the file, or with an unusable sample
         // rate. Not merely wasteful: `.seek` is one of the two paths that reset

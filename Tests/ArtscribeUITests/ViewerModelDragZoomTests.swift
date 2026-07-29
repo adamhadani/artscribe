@@ -281,7 +281,7 @@ struct ViewerModelDragZoomTests {
         let model = makeModel()
         model.zoom(by: 16, anchorFrame: Self.totalFrames / 2)
         let before = model.zoomFactor
-        model.setInvertZoomDrag(true)
+        model.prefs.setInvertZoomDrag(true)
 
         dragRuler(
             in: model, from: CGPoint(x: 500, y: 12), toY: 12 + ZoomDrag.pointsPerDoubling)
@@ -294,7 +294,7 @@ struct ViewerModelDragZoomTests {
         let model = makeModel()
         model.zoom(by: 16, anchorFrame: Self.totalFrames / 2)
         let before = model.zoomFactor
-        model.setInvertZoomDrag(true)
+        model.prefs.setInvertZoomDrag(true)
 
         let start = CGPoint(x: 300, y: 400)
         for offset in 0...Int(ZoomDrag.pointsPerDoubling) {
@@ -318,7 +318,7 @@ struct ViewerModelDragZoomTests {
         let afterFirstEvents = model.zoomFactor
         #expect(afterFirstEvents > 1)
 
-        model.setInvertZoomDrag(true)
+        model.prefs.setInvertZoomDrag(true)
         model.zoomDragChanged(start: start, current: CGPoint(x: 400, y: 120))
         #expect(model.zoomFactor > afterFirstEvents)
     }
@@ -335,7 +335,7 @@ struct ViewerModelDragZoomTests {
         TrackpadAction.zoom(factor: 2, anchor: nil).apply(to: model)
         #expect(model.zoomFactor > before)
 
-        model.setInvertZoomDrag(true)
+        model.prefs.setInvertZoomDrag(true)
         let inverted = model.zoomFactor
         TrackpadAction.zoom(factor: 2, anchor: nil).apply(to: model)
         #expect(model.zoomFactor < inverted)

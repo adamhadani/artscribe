@@ -24,24 +24,24 @@ struct PrerollToggleTests {
             channels: 1, sampleRate: 44100, frameCount: frames, storage: storage)
         let model = ViewerModel()
         model.loadForTesting(audio: audio, pyramid: PeakPyramid.build(audio), widthPixels: 1000)
-        model.prerollSeconds = seconds
+        model.prefs.prerollSeconds = seconds
         return model
     }
 
     @Test("the preroll ships on")
     func defaultsOn() {
-        #expect(model().prerollEnabled)
+        #expect(model().prefs.prerollEnabled)
     }
 
     @Test("toggling off then on restores the amount rather than a default")
     func toggleKeepsTheAmount() {
         let model = model(seconds: 0.75)
         model.togglePreroll()
-        #expect(!model.prerollEnabled)
-        #expect(model.prerollSeconds == 0.75, "turning it off must not forget the amount")
+        #expect(!model.prefs.prerollEnabled)
+        #expect(model.prefs.prerollSeconds == 0.75, "turning it off must not forget the amount")
         model.togglePreroll()
-        #expect(model.prerollEnabled)
-        #expect(model.prerollSeconds == 0.75)
+        #expect(model.prefs.prerollEnabled)
+        #expect(model.prefs.prerollSeconds == 0.75)
     }
 
     @Test("a stored mode round-trips, and absent means on")

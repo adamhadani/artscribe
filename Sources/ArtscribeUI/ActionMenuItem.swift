@@ -31,10 +31,10 @@ public enum ActionTitle {
 
     private static func amountLabel(_ id: ActionID, _ context: MenuContext) -> String? {
         if let tier = nudgeTiers[id] {
-            return NudgeAmounts.label(seconds: context.model.nudgeAmounts[tier])
+            return NudgeAmounts.label(seconds: context.model.prefs.nudgeAmounts[tier])
         }
         if let tier = moveTiers[id] {
-            return NudgeAmounts.label(seconds: context.model.selectionMoveAmounts[tier])
+            return NudgeAmounts.label(seconds: context.model.prefs.selectionMoveAmounts[tier])
         }
         return nil
     }

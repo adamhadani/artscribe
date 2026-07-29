@@ -203,17 +203,17 @@ extension AcceptanceRun {
     @MainActor
     private static func checkNudgeAmountsApplyLive(model: ViewerModel, log: inout Logger) {
         let middle = model.totalFrames / 2
-        model.setNudgeAmount(4, for: .normal)
+        model.prefs.setNudgeAmount(4, for: .normal)
         model.seek(to: middle)
         press(.z)
         log.check(
             "a changed nudge amount applies to the next keypress with no relaunch",
             model.playhead == middle - FrameIndex(4 * model.sampleRate))
 
-        model.restoreDefaultNudgeAmounts()
+        model.prefs.restoreDefaultNudgeAmounts()
         log.check(
             "Restore Defaults returns 50 ms / 2 s / 10 s",
-            model.nudgeAmounts == NudgeAmounts.defaults)
+            model.prefs.nudgeAmounts == NudgeAmounts.defaults)
         model.seek(to: middle)
         press(.z)
         log.check(
@@ -222,15 +222,15 @@ extension AcceptanceRun {
 
         // Nonsense must not be storable: a nudge of nothing is the silent
         // degradation the spec forbids.
-        model.setNudgeAmount(0, for: .normal)
+        model.prefs.setNudgeAmount(0, for: .normal)
         log.check(
             "a zero amount is rejected in favour of the minimum "
-                + "(\(model.nudgeAmounts[.normal]) s)",
-            model.nudgeAmounts[.normal] >= NudgeAmounts.minimumSeconds)
+                + "(\(model.prefs.nudgeAmounts[.normal]) s)",
+            model.prefs.nudgeAmounts[.normal] >= NudgeAmounts.minimumSeconds)
         model.seek(to: middle)
         press(.z)
         log.check("so the key still moves the playhead", model.playhead != middle)
-        model.restoreDefaultNudgeAmounts()
+        model.prefs.restoreDefaultNudgeAmounts()
         model.seek(to: 0)
     }
 

@@ -10,73 +10,6 @@ import ArtscribeKit
 /// can be tested at both file boundaries without a model.
 extension ViewerModel {
 
-    // MARK: - Preferences
-
-    /// Attaches the persistent store and adopts what it holds.
-    ///
-    /// Called once, from the app shell, and read *here* rather than in `init`
-    /// for the reason `attach(nudge:)` records: a `ViewerModel` built by a unit
-    /// test stays on the shipped defaults and never reads the user's real
-    /// preferences.
-    public func attach(interaction settings: InteractionSettings) {
-        interactionStore = settings
-        let loaded = settings.load()
-        if loaded.invertZoomDrag != invertZoomDrag { invertZoomDrag = loaded.invertZoomDrag }
-        if loaded.selectionMove != selectionMoveAmounts {
-            selectionMoveAmounts = loaded.selectionMove
-        }
-    }
-
-    /// Settings ▸ *Invert zoom direction*. Applies to both vertical drags — the
-    /// ruler's and the lanes' ⌥-drag — and to the scroll-wheel zoom, so one
-    /// window never holds two zoom conventions at once.
-    public func setInvertZoomDrag(_ inverted: Bool) {
-        guard inverted != invertZoomDrag else { return }
-        invertZoomDrag = inverted
-        saveInteractionPreferences()
-    }
-
-    /// From the Settings window. The amount is validated by
-    /// `SelectionMoveAmounts`, so a zero, a negative or an absurd value cannot
-    /// get in here (spec §8).
-    public func setSelectionMoveAmount(_ seconds: Double, for tier: SelectionMoveTier) {
-        var next = selectionMoveAmounts
-        next[tier] = seconds
-        guard next != selectionMoveAmounts else { return }
-        selectionMoveAmounts = next
-        saveInteractionPreferences()
-    }
-
-    /// Settings ▸ Restore Defaults for the move amounts: 250 ms / 2 s.
-    public func restoreDefaultSelectionMoveAmounts() {
-        guard selectionMoveAmounts != .defaults else { return }
-        selectionMoveAmounts = .defaults
-        saveInteractionPreferences()
-    }
-
-    /// Settings ▸ Restore Defaults. One button for the whole tab, because one
-    /// per section is three ways to ask the same question — and because a user
-    /// who wants "put it back as it came" should not have to find all of them.
-    public func restoreDefaults() {
-        restoreDefaultNudgeAmounts()
-        restoreDefaultSelectionMoveAmounts()
-        restoreDefaultPreroll()
-        setInvertZoomDrag(false)
-    }
-
-    /// Whether anything on the Settings tab has been moved off its default,
-    /// which is what the button greys out on.
-    public var hasNonDefaultPreferences: Bool {
-        nudgeAmounts != NudgeAmounts.defaults || selectionMoveAmounts != .defaults
-            || prerollSeconds != Preroll.defaultSeconds || invertZoomDrag
-    }
-
-    private func saveInteractionPreferences() {
-        interactionStore?.save(
-            InteractionPreferences(
-                invertZoomDrag: invertZoomDrag, selectionMove: selectionMoveAmounts))
-    }
-
     // MARK: - Moving the whole selection
 
     /// Slides the whole selection along the timeline, both edges together.
@@ -93,7 +26,7 @@ extension ViewerModel {
     public func moveSelection(_ tier: SelectionMoveTier, direction: NudgeDirection) {
         guard hasTrack, !selection.isEmpty else { return }
         let delta = NudgeStepping.frames(
-            seconds: selectionMoveAmounts[tier] * direction.sign, sampleRate: sampleRate)
+            seconds: prefs.selectionMoveAmounts[tier] * direction.sign, sampleRate: sampleRate)
         let moved = selection.translated(by: delta, within: totalFrames)
         guard moved != selection else { return }
         selection = moved
@@ -128,7 +61,7 @@ extension ViewerModel {
     ) {
         guard hasTrack, !loop.range.isEmpty else { return }
         let moved = LoopMoving.moved(
-            loop, target: target, bySeconds: selectionMoveAmounts[tier] * direction.sign,
+            loop, target: target, bySeconds: prefs.selectionMoveAmounts[tier] * direction.sign,
             sampleRate: sampleRate, totalFrames: totalFrames)
         guard moved != loop else { return }
         applyLoop(moved)
@@ -164,7 +97,7 @@ extension ViewerModel {
         var next = selection
         if next.isEmpty { next.begin(at: playhead) }
         let head = NudgeStepping.target(
-            from: next.head, bySeconds: nudgeAmounts[.normal] * direction.sign,
+            from: next.head, bySeconds: prefs.nudgeAmounts[.normal] * direction.sign,
             sampleRate: sampleRate, totalFrames: totalFrames)
         next.extend(to: head)
         guard next != selection else { return }

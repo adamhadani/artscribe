@@ -170,7 +170,7 @@ extension AcceptanceRun {
 
         model.seek(to: model.totalFrames / 2)
         let middle = model.playhead
-        let step = FrameIndex((model.nudgeAmounts[.normal] * model.sampleRate).rounded())
+        let step = FrameIndex((model.prefs.nudgeAmounts[.normal] * model.sampleRate).rounded())
         press(.x)
         log.check(
             "X nudges once (\(model.playhead - middle) frames, one step is \(step))",

@@ -81,26 +81,10 @@ public final class ViewerModel {
     public internal(set) var speed = SpeedState()
     public internal(set) var loop = LoopRegion()
     /// How far `Z`/`X`, `⇧Z`/`⇧X` and `⌥Z`/`⌥X` move (spec §6.2).
-    ///
-    /// The applied value lives here, and `NudgeSettings` is only its backing
-    /// tape: the menu titles and the nudge actions both read this, so there is
-    /// one source of truth. Starts at the shipped defaults and is replaced once
-    /// by `attach(nudge:)` at launch — a model built by a unit test therefore
-    /// never touches the user's real preferences.
-    public internal(set) var nudgeAmounts = NudgeAmounts.defaults
-    /// How far `C`/`V` and `⌥C`/`⌥V` slide the whole selection (spec §6.2).
-    /// Same arrangement as `nudgeAmounts`: the applied value lives here and
-    /// `InteractionSettings` is only its backing tape.
-    public internal(set) var selectionMoveAmounts = SelectionMoveAmounts.defaults
-    /// How far a `Space` resume rolls back, and whether it applies at all.
-    /// Replaced at launch by `attach(preroll:)`; see `Preroll`.
-    public internal(set) var prerollSeconds = Preroll.defaultSeconds
-    public internal(set) var prerollEnabled = true
-    /// Whether a vertical drag *up* zooms in. `false` — the shipped default —
-    /// means down zooms in, which is the direction the user asked for after
-    /// driving Task 16's. Governs both vertical drags and the wheel zoom, so
-    /// one window never holds two zoom conventions at once.
-    public internal(set) var invertZoomDrag = false
+    /// The working preferences — nudge and selection-move amounts, the preroll,
+    /// and the zoom-drag direction. A child `@Observable`, so a view reading one
+    /// of them is not woken when another changes. See `Preferences`.
+    public let prefs = Preferences()
     /// Output level and mute. Half scale by default, and it survives a load: how
     /// loud you want it is a property of your headphones, not of the file.
     public internal(set) var volume = VolumeState()
@@ -196,15 +180,6 @@ public final class ViewerModel {
     /// than at the three call sites that can open a file (menu, drop, the recent
     /// list itself), so a new way in cannot forget to.
     @ObservationIgnored var recents: RecentFiles?
-    /// Where `nudgeAmounts` is persisted, if the app shell attached a store.
-    /// Absent in unit tests, which is what keeps them off `UserDefaults`.
-    @ObservationIgnored var nudgeStore: NudgeSettings?
-    /// Where the zoom direction and the selection-move amounts are persisted,
-    /// if the app shell attached a store. Absent in unit tests, which is what
-    /// keeps them off `UserDefaults`.
-    @ObservationIgnored var interactionStore: InteractionSettings?
-    /// Where the preroll is persisted, on the same terms.
-    @ObservationIgnored var prerollStore: PrerollSettings?
     /// Where the practice ramp's schedule is persisted, on the same terms as the
     /// two above.
     @ObservationIgnored var practiceStore: PracticeSettings?

@@ -49,7 +49,7 @@ struct ViewerModelLoopMoveTests {
     func bothTiersMoveEachTarget() {
         let model = makeModel()
         for tier in SelectionMoveTier.allCases {
-            let step = frames(model.selectionMoveAmounts[tier])
+            let step = frames(model.prefs.selectionMoveAmounts[tier])
 
             setLoop(model, from: 20, to: 25)
             model.moveLoop(.inPoint, tier, direction: .forward)
@@ -71,7 +71,7 @@ struct ViewerModelLoopMoveTests {
     @Test("a Settings change to the shared amount moves the loop by the new amount")
     func settingsAmountIsHonoured() {
         let model = makeModel()
-        model.setSelectionMoveAmount(0.5, for: .gentle)
+        model.prefs.setSelectionMoveAmount(0.5, for: .gentle)
         setLoop(model, from: 20, to: 25)
         model.moveLoop(.inPoint, .gentle, direction: .forward)
         #expect(model.loop.range.start == frames(20.5))

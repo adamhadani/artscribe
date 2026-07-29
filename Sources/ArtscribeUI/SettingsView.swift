@@ -52,8 +52,8 @@ struct NudgeSettingsTab: View {
             Section {
                 HStack {
                     Spacer()
-                    Button("Restore Defaults") { model.restoreDefaults() }
-                        .disabled(!model.hasNonDefaultPreferences)
+                    Button("Restore Defaults") { model.prefs.restoreDefaults() }
+                        .disabled(!model.prefs.hasNonDefaultPreferences)
                 }
             }
         }
@@ -98,8 +98,8 @@ struct NudgeSettingsTab: View {
             TextField(
                 "Preroll",
                 value: Binding(
-                    get: { model.prerollSeconds },
-                    set: { model.setPrerollSeconds($0) }),
+                    get: { model.prefs.prerollSeconds },
+                    set: { model.prefs.setPrerollSeconds($0) }),
                 format: .number.precision(.fractionLength(0...3))
             )
             .labelsHidden()
@@ -110,7 +110,7 @@ struct NudgeSettingsTab: View {
             // Without this, setting an amount while the mode is off is a field
             // that accepts a value and changes nothing — the silent no-op spec
             // §8 forbids. It names the key so the fix is one press away.
-            if !model.prerollEnabled {
+            if !model.prefs.prerollEnabled {
                 Text("— off (H)")
                     .foregroundStyle(.secondary)
                     .help("Preroll is switched off. Press H, or use Playback ▸ Preroll.")
@@ -175,8 +175,8 @@ struct NudgeSettingsTab: View {
             Toggle(
                 "Invert zoom direction",
                 isOn: Binding(
-                    get: { model.invertZoomDrag },
-                    set: { model.setInvertZoomDrag($0) }))
+                    get: { model.prefs.invertZoomDrag },
+                    set: { model.prefs.setInvertZoomDrag($0) }))
         } header: {
             Text("Zoom")
         } footer: {
@@ -238,8 +238,8 @@ struct NudgeSettingsTab: View {
     /// nothing.
     private func binding(for tier: NudgeTier) -> Binding<Double> {
         Binding(
-            get: { tier.unit.display(seconds: model.nudgeAmounts[tier]) },
-            set: { model.setNudgeAmount(tier.unit.seconds(from: $0), for: tier) })
+            get: { tier.unit.display(seconds: model.prefs.nudgeAmounts[tier]) },
+            set: { model.prefs.setNudgeAmount(tier.unit.seconds(from: $0), for: tier) })
     }
 
     /// Seconds, with three decimals so 20 ms is typable. Same validate-and-snap
@@ -249,8 +249,8 @@ struct NudgeSettingsTab: View {
             TextField(
                 tier.label,
                 value: Binding(
-                    get: { model.selectionMoveAmounts[tier] },
-                    set: { model.setSelectionMoveAmount($0, for: tier) }),
+                    get: { model.prefs.selectionMoveAmounts[tier] },
+                    set: { model.prefs.setSelectionMoveAmount($0, for: tier) }),
                 format: .number.precision(.fractionLength(0...3))
             )
             .labelsHidden()

@@ -17,8 +17,8 @@ extension AcceptanceRun {
     static func checkSelectionMovement(model: ViewerModel, log: inout Logger) async {
         model.fitWholeFile()
         let step = { (seconds: Double) in FrameIndex((seconds * model.sampleRate).rounded()) }
-        let gentle = step(model.selectionMoveAmounts[.gentle])
-        let aggressive = step(model.selectionMoveAmounts[.aggressive])
+        let gentle = step(model.prefs.selectionMoveAmounts[.gentle])
+        let aggressive = step(model.prefs.selectionMoveAmounts[.aggressive])
 
         // Selected the way a user does — through the lane drag's own entry
         // points — because the harness has no back door onto `selection` and
@@ -87,7 +87,7 @@ extension AcceptanceRun {
     /// gap found in this project, after the nudge tiers and the sidecar.
     @MainActor
     private static func checkExtendSelection(model: ViewerModel, log: inout Logger) async {
-        let normal = FrameIndex((model.nudgeAmounts[.normal] * model.sampleRate).rounded())
+        let normal = FrameIndex((model.prefs.nudgeAmounts[.normal] * model.sampleRate).rounded())
         model.clearSelection()
         model.seek(to: model.totalFrames / 2)
         let anchor = model.playhead
@@ -134,7 +134,7 @@ extension AcceptanceRun {
         log.check("with the preference off, dragging down zooms in", drag(down: true) > 1.9)
         log.check("and dragging up zooms out", drag(down: false) < 0.55)
 
-        model.setInvertZoomDrag(true)
+        model.prefs.setInvertZoomDrag(true)
         log.check(
             "with it on, the same downward drag zooms out instead", drag(down: true) < 0.55)
         log.check("and dragging up zooms in", drag(down: false) > 1.9)
@@ -155,8 +155,8 @@ extension AcceptanceRun {
                 model.zoomFactor < before)
         }
 
-        model.setInvertZoomDrag(false)
-        log.check("the preference is back off for the rest of the run", !model.invertZoomDrag)
+        model.prefs.setInvertZoomDrag(false)
+        log.check("the preference is back off for the rest of the run", !model.prefs.invertZoomDrag)
         model.fitWholeFile()
     }
 }
