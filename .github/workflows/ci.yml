@@ -31,6 +31,10 @@ jobs:
     # macos-26 is GA on arm64 and is the only image with a Swift 6.3 /
     # macOS 26 SDK toolchain. macos-15 cannot build platforms: [.macOS(.v26)].
     runs-on: macos-26
+    # A hung test used to sit on a runner until the six-hour ceiling. The suite
+    # takes ~3 s locally and a cold CI build a few minutes, so 25 is generous
+    # and still fails fast enough to be useful.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -59,4 +63,10 @@ jobs:
         run: swiftlint lint --quiet --strict
 
       - name: Test
-        run: swift test
+        # `--no-parallel`, deliberately. Swift Testing runs concurrently, and
+        # every `@MainActor` test serialises on the main actor — so one test
+        # that blocks it leaves several hundred others "started" and never
+        # finished, which is what a hung run looks like and tells you nothing
+        # about which test is at fault. Serial execution names the culprit: it
+        # is simply the last one to start.
+        run: swift test --no-parallel
