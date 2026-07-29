@@ -244,16 +244,17 @@ extension ViewerModel {
         transport.request(false, now: ProcessInfo.processInfo.systemUptime)
     }
 
-    /// `⇧Space` (`Return` until Task 18). To the selection start, else the loop's
-    /// in point, else the file start — and plays from there. The transcriber's
-    /// most-used key, because it is how you hear the same phrase again.
+    /// `Space` (`Return` until Task 18, `⇧Space` until the P0 swap). To the
+    /// selection start, else the loop's in point, else the file start — and plays
+    /// from there. The transcriber's most-used key, because it is how you hear
+    /// the same phrase again, which is why the swap put it on the bare Space.
     public func playFromStart() {
         guard hasTrack else { return }
         returnToStart()
         play()
     }
 
-    /// The seek half of `⇧Space`, without playing, and bound on its own as well —
+    /// The seek half of `Space`, without playing, and bound on its own as well —
     /// which is why the precedence lives here rather than in `playFromStart`. The
     /// name predates the rebind.
     ///

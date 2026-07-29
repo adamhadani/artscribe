@@ -3267,6 +3267,10 @@ one coherent identity:
 
 #### E — `Play from selection start` moves to `⇧Space`
 
+> **Superseded by Task 28.** `Space` and `⇧Space` were swapped after release: play-from-start
+> is now the bare `Space`. The rest of this section — the rebind itself, and above all the
+> "update every reference" checklist — still stands, and Task 28 reused it.
+
 - [ ] Rebind from `Return` to `⇧Space`, so the whole transport is left-hand driveable.
 - [ ] **Update every reference**: the menu, the transport bar tooltip, `README.md`, the
       spec's §6.2 action catalog, and any test or acceptance check asserting the old binding.
@@ -3414,6 +3418,9 @@ Two behaviours the user hit while driving the app. Both are small; both are wron
 that makes the app feel arbitrary.
 
 #### A — `Play from start` (`⇧Space`) must follow one precedence rule
+
+> **The key changed in Task 28** — play-from-start is `Space` now. The precedence rule
+> itself is unchanged, and is still the one rule `PlaybackStart` decides.
 
 Observed: with no selection it plays from the **track** start even when a loop is set; with a
 selection it plays from the selection start *or* the loop start depending on circumstances.
@@ -3734,6 +3741,30 @@ than a parallel mechanism built here.
 explicit cases. The label layout and collision resolution are also pure; extract them from the
 view and test them. Add a **`cue` acceptance group** so it can be run selectively, and give the
 Practice hub's checks their own group too if they do not have one.
+
+### Task 28 (P0): Swap `Space` and `⇧Space`
+
+**Done.** The user asked for a straight swap, and got one:
+
+- `Space` → `transport.returnToStart` (play from start, with the unchanged
+  selection → active loop → track precedence)
+- `⇧Space` → `transport.playPause`
+
+**The consequence, accepted deliberately.** `Space` used to toggle. It does not any more:
+pressed while playing it is still a play-from-start, so it restarts from the aim point
+rather than pausing. Pausing is `⇧Space` alone. That is what Pro Tools does and it is what
+the user asked for; the acceptance run checks it explicitly rather than leaving it to be
+discovered.
+
+**What the `ActionCatalog` bought.** The binding itself is two lines in
+`ActionCatalogEntries.swift`, and editing them moved the menu key equivalents, the window's
+key dispatch and the shortcut window's keyboard together, with no other code change. What it
+does **not** reach is anything holding a *string*: the transport bar's `Face.shortcut`
+literals, the README, this plan, the spec, and every acceptance check that presses a key or
+names one in its own title. See the checklist in the swap's report for the full list — it is
+the thing to follow the next time a shortcut moves.
+
+---
 
 ## Plan Complete
 

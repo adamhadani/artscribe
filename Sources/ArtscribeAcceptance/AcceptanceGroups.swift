@@ -59,7 +59,7 @@ extension AcceptanceRun {
             case .selection: "drag to select, zoom to selection, moving and extending a selection"
             case .loop: "moving the whole loop, its walls, and its inversion guard"
             case .playback: "transport, volume, speed, seamless looping, auto-scroll, Playback menu"
-            case .start: "Shift-Space's precedence rule and double-click-to-play"
+            case .start: "Space's play-from-start precedence rule and double-click-to-play"
             case .session: "the .artscribe sidecar: save, reopen, corruption, read-only fallback"
             case .window: "window resize, and the banner a file that cannot be decoded raises"
             case .catalog: "the menu bar against ActionCatalog, and the shortcut window (⌘/)"

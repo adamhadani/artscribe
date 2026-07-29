@@ -162,7 +162,7 @@ public struct DocumentView: View {
     /// could carry alongside `⌥Z`/`⌥X`.
     ///
     /// **`Return` is bound to nothing, deliberately.** Leaving it as a synonym
-    /// for `⇧Space` would mean a live binding that no menu, tooltip or README
+    /// for play-from-start would mean a live binding that no menu, tooltip or README
     /// names, which is precisely the drift this project has been bitten by. It
     /// is also the key a future "commit this value" — a go-to-time field, a
     /// rename — will want, and it is easier to hand out a free key than to take

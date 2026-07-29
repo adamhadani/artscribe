@@ -172,8 +172,13 @@ extension AcceptanceRun {
             String(describing: after ?? window).contains("KeyView")
                 || String(describing: after ?? window).contains("Hosting"))
 
+        // Stopped explicitly, because since the P0 swap Space is
+        // play-from-start rather than a toggle: pressed while already playing it
+        // restarts and `isPlaying` does not change, which would read as the
+        // keyboard never having arrived.
+        model.pause()
+        await settle(seconds: 0.2)
         let zoom = model.framesPerPixel
-        let playing = model.isPlaying
         press(.space)
         await settle(seconds: 0.4)
         // Deliberately not skipped when no window is key. Since Task 15 made
@@ -189,14 +194,14 @@ extension AcceptanceRun {
                 : "with a key window: menu key equivalent, first responder unchanged")
         log.check(
             "Space still reaches the transport after a button was pressed "
-                + "(\(playing) -> \(model.isPlaying))",
-            model.isPlaying != playing,
+                + "(stopped -> \(model.isPlaying))",
+            model.isPlaying,
             unless: model.canPlay
                 ? nil
                 : "there is no audio output session in this run, so play() reports the fact "
                     + "instead of latching and the transport cannot change either way")
         log.check("Space did not re-press the last-pressed button", model.framesPerPixel == zoom)
-        if model.isPlaying { press(.space) }
+        if model.isPlaying { press(.shiftSpace) }
         await settle(seconds: 0.2)
         model.fitWholeFile()
     }

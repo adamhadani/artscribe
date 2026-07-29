@@ -48,13 +48,28 @@ struct TransportControlTests {
 
     /// The bar teaches the keyboard, so a rebinding that misses the bar leaves
     /// it teaching a key that no longer does anything — the drift this project
-    /// has been bitten by twice. Task 18 moved play-from-start off `Return`,
-    /// and this is the cheap half of keeping the two in step; the expensive
-    /// half is the acceptance run, which reads the menu's *real* key equivalent
-    /// out of AppKit and then presses it.
-    @Test("the play-from-start button teaches the binding the menu carries")
-    func playFromStartTeachesShiftSpace() {
-        #expect(TransportControl.playFromStart.shortcut == "⇧Space")
+    /// has been bitten by twice. Task 18 moved play-from-start off `Return`, and
+    /// the P0 swap moved it again, off `⇧Space` and onto `Space`.
+    ///
+    /// `TransportControl.faces` spells its shortcuts as literals, so this
+    /// compares them against `ActionCatalog` rather than against a second
+    /// literal — a literal-versus-literal assertion would have passed unchanged
+    /// through both rebinds while the bar taught the wrong key. This is the
+    /// cheap half of keeping the two in step; the expensive half is the
+    /// acceptance run, which reads the menu's *real* key equivalent out of
+    /// AppKit and then presses it.
+    @Test("the transport buttons teach the bindings the catalog carries")
+    func transportButtonsTeachTheCatalogBindings() {
+        #expect(
+            TransportControl.playFromStart.shortcut
+                == ActionCatalog.chord(.transportReturnToStart)?.display)
+        #expect(
+            TransportControl.playPause.shortcut
+                == ActionCatalog.chord(.transportPlayPause)?.display)
+        // And the swap itself, named once, so a catalog edit that moved both
+        // sides together still has to face what the user asked for.
+        #expect(TransportControl.playFromStart.shortcut == "Space")
+        #expect(TransportControl.playPause.shortcut == "⇧Space")
     }
 
     @Test("every control teaches its key in the tooltip")
@@ -215,7 +230,7 @@ struct TransportControlTests {
         #expect(model.loop.range == range)
     }
 
-    @Test("play-from-selection-start goes where Shift-Space goes")
+    @Test("play-from-selection-start goes where Space goes")
     func playFromStartButtonSeeksToTheSelection() {
         let model = makeModel()
         model.dragChanged(startPixel: 200, currentPixel: 520, extending: false)
@@ -233,7 +248,7 @@ struct TransportControlTests {
         #expect(!model.isPlaying)
         model.perform(.playPause)
         // No audio session exists in a unit test, so play cannot succeed — and
-        // must say so rather than pretend, exactly as the Space key does.
+        // must say so rather than pretend, exactly as the ⇧Space key does.
         #expect(!model.isPlaying)
         #expect(model.playbackNotice != nil)
     }

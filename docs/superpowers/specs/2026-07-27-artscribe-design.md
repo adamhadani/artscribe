@@ -233,10 +233,16 @@ away from being back inside it.
 
 ### 6.2 Action catalog (MVP)
 
+**`Space` and `⇧Space` were swapped after first release** on the user's instruction. The
+bare `Space` is now play-from-start, which is the key a transcriber presses hundreds of
+times an hour, and `⇧Space` is play/pause. The consequence is deliberate and is what Pro
+Tools does: `Space` no longer toggles, so pressing it while playing restarts from the aim
+point instead of pausing. Pausing is `⇧Space` and nothing else.
+
 | ActionID | Default binding | Action |
 |---|---|---|
-| `transport.playPause` | `Space` | Play / pause |
-| `transport.returnToStart` | `⇧Space` | To the selection start; else an **active** loop's in point; else 0 |
+| `transport.playPause` | `⇧Space` | Play / pause from the current position |
+| `transport.returnToStart` | `Space` | To the selection start; else an **active** loop's in point; else 0 — and play from there. **Not a toggle**: pressed while playing it restarts rather than pausing |
 | `transport.nudge.back` / `.forward` | `Z` / `X`, `←` / `→` | Nudge **2 s** (configurable) |
 | `transport.nudge.back.fine` / `.forward.fine` | `⇧Z` / `⇧X` | Nudge 50 ms (configurable) |
 | `transport.nudge.back.coarse` / `.forward.coarse` | `⌥Z` / `⌥X`, `⌥←` / `⌥→` | Rewind/skip **10 s** (configurable) |
@@ -264,7 +270,7 @@ away from being back inside it.
 | `selection.selectAll` | `⌘A` | Select all |
 | `selection.clear` | `Esc` | Clear selection |
 | `file.open` | `⌘O` | Open… |
-| `transport.stop` | — | Playback ▸ Stop. Menu only: `Space` already pauses, and a third way to say it would be a key spent on nothing |
+| `transport.stop` | — | Playback ▸ Stop. Menu only: `⇧Space` already pauses, and a third way to say it would be a key spent on nothing |
 | `loop.clear` | — | Loop ▸ Clear Loop. Menu only |
 | `view.scrollLeft` / `.scrollRight` | — | View ▸ Scroll. Menu only: `Z`/`X` are the nudge keys and a nudge brings the view with it, so moving the view alone is left to these, the trackpad and the overview strip |
 | `file.save` / `file.saveAs` | `⌘S` / `⇧⌘S` | Write the sidecar; write it somewhere else (§7.1) |

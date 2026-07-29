@@ -77,13 +77,13 @@ public enum TransportControl: String, CaseIterable, Sendable, Hashable {
     private static let faces: [TransportControl: Face] = [
         .rewind: Face(shortcut: "⌥Z", title: "Rewind", symbol: "backward.fill"),
         .nudgeBackward: Face(shortcut: "Z", title: "Nudge Back", symbol: "backward.frame.fill"),
-        .playPause: Face(shortcut: "Space", title: "Play", symbol: "play.fill"),
+        .playPause: Face(shortcut: "⇧Space", title: "Play", symbol: "play.fill"),
         .nudgeForward: Face(shortcut: "X", title: "Nudge Forward", symbol: "forward.frame.fill"),
         .skip: Face(shortcut: "⌥X", title: "Skip", symbol: "forward.fill"),
         .playFromStart: Face(
             // Not "from Selection Start": since Task 22 it also aims at an
             // active loop's in point when there is no selection.
-            shortcut: "⇧Space", title: "Play from Start",
+            shortcut: "Space", title: "Play from Start",
             symbol: "backward.end.fill"),
         .loop: Face(shortcut: "D", title: "Loop", symbol: "repeat"),
         .slower: Face(shortcut: "Q", title: "Slower", symbol: "minus"),

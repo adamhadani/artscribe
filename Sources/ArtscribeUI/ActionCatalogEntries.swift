@@ -13,17 +13,21 @@ extension ActionCatalog {
     // MARK: - Playback ▸ transport
 
     static let transportEntries: [ActionEntry] = [
+        // ⇧Space, not Space: the bare Space is play-from-start, the key a
+        // transcriber presses hundreds of times an hour, and pause is the
+        // variant of it. Swapped from the other way round on the user's
+        // instruction — it is what Pro Tools does. **Space no longer toggles:**
+        // pressing it while playing restarts from the aim point rather than
+        // pausing, and pausing is ⇧Space alone.
         ActionEntry(
             .transportPlayPause, "Play", .transport,
-            chords: [KeyChord(.space)], menu: .playback, enablement: .track),
-        // No shortcut, and never had one: Space is play/pause, and a separate
+            chords: [KeyChord(.space, .shift)], menu: .playback, enablement: .track),
+        // No shortcut, and never had one: ⇧Space is play/pause, and a separate
         // Stop key would be a third way to say the same thing.
         ActionEntry(.transportStop, "Stop", .transport, menu: .playback, enablement: .trackPlaying),
-        // ⇧Space, not Return: it keeps the whole transport under the left hand,
-        // next to the Space it is a variant of.
         ActionEntry(
             .transportReturnToStart, "Play from Start", .transport,
-            chords: [KeyChord(.space, .shift)], menu: .playback, enablement: .track)
+            chords: [KeyChord(.space)], menu: .playback, enablement: .track)
     ]
 
     // MARK: - Playback ▸ navigation (spec §6.2's three nudge tiers)

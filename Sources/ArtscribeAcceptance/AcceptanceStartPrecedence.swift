@@ -3,7 +3,7 @@ import ArtscribeKit
 import ArtscribeUI
 import Foundation
 
-/// Task 22, driven end to end: the one precedence rule behind Shift-Space, and
+/// Task 22, driven end to end: the one precedence rule behind Space, and
 /// the double-click that now plays from where it landed.
 ///
 /// Both are P0 fixes for behaviour the user hit while driving the real app, and
@@ -13,35 +13,39 @@ import Foundation
 /// `checkPlayback` rather than beside the other pointer checks.
 extension AcceptanceRun {
 
-    // MARK: - ⇧Space precedence (Task 22 A)
+    // MARK: - Space precedence (Task 22 A; ⇧Space until the P0 swap)
 
-    /// One rule for where `⇧Space` aims, driven with real keystrokes through the
+    /// One rule for where `Space` aims, driven with real keystrokes through the
     /// whole four-state matrix.
+    ///
+    /// The key is the bare `Space` since the P0 swap; `⇧Space` is now the
+    /// play/pause each case uses to put the transport back.
     ///
     /// It reads `model.playhead` **immediately** after the press, before any
     /// settling: `playFromStart` seeks and then plays synchronously, so that read
     /// is the aim point itself rather than wherever the render thread has since
-    /// carried it. Each case pauses again before the next, because `⇧Space`
-    /// pressed while already playing would still be a play-from-start but leaves
-    /// the transport in a state the next case would have to undo.
+    /// carried it. Each case pauses again before the next, because `Space`
+    /// pressed while already playing is still a play-from-start — it does not
+    /// pause — and would leave the transport in a state the next case would have
+    /// to undo.
     ///
     /// The loop is set with `A`/`S`/`D` — real keys — so a regression in the loop
     /// bindings cannot masquerade as a precedence pass.
     @MainActor
     static func checkStartPrecedence(model: ViewerModel, log: inout Logger) async {
         guard model.canPlay else {
-            log.skip("⇧Space precedence", because: "no audio output was opened")
+            log.skip("Space precedence", because: "no audio output was opened")
             return
         }
         model.fitWholeFile()
         let quarter = model.totalFrames / 4
         let half = model.totalFrames / 2
 
-        func aimOfShiftSpace() async -> FrameIndex {
+        func aimOfSpace() async -> FrameIndex {
             model.seek(to: model.totalFrames * 3 / 4)
-            press(.shiftSpace)
-            let aim = model.playhead
             press(.space)
+            let aim = model.playhead
+            press(.shiftSpace)
             await settle(seconds: 0.1)
             return aim
         }
@@ -49,8 +53,8 @@ extension AcceptanceRun {
         // 1. Neither.
         model.clearLoop()
         model.clearSelection()
-        let neither = await aimOfShiftSpace()
-        log.check("⇧Space with no selection and no loop aims at the track start", neither == 0)
+        let neither = await aimOfSpace()
+        log.check("Space with no selection and no loop aims at the track start", neither == 0)
 
         // 2. An active loop, no selection. This is the case the user reported:
         //    it used to aim at 0 and let the engine drag the cursor into the
@@ -65,9 +69,9 @@ extension AcceptanceRun {
             "A, S and D really set an active loop (\(loopStart)…\(model.loop.range.end))",
             model.loop.isActive && loopStart > 0)
         model.clearSelection()
-        let loopOnly = await aimOfShiftSpace()
+        let loopOnly = await aimOfSpace()
         log.check(
-            "⇧Space with an active loop and no selection aims at the loop's in point "
+            "Space with an active loop and no selection aims at the loop's in point "
                 + "(\(loopOnly) vs \(loopStart))",
             loopOnly == loopStart)
 
@@ -81,9 +85,9 @@ extension AcceptanceRun {
         log.check(
             "a drag really made a selection distinct from the loop's in point",
             !model.selection.isEmpty && selectionStart != loopStart)
-        let both = await aimOfShiftSpace()
+        let both = await aimOfSpace()
         log.check(
-            "⇧Space with both a selection and an active loop aims at the selection start "
+            "Space with both a selection and an active loop aims at the selection start "
                 + "(\(both) vs selection \(selectionStart), loop \(loopStart))",
             both == selectionStart)
 
@@ -92,9 +96,9 @@ extension AcceptanceRun {
         press(.d)
         log.check("D really switched the loop off", !model.loop.isActive)
         model.clearSelection()
-        let disabled = await aimOfShiftSpace()
+        let disabled = await aimOfSpace()
         log.check(
-            "a loop the user switched off does not steer ⇧Space (\(disabled))", disabled == 0)
+            "a loop the user switched off does not steer Space (\(disabled))", disabled == 0)
 
         model.clearLoop()
         model.clearSelection()
@@ -109,7 +113,7 @@ extension AcceptanceRun {
     /// state machine and the transport are all under test rather than assumed.
     ///
     /// Deliberately set up with a selection *and* an active loop in place, which
-    /// is where B has to compose with A: `⇧Space` would aim at the selection
+    /// is where B has to compose with A: `Space` would aim at the selection
     /// start, and a double-click must not. The first click lands inside the loop,
     /// so neither candidate start can be what put the playhead there; the last
     /// pair of clicks lands past the out point, which is Task 24 A's case 3.

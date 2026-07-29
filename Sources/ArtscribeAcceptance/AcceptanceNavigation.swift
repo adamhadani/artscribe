@@ -174,7 +174,9 @@ extension AcceptanceRun {
             return
         }
         model.seek(to: model.totalFrames / 2)
-        press(.space)
+        // ⇧Space plays from here; Space is play-from-start and would undo the
+        // seek this check depends on.
+        press(.shiftSpace)
         await settle(seconds: 0.4)
         guard model.isPlaying else {
             log.check("the transport started for the nudge-while-playing check", false)
@@ -189,7 +191,7 @@ extension AcceptanceRun {
             "⌥Z rewinds about 10 s while playing (\(moved) vs \(expected) frames)",
             abs(moved - expected) < FrameIndex(model.sampleRate))
         log.check("the nudge did not stop playback", model.isPlaying)
-        press(.space)
+        press(.shiftSpace)
         await settle(seconds: 0.2)
     }
 

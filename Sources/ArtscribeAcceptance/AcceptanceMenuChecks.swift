@@ -80,7 +80,7 @@ extension AcceptanceRun {
 
         // The title has to follow the transport, or the menu lies about what
         // pressing it will do.
-        press(.space)
+        press(.shiftSpace)
         await refresh(menu)
         let whilePlaying = menu.items.first {
             $0.title.hasPrefix("Play") || $0.title.hasPrefix("Pause")
@@ -89,7 +89,7 @@ extension AcceptanceRun {
             "the play item becomes Pause while playing (\(whilePlaying?.title ?? "missing"))",
             whilePlaying?.title.hasPrefix("Pause") == true)
         log.check("Stop is enabled while playing", item(menu, "Stop")?.isEnabled == true)
-        press(.space)
+        press(.shiftSpace)
         await refresh(menu)
         log.check("Stop is disabled again when stopped", item(menu, "Stop")?.isEnabled == false)
 

@@ -5,7 +5,7 @@ import Waveform
 
 @testable import ArtscribeUI
 
-/// The one precedence rule behind `⇧Space`, exhaustively.
+/// The one precedence rule behind `Space`, exhaustively.
 ///
 /// It exists because the app used to appear to follow two rules: the UI aimed at
 /// the track start with no selection, and `PlaybackEngine`'s loop containment
@@ -41,7 +41,7 @@ struct PlaybackStartTests {
         #expect(PlaybackStart.target(selection: Self.selection, loop: Self.loop) == 300_000)
     }
 
-    /// A backwards drag selects the same passage, and `⇧Space` must still land on
+    /// A backwards drag selects the same passage, and `Space` must still land on
     /// its earlier edge rather than on the anchor the hand happened to start at.
     @Test("a backwards selection still starts at its earlier edge")
     func backwardsSelection() {
@@ -101,7 +101,7 @@ struct ViewerModelStartPrecedenceTests {
         return model
     }
 
-    // MARK: - ⇧Space precedence (Task 22 A)
+    // MARK: - Space precedence (Task 22 A; the key was ⇧Space until the P0 swap)
     //
     // One rule, four states. `loop only` is the one that was measurably wrong at
     // this level: the old `seek(to: selection.isEmpty ? 0 : …)` aimed at the
@@ -124,7 +124,7 @@ struct ViewerModelStartPrecedenceTests {
         if !model.loop.isEnabled { model.toggleLoop() }
     }
 
-    @Test("Shift-Space with neither a selection nor a loop goes to the track start")
+    @Test("Space with neither a selection nor a loop goes to the track start")
     func returnToStartWithNeither() {
         let model = makeModel()
         model.seek(to: 300_000)
@@ -132,7 +132,7 @@ struct ViewerModelStartPrecedenceTests {
         #expect(model.playhead == 0)
     }
 
-    @Test("Shift-Space with a selection and no loop goes to the selection start")
+    @Test("Space with a selection and no loop goes to the selection start")
     func returnToStartWithSelectionOnly() {
         let model = makeModel()
         let start = select(model, fromPixel: 200, toPixel: 500)
@@ -141,7 +141,7 @@ struct ViewerModelStartPrecedenceTests {
         #expect(model.playhead == start)
     }
 
-    @Test("Shift-Space with an active loop and no selection goes to the loop start")
+    @Test("Space with an active loop and no selection goes to the loop start")
     func returnToStartWithLoopOnly() {
         let model = makeModel()
         enableLoop(model, from: 120_000, to: 260_000)
@@ -158,7 +158,7 @@ struct ViewerModelStartPrecedenceTests {
     /// the loop, which is the ordinary case (`G` makes a loop out of one) and the
     /// case where the fix is also audible: the engine leaves a cursor inside the
     /// region alone.
-    @Test("Shift-Space with both a selection and an active loop goes to the selection start")
+    @Test("Space with both a selection and an active loop goes to the selection start")
     func returnToStartWithBoth() {
         let model = makeModel()
         enableLoop(model, from: 120_000, to: 260_000)
@@ -174,7 +174,7 @@ struct ViewerModelStartPrecedenceTests {
     /// `isActive`, not `isEnabled`: a loop the user switched off must not steer
     /// the playhead, and neither must a zero-length one left over from a single
     /// press of `A`.
-    @Test("a disabled loop does not steer Shift-Space")
+    @Test("a disabled loop does not steer Space")
     func returnToStartIgnoresADisabledLoop() {
         let model = makeModel()
         enableLoop(model, from: 120_000, to: 260_000)

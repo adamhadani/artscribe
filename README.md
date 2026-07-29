@@ -134,8 +134,8 @@ Release, not debug — a debug build decodes roughly four times slower.
 
 | Key | Action |
 |---|---|
-| `Space` | Play / pause |
-| `⇧Space` | Play from start — of the selection, else of an active loop, else of the file |
+| `Space` | Play from start — of the selection, else of an active loop, else of the file. Pressed while playing it restarts rather than pausing |
+| `⇧Space` | Play / pause from the current position |
 | `Q` / `W` | Slower / faster (5%) |
 | `⇧Q` / `⇧W` | Slower / faster (1%) |
 | `1` `2` `3` `4` | 100% / 75% / 50% / 33% |

@@ -38,63 +38,6 @@ extension AcceptanceRun {
         checkCounters(model: model, log: &log)
     }
 
-    // MARK: - Transport
-
-    @MainActor
-    private static func checkTransport(
-        model: ViewerModel, log: inout Logger, stalled: String?
-    ) async {
-        press(.space)
-        // The trap: `isPlaying` on the engine is not observable until the render
-        // thread drains the ring, so the *button* must be true immediately.
-        log.check("Space is handled and the transport latches immediately", model.isPlaying)
-
-        await settle(seconds: 0.6)
-        let moved = model.playhead
-        log.check(
-            "the playhead advances during playback (\(moved) frames)", moved > 0, unless: stalled)
-        await settle(seconds: 0.6)
-        let later = model.playhead
-        log.check(
-            "the playhead keeps advancing (\(moved) → \(later))", later > moved, unless: stalled)
-
-        // Real time against source time: at 1.0x they must agree to well within
-        // the poll interval. This is the objective form of "the playhead stays
-        // synchronised with what you hear".
-        let elapsed = Double(later - moved) / model.sampleRate
-        log.note("playhead advance over ~0.6 s of wall clock", String(format: "%.3f s", elapsed))
-        log.check(
-            "the playhead tracks real time at 1.0x", abs(elapsed - 0.6) < 0.15, unless: stalled)
-
-        press(.space)
-        log.check("Space pauses", !model.isPlaying)
-        await settle(seconds: 0.3)
-        let paused = model.playhead
-        await settle(seconds: 0.4)
-        log.check("the playhead stops when paused", model.playhead == paused)
-
-        // Task 18 moved this off `Return` and onto `⇧Space`, so the whole
-        // transport is left-hand driveable. Both halves are checked: the new
-        // binding works, and the old one no longer does — a binding that keeps
-        // working after every document says it moved is the drift this project
-        // has been bitten by twice.
-        press(.shiftSpace)
-        log.check("Shift-Space plays from the start", model.isPlaying)
-        await settle(seconds: 0.2)
-        // Position-dependent only because `paused` is 0 when nothing ever
-        // rendered, and nothing is less than zero.
-        log.check(
-            "Shift-Space moved the position back to zero", model.playhead < paused,
-            unless: stalled)
-        press(.space)
-        await settle(seconds: 0.1)
-
-        log.check("Space still pauses after a Shift-Space", !model.isPlaying)
-        press(.enter)
-        await settle(seconds: 0.2)
-        log.check("Return is bound to nothing and starts no playback", !model.isPlaying)
-    }
-
     // MARK: - Volume
 
     /// Every claim here is checked against `AudioOutput.volume` — the value the
@@ -213,7 +156,9 @@ extension AcceptanceRun {
         // Changing speed while playing must not lose position. Measured across
         // the change, at the position the listener is at.
         model.seek(to: FrameIndex(model.sampleRate * 5))
-        press(.space)
+        // ⇧Space, not Space: this check is about the position the listener is
+        // at, and Space is play-from-start — it would rewind to the aim point.
+        press(.shiftSpace)
         await settle(seconds: 0.5)
         let before = model.playhead
         press(.three)
@@ -234,7 +179,7 @@ extension AcceptanceRun {
             "50% speed advances the playhead at half rate", covered > 0.25 && covered < 0.55,
             unless: stalled)
 
-        press(.space)
+        press(.shiftSpace)
         press(.one)
         await settle(seconds: 0.1)
     }
@@ -276,7 +221,9 @@ extension AcceptanceRun {
         press(.d)
         press(.three)
         model.seek(to: inPoint)
-        press(.space)
+        // ⇧Space: the drag above left a selection, so Space would aim at the
+        // selection start rather than at the in point this check just sought to.
+        press(.shiftSpace)
 
         // Position is sampled throughout. The objective form of "it repeats
         // seamlessly" is that the playhead never leaves the region, comes back
@@ -314,7 +261,7 @@ extension AcceptanceRun {
             model.degradation.stalls == stallsBefore)
         log.check("the transport is still playing after looping", model.isPlaying)
 
-        press(.space)
+        press(.shiftSpace)
         press(.one)
         await settle(seconds: 0.1)
 
@@ -347,14 +294,16 @@ extension AcceptanceRun {
             String(format: "%.2f s", Double(visible) / model.sampleRate))
         model.seek(to: model.viewport.startFrame + visible / 8)
 
-        press(.space)
+        // ⇧Space throughout this check: it plays from where the seek above put
+        // the playhead, which is the state the page-flip measurement needs.
+        press(.shiftSpace)
         var starts: [FrameIndex] = []
         let deadline = Date().addingTimeInterval(6)
         while Date() < deadline {
             await settle(seconds: 0.02)
             starts.append(model.viewport.startFrame)
         }
-        press(.space)
+        press(.shiftSpace)
 
         let jumps = zip(starts, starts.dropFirst()).filter { $0 != $1 }.count
         let distinct = Set(starts).count
@@ -384,14 +333,14 @@ extension AcceptanceRun {
         press(.d)
         model.seek(to: loopStart)
         let held = model.viewport.startFrame
-        press(.space)
+        press(.shiftSpace)
         var moved = false
         let loopDeadline = Date().addingTimeInterval(4)
         while Date() < loopDeadline {
             await settle(seconds: 0.02)
             if model.viewport.startFrame != held { moved = true }
         }
-        press(.space)
+        press(.shiftSpace)
         log.check("an active loop that fits on screen suppresses auto-scroll entirely", !moved)
         model.clearLoop()
         await settle(seconds: 0.1)
