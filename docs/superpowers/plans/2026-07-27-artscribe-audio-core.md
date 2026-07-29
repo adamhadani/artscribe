@@ -3658,57 +3658,82 @@ The keyboard view itself is not snapshot-tested.
 
 ### Task 27: CUE sheet support — track markers on the waveform
 
-Some albums ship as a single FLAC plus a `.cue` file of the same basename, indexing where each
-track begins. Live albums, DJ sets and vinyl rips are commonly distributed this way, and today
-Artscribe sees one nine-hour blob with no structure.
+Some albums ship as one big audio file plus a `.cue` indexing where each track begins. Live
+albums, DJ sets and vinyl rips are commonly distributed this way, and Artscribe currently
+sees one undifferentiated blob.
 
-The user's ask: show a distinct marker at each track boundary, name the track, colour them
-distinctly (yellow was suggested), and let the markers be toggled from the View menu with a
-shortcut.
+**Real test corpus: `~/Downloads/Gonzalo Rubalcaba/`** — nine cue sheets across eight albums.
+I surveyed it, and it breaks the obvious design in three ways. Do not trust a naive reading
+of the format; trust the corpus.
 
-#### Parsing
+#### What the corpus actually shows
 
-- [ ] On opening `<name>.flac`, look for `<name>.cue` beside it and parse it if present.
-      **Do not require it** — its absence is the normal case, not an error.
-- [ ] CUE is an old, loosely-specified format with real-world variance: `FILE`, `TRACK`,
-      `INDEX 00`/`01`, `TITLE`, `PERFORMER`, `REM` comments, and `INDEX` times in
-      `mm:ss:ff` where **ff is frames at 75 per second**, not milliseconds. Getting that
-      conversion wrong puts every marker slightly off.
-- [ ] Encoding is a real trap: CUE files are frequently **Latin-1 or Shift-JIS rather than
-      UTF-8**, and a strict UTF-8 decode will simply fail on a perfectly good file. Fall back
-      rather than refusing, and never crash on a malformed one — degrade to no markers and
-      say so, per spec §8.
-- [ ] Multi-`FILE` cue sheets exist (one per track). Decide what to do and say why —
-      recommendation: support the single-`FILE` case properly and ignore the rest rather than
-      half-supporting it.
-- [ ] Test against genuinely awkward input: missing `TITLE`, `INDEX 00` present as well as
-      `01`, out-of-order tracks, times beyond the file's length, CRLF, a BOM, and a truncated
-      file.
+- [ ] **The `FILE` directive lies about the extension.** Across the corpus: 21 `FILE` lines
+      say `.wav`, 8 say `.flac`, 1 says `.ape` — while the audio actually present is `.flac`
+      or `.ape`. EAC rips reference the WAV that existed at rip time and was then encoded
+      away. **Never use `FILE`'s name to locate the audio.** Match on basename instead.
+- [ ] **Most of these cue sheets are multi-`FILE`** — 4 of 9 have one `FILE` per track
+      (`Giraldilla.cue`, `XXI Century.*.cue`, `Gonzalo Rubalcaba.CUE`), and those albums are
+      *already split into per-track files*. Markers are meaningless there. **A multi-`FILE`
+      cue sheet must be recognised and ignored**, not half-parsed. This is the single most
+      important structural check.
+- [ ] **Naming varies**: `.cue` and `.CUE` (match case-insensitively), and doubled
+      extensions — `Suite 4 y 20.cue` *and* `Suite 4 y 20.ape.cue` exist side by side, as do
+      `XXI Century.FLAC.cue` and `XXI Century.WAV.cue`. Decide a deterministic precedence
+      when several candidates match and state it.
+- [ ] **`INDEX 00` and `INDEX 01` both appear** (18 files use `INDEX 00`). `INDEX 01` is the
+      track start; `INDEX 00` is the pre-gap. Using the wrong one puts every marker seconds
+      early.
+- [ ] **`INDEX` times are `mm:ss:ff` where `ff` is frames at 75 per second**, not
+      milliseconds or centiseconds. Get this wrong and markers land plausibly but wrongly.
+- [ ] **Two albums are `.ape` (Monkey's Audio), which macOS cannot decode** — they will not
+      open at all, cue or no cue. Do not treat that as a cue failure.
 
-#### Display
+**The two clean single-`FILE` test cases are `Gonzalo Rubalcaba Trio - Diz`
+and `Gonzalo Rubalcaba - Rapsodia`** — both a single `.flac` with a matching `.cue`. Use them.
 
-- [ ] A marker at each track start, in its own colour distinct from selection amber, loop, and
-      the playhead. Yellow was suggested; check it against both themes and the existing palette
-      before committing to it.
-- [ ] The track name shown at the marker, **truncated when there is no room, with the full name
-      on hover.** At album zoom there will be a dozen markers competing for space — decide what
-      happens when labels would overlap, and make it degrade gracefully rather than becoming a
-      smear.
-- [ ] **Toggle from the View menu with a shortcut**, added to the `ActionCatalog` like every
-      other action — the drift guard will fail otherwise, which is the point of it.
-- [ ] Persist the toggle in the `.artscribe` sidecar alongside the other view state.
+Encoding: this corpus is entirely us-ascii, so it does **not** exercise the decoding fallback.
+Real-world cue sheets are frequently Latin-1 or Shift-JIS and a strict UTF-8 decode fails on
+perfectly valid files. Implement the fallback and test it with synthetic fixtures, and say
+plainly that the corpus did not cover it.
 
-#### Worth considering, and worth saying no to if it is not MVP
+Never crash on malformed input — degrade to no markers and surface why, per spec §8.
 
-- Snapping the selection or loop to a track boundary — genuinely useful for "loop this one
-  track", but it is a new interaction and belongs in its own task if it complicates this one.
-- Navigating between markers by keyboard. The spec's deferred markers lane (§11.4) is the
-  natural home; do not build a parallel mechanism here.
+#### Display, and the zoom problem
 
-**Testing:** the parser is pure and must be thoroughly tested — that is where the bugs will be.
-The `mm:ss:ff` conversion, the encoding fallback, and the malformed-input handling all deserve
-explicit cases. Label layout and overlap resolution are also pure and testable; extract them
-from the view.
+At album zoom a dozen track names compete for the same horizontal space. The best-studied
+solution is from digital mapping, where this is exactly the label-decluttering problem:
+[priority-based collision behaviour](https://developers.google.com/maps/documentation/javascript/examples/marker-collision-management)
+and [vector label decluttering](https://openlayers.org/en/latest/examples/vector-label-decluttering.html).
+
+- [ ] **The marker line always survives; only the label degrades.** Structure — where tracks
+      begin — must be legible at every zoom. That is the whole point of the feature.
+- [ ] **Zoom-reactive tiers.** Fully zoomed out: tick marks only. Mid: as many labels as fit
+      without collision, dropped by priority rather than truncated into a smear. Close in:
+      every label in full.
+- [ ] **Resolve collisions by dropping, not by overlapping or eliding into unreadability.**
+      Two half-legible labels are worse than one readable one.
+- [ ] **Hover reveals the full name** at any zoom, including where the label was dropped.
+- [ ] Consider pinning the *current* track's name so you always know where you are — borrowed
+      from sticky headers in map and timeline UIs. Judgement call; say yes or no and why.
+- [ ] Own colour, distinct from selection amber, loop, and the playhead. Yellow was suggested
+      — check it against both themes and the existing palette before committing.
+- [ ] **Toggle from the View menu with a shortcut**, added to the `ActionCatalog` (the drift
+      guard will fail otherwise, which is the point of it). Persist the toggle in the
+      `.artscribe` sidecar.
+
+#### Out of scope — say no to these
+
+Snapping the loop or selection to a track boundary, and keyboard navigation between markers.
+Both are genuinely useful and both belong with the spec's deferred markers lane (§11.4) rather
+than a parallel mechanism built here.
+
+**Testing:** the parser is pure and is where the bugs will be — `mm:ss:ff` conversion,
+`INDEX 00` versus `01`, multi-`FILE` rejection, the encoding fallback, CRLF, a BOM, missing
+`TITLE`, out-of-order tracks, times past the file's end, and truncated input all deserve
+explicit cases. The label layout and collision resolution are also pure; extract them from the
+view and test them. Add a **`cue` acceptance group** so it can be run selectively, and give the
+Practice hub's checks their own group too if they do not have one.
 
 ## Plan Complete
 
