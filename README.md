@@ -136,6 +136,7 @@ Release, not debug — a debug build decodes roughly four times slower.
 |---|---|
 | `Space` | Play / pause. Resuming rolls back by the **preroll** — 2 s by default, configurable in Settings ▸ Playback — so you hear the note you stopped on in context |
 | `⇧Space` | Play from start — of the selection, else of an active loop, else of the file. No preroll: it already has an explicit target |
+| `H` | Preroll on / off — flips the mode without forgetting the amount |
 | `Q` / `W` | Slower / faster (5%) |
 | `⇧Q` / `⇧W` | Slower / faster (1%) |
 | `1` `2` `3` `4` | 100% / 75% / 50% / 33% |
@@ -151,6 +152,11 @@ at the start of the file, and when a loop is active and the playhead is inside i
 loop's in point, so a resume never steps outside the passage you set. Pausing and resuming
 twice rolls back twice: each press is a fresh resume, which is how you inch back through a
 phrase. `⇧Space` never prerolls.
+
+`H` turns it off and on again. That is not the same as setting it to 0: zero is a permanent
+"resume exactly where I stopped", whereas the toggle is the mode you flip while working and
+it remembers your seconds. It is also a **Playback** menu item and a transport-bar button
+beside the loop, both of which show the current state.
 
 ### Selection, looping and view
 

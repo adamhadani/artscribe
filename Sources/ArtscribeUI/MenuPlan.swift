@@ -101,6 +101,7 @@ public enum MenuPlan {
         .action(.transportPlayPause),
         .action(.transportStop),
         .action(.transportReturnToStart),
+        .action(.transportPrerollToggle),
         .separator,
         .action(.nudgeBack),
         .action(.nudgeForward),

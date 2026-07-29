@@ -16,6 +16,16 @@ import ArtscribeKit
 /// about what `play()` is going to do next.
 public enum Preroll {
 
+    /// **The mode is separate from the amount, and both exist.**
+    ///
+    /// `minimumSeconds` is 0 and means off, so a toggle looks redundant — but
+    /// reaching zero *forgets* the seconds the user chose, and the preroll is
+    /// something you flip on and off while working, the way a DAW does. So
+    /// `ViewerModel.prerollEnabled` gates it and `prerollSeconds` survives
+    /// untouched: turn it off, turn it back on, and your amount is still there.
+    /// A typed 0 remains a legitimate way to say "resume exactly where I
+    /// stopped" permanently.
+
     /// Two seconds: about a bar at a moderate tempo, which is enough lead-in to
     /// place a note and short enough not to feel like a rewind.
     public static let defaultSeconds = 2.0

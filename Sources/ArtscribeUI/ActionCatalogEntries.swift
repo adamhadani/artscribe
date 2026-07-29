@@ -31,7 +31,15 @@ extension ActionCatalog {
         // explicit target (`PlaybackStart`).
         ActionEntry(
             .transportReturnToStart, "Play from Start", .transport,
-            chords: [KeyChord(.space, .shift)], menu: .playback, enablement: .track)
+            chords: [KeyChord(.space, .shift)], menu: .playback, enablement: .track),
+        // `H` sits directly right of `G`, extending the `A S D F G` loop row by
+        // one — the preroll belongs to that cluster by hand position as much as
+        // by meaning. A toggle rather than a second amount: `0` already turns
+        // the preroll off, but zeroing it *forgets* the seconds you chose, and
+        // this is a mode you flip while working, the way a DAW does.
+        ActionEntry(
+            .transportPrerollToggle, "Preroll", .transport,
+            chords: [.key("h")], menu: .playback, enablement: .track, kind: .toggle)
     ]
 
     // MARK: - Playback ▸ navigation (spec §6.2's three nudge tiers)

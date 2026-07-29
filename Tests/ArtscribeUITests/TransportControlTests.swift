@@ -123,19 +123,40 @@ struct TransportControlTests {
         #expect(TransportControl.loop.isEnabled(in: state))
     }
 
-    @Test("the loop button reads on/off, and only the loop button does")
-    func onlyLoopCarriesAnOnState() {
+    /// The loop and the preroll are the bar's only *modes*; everything else is
+    /// momentary. Listing them here rather than testing each in isolation is
+    /// what makes a third mode added without an on-state fail this test.
+    static let modes: Set<TransportControl> = [.loop, .preroll]
+
+    @Test("only the mode buttons carry an on-state")
+    func onlyModesCarryAnOnState() {
         var state = TransportState()
         state.hasTrack = true
         state.loopIsEmpty = false
         state.loopIsEnabled = true
+        state.prerollIsEnabled = true
         state.isPlaying = true
-        for control in TransportControl.allCases where control != .loop {
+        for control in TransportControl.allCases where !Self.modes.contains(control) {
             #expect(!control.isOn(in: state), "\(control) claims an on-state")
         }
+        for control in Self.modes {
+            #expect(control.isOn(in: state), "\(control) lost its on-state")
+        }
+    }
+
+    @Test("each mode button follows its own state, not another's")
+    func modesAreIndependent() {
+        var state = TransportState()
+        state.hasTrack = true
+        state.loopIsEmpty = false
+        state.loopIsEnabled = true
+        state.prerollIsEnabled = false
         #expect(TransportControl.loop.isOn(in: state))
+        #expect(!TransportControl.preroll.isOn(in: state))
         state.loopIsEnabled = false
+        state.prerollIsEnabled = true
         #expect(!TransportControl.loop.isOn(in: state))
+        #expect(TransportControl.preroll.isOn(in: state))
     }
 
     @Test("the bar's speed readout carries the status bar's emphasis rule")

@@ -13,6 +13,7 @@ extension ActionInvoker {
         .transportPlayPause: { $0.model.togglePlayPause() },
         .transportStop: { $0.model.pause() },
         .transportReturnToStart: { $0.model.playFromStart() },
+        .transportPrerollToggle: { $0.model.togglePreroll() },
         .nudgeBack: { $0.model.nudge(.normal, direction: .backward) },
         .nudgeForward: { $0.model.nudge(.normal, direction: .forward) },
         .nudgeBackFine: { $0.model.nudge(.fine, direction: .backward) },

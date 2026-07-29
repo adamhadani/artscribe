@@ -57,6 +57,7 @@ extension ViewerModel {
             loopActive: loop.isActive,
             selectionStart: selection.isEmpty ? nil : selection.range.start)
         guard rewind == nil else { return playhead }
+        guard prerollEnabled else { return playhead }
         return Preroll.target(
             from: playhead, seconds: prerollSeconds, sampleRate: sampleRate,
             totalFrames: totalFrames, loop: loop)
@@ -74,6 +75,8 @@ extension ViewerModel {
         prerollStore = settings
         let loaded = settings.load()
         if loaded != prerollSeconds { prerollSeconds = loaded }
+        let enabled = settings.loadEnabled()
+        if enabled != prerollEnabled { prerollEnabled = enabled }
     }
 
     /// From the Settings window. Validated by `Preroll`, so a negative or an
@@ -81,6 +84,16 @@ extension ViewerModel {
     /// forbids degrading silently, not choosing to).
     public func setPrerollSeconds(_ seconds: Double) {
         applyPreroll(Preroll.validated(seconds))
+    }
+
+    /// `H`, the Playback menu's Preroll item, and the transport bar's button.
+    ///
+    /// Leaves `prerollSeconds` alone, which is the whole point of having a mode
+    /// as well as an amount.
+    public func togglePreroll() {
+        guard hasTrack else { return }
+        prerollEnabled.toggle()
+        prerollStore?.saveEnabled(prerollEnabled)
     }
 
     /// Settings ▸ Restore Defaults: 2 s.

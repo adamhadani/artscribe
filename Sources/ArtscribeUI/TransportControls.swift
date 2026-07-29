@@ -14,6 +14,7 @@ public struct TransportState: Equatable, Sendable {
     /// leave — see `TransportControl.loop`'s enablement.
     public var loopIsEmpty = true
     public var loopIsEnabled = false
+    public var prerollIsEnabled = true
     public var selectionIsEmpty = true
     public var speedRatio = 1.0
 
@@ -46,6 +47,7 @@ public enum TransportControl: String, CaseIterable, Sendable, Hashable {
     case skip
     case playFromStart
     case loop
+    case preroll
     case slower
     case faster
     case zoomOut
@@ -56,7 +58,7 @@ public enum TransportControl: String, CaseIterable, Sendable, Hashable {
     public static let groups: [[TransportControl]] = [
         [.rewind, .nudgeBackward, .playPause, .nudgeForward, .skip],
         [.playFromStart],
-        [.loop],
+        [.loop, .preroll],
         [.slower, .faster],
         [.zoomOut, .zoomIn]
     ]
@@ -86,6 +88,9 @@ public enum TransportControl: String, CaseIterable, Sendable, Hashable {
             shortcut: "⇧Space", title: "Play from Start",
             symbol: "backward.end.fill"),
         .loop: Face(shortcut: "D", title: "Loop", symbol: "repeat"),
+        // `arrow.uturn.backward` reads as "start a little earlier" rather than
+        // as a rewind, which `backward.fill` next to it already owns.
+        .preroll: Face(shortcut: "H", title: "Preroll", symbol: "arrow.uturn.backward"),
         .slower: Face(shortcut: "Q", title: "Slower", symbol: "minus"),
         .faster: Face(shortcut: "W", title: "Faster", symbol: "plus"),
         .zoomOut: Face(shortcut: "E", title: "Zoom Out", symbol: "minus.magnifyingglass"),
@@ -107,6 +112,8 @@ public enum TransportControl: String, CaseIterable, Sendable, Hashable {
         switch self {
         case .playPause: return state.isPlaying ? "Pause" : "Play"
         case .loop: return state.loopIsEnabled ? "Looping — Turn Off" : "Loop"
+        case .preroll:
+            return state.prerollIsEnabled ? "Preroll On — Turn Off" : "Preroll Off — Turn On"
         default: return face.title
         }
     }
@@ -141,7 +148,11 @@ public enum TransportControl: String, CaseIterable, Sendable, Hashable {
     /// pause are one button whose glyph already says which it is, and the rest are
     /// momentary.
     public func isOn(in state: TransportState) -> Bool {
-        self == .loop && state.loopIsEnabled
+        switch self {
+        case .loop: return state.loopIsEnabled
+        case .preroll: return state.prerollIsEnabled
+        default: return false
+        }
     }
 }
 
@@ -154,6 +165,7 @@ extension ViewerModel {
         state.isPlaying = isPlaying
         state.loopIsEmpty = loop.range.isEmpty
         state.loopIsEnabled = loop.isEnabled
+        state.prerollIsEnabled = prerollEnabled
         state.selectionIsEmpty = selection.isEmpty
         state.speedRatio = speed.ratio
         return state

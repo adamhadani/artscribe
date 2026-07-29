@@ -238,6 +238,10 @@ the bare `Space` play-from-start; the user drove that build and asked for the or
 returned, so `Space` toggles play/pause again and `⇧Space` is the variant of it that starts
 from the top. The precedence rule behind play-from-start never changed.
 
+**Preroll.** `transport.prerollToggle` (`H`) flips it on and off, preserving the amount —
+distinct from an amount of 0, which is a permanent "resume exactly where I stopped". Shown as
+a checkable Playback item and a transport-bar button beside the loop.
+
 **Preroll.** Resuming with `Space` starts from `position − preroll` rather than from exactly
 where playback stopped: you stop on a note, and hearing it in context means starting
 slightly before it. Default **2 s**, configurable in Settings ▸ Playback in seconds with

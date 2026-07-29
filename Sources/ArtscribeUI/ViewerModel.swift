@@ -92,10 +92,10 @@ public final class ViewerModel {
     /// Same arrangement as `nudgeAmounts`: the applied value lives here and
     /// `InteractionSettings` is only its backing tape.
     public internal(set) var selectionMoveAmounts = SelectionMoveAmounts.defaults
-    /// How far a `Space` resume rolls back (spec §6.2's `transport.preroll`).
-    /// Same arrangement again: `PrerollSettings` is only its backing tape and
-    /// `attach(preroll:)` replaces this at launch. `0` means off.
+    /// How far a `Space` resume rolls back, and whether it applies at all.
+    /// Replaced at launch by `attach(preroll:)`; see `Preroll`.
     public internal(set) var prerollSeconds = Preroll.defaultSeconds
+    public internal(set) var prerollEnabled = true
     /// Whether a vertical drag *up* zooms in. `false` — the shipped default —
     /// means down zooms in, which is the direction the user asked for after
     /// driving Task 16's. Governs both vertical drags and the wheel zoom, so

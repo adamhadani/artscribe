@@ -107,6 +107,14 @@ struct NudgeSettingsTab: View {
             .frame(width: 70)
             Text("s")
                 .foregroundStyle(.secondary)
+            // Without this, setting an amount while the mode is off is a field
+            // that accepts a value and changes nothing — the silent no-op spec
+            // §8 forbids. It names the key so the fix is one press away.
+            if !model.prerollEnabled {
+                Text("— off (H)")
+                    .foregroundStyle(.secondary)
+                    .help("Preroll is switched off. Press H, or use Playback ▸ Preroll.")
+            }
         }
     }
 

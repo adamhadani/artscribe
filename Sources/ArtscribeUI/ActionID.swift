@@ -14,6 +14,7 @@ public enum ActionID: String, CaseIterable, Hashable, Sendable {
     case transportPlayPause = "transport.playPause"
     case transportStop = "transport.stop"
     case transportReturnToStart = "transport.returnToStart"
+    case transportPrerollToggle = "transport.prerollToggle"
 
     // Navigation — the three nudge tiers
     case nudgeBack = "transport.nudge.back"

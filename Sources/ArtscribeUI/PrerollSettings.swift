@@ -27,6 +27,10 @@ public final class PrerollSettings {
 
     public static let key = "playback.preroll.seconds"
 
+    /// The on/off mode, kept apart from the amount so turning it off and back
+    /// on restores the seconds the user chose rather than a default.
+    public static let enabledKey = "playback.preroll.enabled"
+
     /// Reads the stored preroll, falling back to the shipped default, and
     /// validates on the way in — storage is not a trusted source.
     ///
@@ -40,6 +44,23 @@ public final class PrerollSettings {
             return Preroll.defaultSeconds
         }
         return Preroll.validated(stored)
+    }
+
+    /// Reads the on/off mode, defaulting to **on** — the feature ships enabled,
+    /// and `object(forKey:)` again rather than `bool(forKey:)` because the lazy
+    /// reader answers `false` for "absent" and would ship it off to everyone who
+    /// has never touched it.
+    public func loadEnabled() -> Bool {
+        defaults.object(forKey: Self.enabledKey) as? Bool ?? true
+    }
+
+    /// Writes the mode, removing it when back at the shipped default.
+    public func saveEnabled(_ enabled: Bool) {
+        if enabled {
+            defaults.removeObject(forKey: Self.enabledKey)
+        } else {
+            defaults.set(false, forKey: Self.enabledKey)
+        }
     }
 
     /// Writes the amount, removing it when it is back at the default so a later

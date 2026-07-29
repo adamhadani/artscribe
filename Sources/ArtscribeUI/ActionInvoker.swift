@@ -81,6 +81,7 @@ public enum ActionInvoker {
         switch id {
         case .loopToggle: return model.loop.isEnabled
         case .volumeMute: return model.volume.isMuted
+        case .transportPrerollToggle: return model.prerollEnabled
         // Checked while a ramp is *running*. A completed one is unchecked, which
         // is the right reading: the ramp is over, and clicking the item starts a
         // fresh one from the top.
