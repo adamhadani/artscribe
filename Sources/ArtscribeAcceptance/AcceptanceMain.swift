@@ -57,7 +57,7 @@ struct AcceptanceMain: App {
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice)
+            practice: practice, theme: theme)
     }
 
     static let sessionFallbackDirectory = URL(fileURLWithPath: NSTemporaryDirectory())

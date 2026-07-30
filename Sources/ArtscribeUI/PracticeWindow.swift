@@ -1,8 +1,9 @@
-#if os(macOS)
-
-import AppKit
 import ArtscribeKit
 import SwiftUI
+
+#if os(macOS)
+import AppKit
+#endif
 
 /// **The Practice hub**: a loop that plays itself over and over while the speed
 /// climbs, so a passage can be taken from slow to tempo without your hands
@@ -72,7 +73,11 @@ public struct PracticeWindow: View {
         .background(palette.background.color())
         .environment(\.palette, palette)
         .preferredColorScheme(theme.colorScheme)
+        // macOS only: on iPad this view is a sheet, with no `NSWindow` to adopt
+        // or autosave.
+        #if os(macOS)
         .background(WindowReader(onWindow: configure))
+        #endif
     }
 
     // MARK: - Chrome
@@ -242,6 +247,7 @@ public struct PracticeWindow: View {
     /// than scene restoration, for the reason `ShortcutWindow.configure` records:
     /// an unbundled `swift run` binary has no state-restoration file to write
     /// into, which is the configuration this project is actually run in.
+    #if os(macOS)
     private func configure(_ window: NSWindow?) {
         // Reported so `⌘P` can tell "open and in front" from "open but behind"
         // — without it the toggle has no window to ask and could only ever open.
@@ -250,6 +256,7 @@ public struct PracticeWindow: View {
         _ = window.setFrameAutosaveName(PracticeWindowController.windowID)
         window.isRestorable = true
     }
+    #endif
 }
 
 /// **What the window shows with no loop to ramp**, which is not nothing and is
@@ -290,5 +297,3 @@ struct NoLoopGuidance: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-#endif

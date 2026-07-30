@@ -111,7 +111,7 @@ struct ArtscribeAppMain: App {
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice)
+            practice: practice, theme: theme)
     }
 
     init() {
