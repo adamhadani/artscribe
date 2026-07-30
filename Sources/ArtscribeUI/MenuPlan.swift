@@ -3,8 +3,9 @@ public enum MenuEntry: Hashable, Sendable {
     case action(ActionID)
     case separator
     /// A submenu whose contents are a live list rather than a set of actions:
-    /// **Open Recent** (the files you opened) and **Output Device** (the
-    /// devices attached right now).
+    /// **Open Recent** (the files you opened), **Output Device** (the devices
+    /// attached right now) and **Developer** (which is not shipped to users and
+    /// so must not appear in the shortcut reference).
     ///
     /// These are the declared exception to "no menu item exists outside the
     /// catalog". Their items are data — a file name, a device name — not
@@ -16,6 +17,9 @@ public enum MenuEntry: Hashable, Sendable {
 public enum DynamicSubmenu: String, Hashable, Sendable, CaseIterable {
     case openRecent
     case outputDevice
+    /// Developer-only controls (engine selection). Present in the plan always,
+    /// rendered only when `DeveloperMenu.isEnabled`.
+    case developer
 }
 
 /// **The shape of the menu bar**, as data.
@@ -124,7 +128,6 @@ public enum MenuPlan {
         .action(.speedPreset75),
         .action(.speedPreset50),
         .action(.speedPreset33),
-        .action(.speedEngineToggle),
         .separator,
         // Its own group: pitch is not a speed setting, and the separator is what
         // says so in a menu that would otherwise imply they are one control.
@@ -140,7 +143,11 @@ public enum MenuPlan {
         .action(.volumeDownFine),
         .action(.volumeMute),
         .separator,
-        .dynamicSubmenu(.outputDevice)
+        .dynamicSubmenu(.outputDevice),
+        // Renders to nothing unless `ARTSCRIBE_DEV_MENU` is set. Listed here
+        // unconditionally so this plan stays the same shape in every run — see
+        // `DeveloperEngineMenu`.
+        .dynamicSubmenu(.developer)
     ]
 
     static let loop: [MenuEntry] = [

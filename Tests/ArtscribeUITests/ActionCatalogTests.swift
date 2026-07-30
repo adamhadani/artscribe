@@ -127,7 +127,6 @@ struct ActionCatalogTests {
             .nudgeBackFine: "⇧Z", .nudgeForwardFine: "⇧X",
             .nudgeBackCoarse: "⌥Z", .nudgeForwardCoarse: "⌥X",
             .speedDown: "Q", .speedUp: "W",
-            .speedEngineToggle: "⌥E",
             .zoomOut: "E", .zoomIn: "R", .zoomFit: "⌘0", .zoomToSelection: "⌘9",
             .selectionExtendLeft: "⇧←", .selectionExtendRight: "⇧→",
             .selectionSelectAll: "⌘A", .selectionClear: "⎋",

@@ -81,13 +81,13 @@ import Testing
 /// below (±30 cents) is set from that broader scan plus margin, not merely from
 /// the handful of points asserted here, so it isn't tuned to one lucky sample.
 @Test(
-    arguments: [StretchEngine.studio, StretchEngine.fast],
+    arguments: [RubberBandStretcher.Core.finer, RubberBandStretcher.Core.faster],
     [220.0, 300.0, 330.0, 440.0, 660.0, 880.0]
 )
-func halfSpeedPreservesPitch(engine: StretchEngine, freq: Double) {
+func halfSpeedPreservesPitch(core: RubberBandStretcher.Core, freq: Double) {
     let rate = 44100.0
     let input = sine(freq: freq, seconds: 6, sampleRate: rate)
-    let s = RubberBandStretcher(engine: engine)
+    let s = RubberBandStretcher(core: core)
     s.timeRatio = 2.0  // half speed => twice as long
     var out = runStretcher(s, input: input, sampleRate: rate)
 
@@ -102,7 +102,7 @@ func halfSpeedPreservesPitch(engine: StretchEngine, freq: Double) {
     // numbers come from. `.studio` is not weakened; `.fast` is deliberately
     // wider because pitch accuracy is a real trade-off it makes for CPU, not a
     // test convenience — see RubberBandStretcher's engine-selection comment.
-    let tolerance = engine == .studio ? 2.0 : 30.0
+    let tolerance = core == .finer ? 2.0 : 30.0
     #expect(abs(cents) < tolerance, "pitch drifted \(cents) cents (measured \(measured) Hz)")
 }
 
@@ -130,13 +130,13 @@ func halfSpeedPreservesPitch(engine: StretchEngine, freq: Double) {
 /// is acceptable". `.studio` is the default and is the engine any pitch-critical
 /// listening should use above 100% speed.
 @Test(
-    arguments: [StretchEngine.studio, StretchEngine.fast],
+    arguments: [RubberBandStretcher.Core.finer, RubberBandStretcher.Core.faster],
     [220.0, 330.0, 440.0, 660.0, 880.0]
 )
-func doubleSpeedPreservesPitch(engine: StretchEngine, freq: Double) {
+func doubleSpeedPreservesPitch(core: RubberBandStretcher.Core, freq: Double) {
     let rate = 44100.0
     let input = sine(freq: freq, seconds: 8, sampleRate: rate)
-    let s = RubberBandStretcher(engine: engine)
+    let s = RubberBandStretcher(core: core)
     s.timeRatio = 0.5  // double speed => half as long
     var out = runStretcher(s, input: input, sampleRate: rate)
 
@@ -146,14 +146,14 @@ func doubleSpeedPreservesPitch(engine: StretchEngine, freq: Double) {
 
     let measured = estimateFrequencyFFT(out, sampleRate: rate)
     let cents = 1200 * log2(measured / freq)
-    let tolerance = engine == .studio ? 2.0 : 120.0
+    let tolerance = core == .finer ? 2.0 : 120.0
     #expect(abs(cents) < tolerance, "pitch drifted \(cents) cents (measured \(measured) Hz)")
 }
 
 @Test func halfSpeedRoughlyDoublesLength() {
     let rate = 44100.0
     let input = sine(freq: 440, seconds: 4, sampleRate: rate)
-    let s = RubberBandStretcher(engine: .studio)
+    let s = RubberBandStretcher(core: .finer)
     s.timeRatio = 2.0
     let out = runStretcher(s, input: input, sampleRate: rate)
     let ratio = Double(out.count) / Double(input.count)
@@ -163,7 +163,7 @@ func doubleSpeedPreservesPitch(engine: StretchEngine, freq: Double) {
 @Test func doubleSpeedRoughlyHalvesLength() {
     let rate = 44100.0
     let input = sine(freq: 440, seconds: 4, sampleRate: rate)
-    let s = RubberBandStretcher(engine: .studio)
+    let s = RubberBandStretcher(core: .finer)
     s.timeRatio = 0.5
     let out = runStretcher(s, input: input, sampleRate: rate)
     let ratio = Double(out.count) / Double(input.count)
@@ -172,14 +172,14 @@ func doubleSpeedPreservesPitch(engine: StretchEngine, freq: Double) {
 
 @Test func outputContainsNoNaNOrInfinity() {
     let input = sine(freq: 440, seconds: 2, sampleRate: 44100)
-    let s = RubberBandStretcher(engine: .studio)
+    let s = RubberBandStretcher(core: .finer)
     s.timeRatio = 3.0
     let out = runStretcher(s, input: input, sampleRate: 44100)
     #expect(out.allSatisfy { $0.isFinite })
 }
 
 @Test func studioEngineReportsNonZeroStartDelay() {
-    let s = RubberBandStretcher(engine: .studio)
+    let s = RubberBandStretcher(core: .finer)
     s.configure(sampleRate: 44100, channels: 2, maxBlock: 1024)
     #expect(s.startDelay > 0)
 }

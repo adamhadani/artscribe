@@ -130,7 +130,7 @@ private struct SeamMeasurement {
 /// the wrap can hide its silent gap just outside the window and score zero for it.
 private func measureLoopSeam(
     loopLength: Int, halfWindow: Int = seamHalfWindow,
-    stretcher: () -> any TimeStretcher = { RubberBandStretcher(engine: .studio) }
+    stretcher: () -> any TimeStretcher = { RubberBandStretcher(core: .finer) }
 ) -> SeamMeasurement {
     // At least one wrap always, several for the short loops, without paying nine seconds
     // of audio per length for the long ones.

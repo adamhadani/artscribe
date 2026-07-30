@@ -130,10 +130,7 @@ extension ActionCatalog {
         preset(.speedPreset100, "100% Speed", "1"),
         preset(.speedPreset75, "75% Speed", "2"),
         preset(.speedPreset50, "50% Speed", "3"),
-        preset(.speedPreset33, "33% Speed", "4"),
-        ActionEntry(
-            .speedEngineToggle, "Use Fast Engine", .speed,
-            chords: [.key("e", .option)], menu: .playback, enablement: .track)
+        preset(.speedPreset33, "33% Speed", "4")
     ]
 
     // MARK: - Playback ▸ pitch

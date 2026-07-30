@@ -93,16 +93,15 @@ extension AcceptanceRun {
         await refresh(menu)
         log.check("Stop is disabled again when stopped", item(menu, "Stop")?.isEnabled == false)
 
-        let engineItem = menu.items.first { $0.title.contains("Engine") }
+        // **The developer menu must not be here.** `ARTSCRIBE_DEV_MENU` is unset
+        // for an acceptance run, so Playback ▸ Developer — and with it the
+        // engine picker, including Rubber Band R2, which drifts pitch by up to a
+        // semitone — must be absent. A gate that failed open would put it in
+        // front of every user, and nothing else in the suite would notice.
         log.check(
-            "the engine toggle names the active engine",
-            engineItem?.title.contains("now:")
-                == true)
-        log.note("engine item", engineItem?.title ?? "missing")
-        log.note(
-            "engine item key equivalent",
-            "\(engineItem?.keyEquivalent ?? "none") "
-                + "\(engineItem?.keyEquivalentModifierMask.rawValue ?? 0)")
+            "the Developer submenu is absent without ARTSCRIBE_DEV_MENU",
+            menu.items.allSatisfy { $0.title != "Developer" })
+        log.note("playback menu items", menu.items.map(\.title).joined(separator: " | "))
 
         // The items are enabled now, so the modifier-bearing shortcuts are live
         // menu key equivalents — and the window still has its own handler for
@@ -115,11 +114,21 @@ extension AcceptanceRun {
             model.speed.ratio == 1.01)
         press(.shiftQ)
         log.check("⇧Q steps once with the menu item live", model.speed.ratio == 1.0)
-        let engine = model.speed.engine
-        press(.optionE)
-        log.check("⌥E toggles once with the menu item live", model.speed.engine != engine)
-        press(.optionE)
-        log.check("⌥E toggles back once", model.speed.engine == engine)
+        // An ⌥-modified letter, which is the case ⌥E used to carry before the
+        // engine toggle was removed. Worth keeping on *some* key: on a US layout
+        // ⌥Z and ⌥X are dead-key-ish (Ω and ≈), so `AcceptanceInput`'s
+        // characters-versus-charactersIgnoringModifiers handling is only
+        // exercised if something still presses one.
+        model.seek(to: model.totalFrames / 2)
+        let beforeCoarse = model.playhead
+        let coarse = FrameIndex((model.prefs.nudgeAmounts[.coarse] * model.sampleRate).rounded())
+        press(.optionX)
+        log.check(
+            "⌥X nudges once, not twice, with the menu item live "
+                + "(\(model.playhead - beforeCoarse) frames, one step is \(coarse))",
+            model.playhead - beforeCoarse == coarse)
+        press(.optionZ)
+        log.check("⌥Z nudges back once with the menu item live", model.playhead == beforeCoarse)
 
         // And the plain letters the menu deliberately does *not* claim.
         press(.w)

@@ -273,7 +273,7 @@ is a fresh resume from wherever the playhead now is.
 | `speed.down` / `speed.up` | `Q` / `W` | ∓5% |
 | `speed.down.fine` / `speed.up.fine` | `⇧Q` / `⇧W` | ∓1% |
 | `speed.preset.100/75/50/33` | `1` / `2` / `3` / `4` | Speed presets |
-| `speed.engineToggle` | `⌥E` | Studio ⇄ Fast |
+| ~~`speed.engineToggle`~~ | ~~`⌥E`~~ | **Removed.** Choosing between Rubber Band R3 and R2 was never a user's decision to make — R2 drifts pitch by up to 26 cents at half speed and 108 at the extremes, and it means nothing on iOS, where Rubber Band cannot be linked. Engine selection is developer-only now: Playback ▸ Developer ▸ Stretch Engine, present only under `ARTSCRIBE_DEV_MENU`, and `artscribe-cli --engine`. |
 | `zoom.out` / `zoom.in` | `E` / `R` | Zoom, playhead-anchored. `⌘−` / `⌘=` were listed here and never built; they are **not** bound, and the catalog rather than this table is now the record of what is |
 | `zoom.fit` | `⌘0` | Fit whole file |
 | `zoom.toSelection` | `⌘9` | Zoom to selection |

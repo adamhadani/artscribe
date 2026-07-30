@@ -9,20 +9,61 @@ struct StatusBarView: View {
     @Environment(\.palette) private var palette
 
     var body: some View {
-        // Fixed column widths, not intrinsic ones: the zoom readout swings from
-        // "19822 f/px" to "1.28 f/px" as you zoom, and a shifting column drags
-        // every field to its right along with it. The position readout is the
-        // worst offender of all, changing sixty times a second.
+        // Widest arrangement first: `ViewThatFits` takes the first child whose
+        // ideal width fits what it is offered, so the order of
+        // `StatusBarFields.candidates` *is* the priority. The last candidate is
+        // the essential three, which always fits anything worth calling a
+        // window.
+        ViewThatFits(in: .horizontal) {
+            row(StatusBarFields.candidates[0])
+            row(StatusBarFields.candidates[1])
+            row(StatusBarFields.candidates[2])
+            row(StatusBarFields.candidates[3])
+            row(StatusBarFields.candidates[4])
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(palette.panel.color())
+        .overlay(alignment: .top) {
+            Rectangle().fill(palette.rule.color()).frame(height: 1)
+        }
+    }
+
+    /// One arrangement of the bar. Fixed column widths, not intrinsic ones: the
+    /// zoom readout swings from "19822 f/px" to "1.28 f/px" as you zoom, and a
+    /// shifting column drags every field to its right along with it. The
+    /// position readout is the worst offender of all, changing sixty times a
+    /// second.
+    private func row(_ fields: [StatusBarFields.Field]) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
-            transport.frame(width: 172, alignment: .leading)
+            ForEach(fields, id: \.self) { field in
+                view(for: field).frame(width: StatusBarFields.width(of: field), alignment: .leading)
+            }
+            Spacer(minLength: 8)
+            // Outside the droppable set on purpose. DEGRADED is spec §8 — a
+            // stall the user is not told about is the whole thing that rule
+            // exists to prevent — so it must survive every width. LOADED IN
+            // shares the slot because the two are never both interesting.
+            trailing
+        }
+    }
+
+    @ViewBuilder
+    private func view(for field: StatusBarFields.Field) -> some View {
+        switch field {
+        case .position:
+            transport
+        case .volume:
             // Beside the transport, not buried in a menu: the level is something
             // you reach for constantly while transcribing.
-            VolumeSliderView(model: model).frame(width: 150, alignment: .leading)
+            VolumeSliderView(model: model)
+        case .speed:
             // A speed that is not 100% is the one piece of state you can forget
             // you left on, and it changes what you are hearing, so it is the one
             // readout that shouts.
-            field("SPEED", speedText, emphasised: SpeedStepping.isAltered(model.speed.ratio))
-                .frame(width: 150, alignment: .leading)
+            self.field("SPEED", speedText, emphasised: SpeedStepping.isAltered(model.speed.ratio))
+        case .loop:
             // An engaged loop is a mode, and it changes what you are hearing
             // just as much as an altered speed does — so it gets the speed
             // readout's treatment: bold, and in a colour.
@@ -33,27 +74,24 @@ struct StatusBarView: View {
             // strip, and two modes that are on at once must not be told apart
             // only by which word is bold. Contrast against the panel is 4.9
             // (dark) and 6.8 (light) — see `Palette`.
-            field(
+            self.field(
                 "LOOP", loopText, emphasised: model.loop.isActive,
-                tint: model.loop.isActive ? palette.loop.color() : nil
-            )
-            .frame(width: 160, alignment: .leading)
-            field("SELECTION", selectionText).frame(width: 150, alignment: .leading)
-            field("ZOOM", zoom).frame(width: 146, alignment: .leading)
-            field("FORMAT", format).frame(width: 104, alignment: .leading)
-            Spacer(minLength: 8)
-            if let warning {
-                field("DEGRADED", warning, tint: palette.danger.color())
-            } else if let seconds = model.lastLoadSeconds {
-                field("LOADED IN", String(format: "%.2f s", seconds))
-            }
+                tint: model.loop.isActive ? palette.loop.color() : nil)
+        case .selection:
+            self.field("SELECTION", selectionText)
+        case .zoom:
+            self.field("ZOOM", zoom)
+        case .format:
+            self.field("FORMAT", format)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(palette.panel.color())
-        .overlay(alignment: .top) {
-            Rectangle().fill(palette.rule.color()).frame(height: 1)
+    }
+
+    @ViewBuilder
+    private var trailing: some View {
+        if let warning {
+            field("DEGRADED", warning, tint: palette.danger.color())
+        } else if let seconds = model.lastLoadSeconds {
+            field("LOADED IN", String(format: "%.2f s", seconds))
         }
     }
 
@@ -107,9 +145,7 @@ struct StatusBarView: View {
         return text
     }
 
-    private var engineLabel: String {
-        model.speed.engine == .studio ? "studio" : "fast"
-    }
+    private var engineLabel: String { model.speed.engine.shortName }
 
     private var loopText: String {
         let range = model.loop.range

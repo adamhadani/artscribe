@@ -5,7 +5,6 @@
 // `Package.swift`.
 #if canImport(CRubberBand)
 
-import ArtscribeKit
 import CRubberBand
 
 /// Wraps the Rubber Band C API behind `TimeStretcher`. R3 "Finer" (`.studio`) is the
@@ -19,13 +18,33 @@ import CRubberBand
 /// widening `.studio`'s bound to match would hide a real regression in the engine this
 /// whole product exists to showcase.
 public final class RubberBandStretcher: TimeStretcher {
+
+    /// Which of Rubber Band's two engines to build.
+    ///
+    /// Its **own** enum rather than `ArtscribeKit.StretchEngine`, which is what
+    /// this used to take. That type now names four backends, only two of which
+    /// are Rubber Band, and the mapping here was `engine == .studio ? Finer :
+    /// Faster` — a comparison, not a switch, so `.signalsmith` reaching this
+    /// initialiser would have quietly built R2 Faster and played the wrong
+    /// engine with nothing to show for it. A type that cannot express the
+    /// question is a better fix than remembering to ask it correctly.
+    ///
+    /// `PlatformStretcher` is now the single place that translates between the
+    /// two, and its switch is exhaustive.
+    public enum Core: Sendable {
+        /// R3 "Finer" — the quality core of the product.
+        case finer
+        /// R2 "Faster" — low CPU, and it drifts pitch. See `StretchQualityTests`.
+        case faster
+    }
+
     private var state: RubberBandState?
-    private let engine: StretchEngine
+    private let core: Core
     private var pendingRatio: Double = 1.0
     private var pendingPitch: Double = 1.0
 
-    public init(engine: StretchEngine) {
-        self.engine = engine
+    public init(core: Core = .finer) {
+        self.core = core
     }
 
     deinit {
@@ -35,9 +54,10 @@ public final class RubberBandStretcher: TimeStretcher {
     public func configure(sampleRate: Double, channels: Int, maxBlock: Int) {
         if let state { rubberband_delete(state) }
         let engineFlag =
-            engine == .studio
-            ? RubberBandOptionEngineFiner.rawValue
-            : RubberBandOptionEngineFaster.rawValue
+            switch core {
+            case .finer: RubberBandOptionEngineFiner.rawValue
+            case .faster: RubberBandOptionEngineFaster.rawValue
+            }
         let opts = RubberBandOptions(RubberBandOptionProcessRealTime.rawValue | engineFlag)
         let newState = rubberband_new(
             UInt32(sampleRate), UInt32(channels), opts, pendingRatio, pendingPitch)

@@ -1,3 +1,4 @@
+import ArtscribeKit
 import Playback
 import SwiftUI
 
@@ -83,6 +84,48 @@ struct OutputDeviceMenu: View {
         Binding(
             get: { devices.selection == target },
             set: { isOn in if isOn { devices.select(target) } })
+    }
+}
+
+/// **Playback ▸ Developer**, present only when `DeveloperMenu.isEnabled`.
+///
+/// Renders to nothing at all when the gate is closed — including its divider —
+/// which is why it is safe for `MenuPlan` to list it unconditionally. Keeping
+/// the plan environment-independent matters: `ActionCatalogTests`' drift guard
+/// reads it, and a menu shape that changed with a shell variable would make that
+/// guard mean different things in different runs. `DeviceNoticeItem` below uses
+/// the same trick for the same reason.
+///
+/// A `dynamicSubmenu` rather than four catalog actions, which is a judgement
+/// call worth recording. `MenuPlan` reserves that case for items whose contents
+/// are *data* rather than commands, and an engine is arguably a command. But a
+/// catalog action appears in the keyboard-shortcut window, and a developer-only
+/// control listed in the reference every user can open (`⌘/`) would be a worse
+/// lie than the category stretch is.
+struct DeveloperEngineMenu: View {
+    let model: ViewerModel
+
+    var body: some View {
+        if DeveloperMenu.isEnabled {
+            Divider()
+            Menu("Developer") {
+                Menu("Stretch Engine") {
+                    ForEach(StretchEngine.allCases, id: \.self) { engine in
+                        Toggle(engine.displayName, isOn: selection(for: engine))
+                            .disabled(!model.hasTrack)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Radio behaviour, matching `OutputDeviceMenu`: turning an item on selects
+    /// it, and turning the current one off is ignored rather than leaving no
+    /// engine selected.
+    private func selection(for engine: StretchEngine) -> Binding<Bool> {
+        Binding(
+            get: { model.speed.engine == engine },
+            set: { isOn in if isOn { model.setStretchEngine(engine) } })
     }
 }
 
