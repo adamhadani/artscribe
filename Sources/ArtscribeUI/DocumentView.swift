@@ -11,10 +11,17 @@ public struct DocumentView: View {
     private let context: MenuContext
     private var model: ViewerModel { context.model }
     @FocusState private var hasKeyboardFocus: Bool
+    // Both are macOS window concepts. `TrackpadMonitor` is a global `NSEvent`
+    // monitor for ⌘-scroll and pinch; `DocumentWindowChrome` owns the title
+    // bar's modified dot, its proxy icon and the close prompt. On iPad the
+    // gestures come from SwiftUI directly and there is no title bar at all —
+    // both are part of the touch work in `#58`, not translations of these.
+    #if os(macOS)
     @State private var trackpad = TrackpadMonitor()
     /// The window's modified dot, proxy icon and close prompt. Built once, from
     /// the same model this view draws — see `DocumentWindowChrome`.
     @State private var chrome: DocumentWindowChrome
+    #endif
     /// The *resolved* scheme, after the window has applied the theme
     /// preference. Reading it here rather than the preference itself keeps this
     /// view out of the theme's business entirely — it draws whatever scheme it
@@ -28,14 +35,24 @@ public struct DocumentView: View {
 
     public init(context: MenuContext) {
         self.context = context
+        #if os(macOS)
         _chrome = State(initialValue: DocumentWindowChrome(model: context.model))
+        #endif
     }
 
     private var appearance: Appearance { colorScheme == .dark ? .dark : .light }
 
     public var body: some View {
         VStack(spacing: 0) {
+            #if os(macOS)
             TitleBarView(model: model) { ViewerActions.open(model) }
+            #else
+            // The iPad Open button needs a `.fileImporter` presented from
+            // here rather than a call that returns a URL; until that lands
+            // the button has nothing to do, so it is given nothing to do
+            // rather than an action that silently fails. See `#58`.
+            TitleBarView(model: model) {}
+            #endif
 
             if let message = model.errorMessage {
                 ErrorBannerView(message: message) { model.dismissError() }
@@ -104,6 +121,7 @@ public struct DocumentView: View {
         // Tells `KeyWindowTracker` which window the transport belongs to. That
         // is what lets the menus' plain-letter key equivalents stand down while
         // Settings — which has editable fields — is the key window.
+        #if os(macOS)
         .background(
             WindowReader { window in
                 KeyWindowTracker.shared.adopt(document: window)
@@ -111,13 +129,16 @@ public struct DocumentView: View {
                 chrome.adopt(window)
             }
         )
+        #endif
         // The window's title, so the proxy icon and the ⌘-click path menu both
         // name the track rather than the app.
         .navigationTitle(model.windowTitle)
         // AppKit has no SwiftUI equivalent for the close button's modified dot,
         // so it is pushed across whenever the model's answer moves.
+        #if os(macOS)
         .onChange(of: model.isDirty, initial: true) { _, _ in chrome.refresh() }
         .onChange(of: model.fileName) { _, _ in chrome.refresh() }
+        #endif
         // One place sets the palette, so no view can draw half of one theme.
         .environment(\.palette, Palette.of(appearance))
         // And one place tells the model, because the cached waveform bitmap has
@@ -138,10 +159,14 @@ public struct DocumentView: View {
         }
         .onAppear {
             hasKeyboardFocus = true
+            #if os(macOS)
             trackpad.start(model: model)
+            #endif
         }
         .onDisappear {
+            #if os(macOS)
             trackpad.stop()
+            #endif
             // Closing the window must not leave the audio graph running or the
             // display link ticking against a window nobody can see.
             model.teardownPlayback()

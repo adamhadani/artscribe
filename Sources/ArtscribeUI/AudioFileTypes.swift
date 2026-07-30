@@ -27,6 +27,14 @@ public enum AudioFileTypes {
 
     /// Runs the modal open panel and returns the chosen file, or `nil` if the
     /// user cancelled.
+    ///
+    /// macOS only, and the shape is why rather than the API: this *returns* the
+    /// choice, which only a modal panel can do. iPad's document picker is a
+    /// presentation with a callback, so opening a file there is a `.fileImporter`
+    /// on a view rather than a function anyone can call — a different seam, not
+    /// a different implementation of this one. `supported` above is the part both
+    /// platforms share, and it stays available to both.
+    #if os(macOS)
     @MainActor
     public static func runOpenPanel() -> URL? {
         let panel = NSOpenPanel()
@@ -39,4 +47,5 @@ public enum AudioFileTypes {
         guard panel.runModal() == .OK else { return nil }
         return panel.url
     }
+    #endif
 }

@@ -6,11 +6,19 @@ import SwiftUI
 /// The two that need a panel live here; everything else dispatches through
 /// `ActionInvoker`.
 public enum ViewerActions {
+    /// macOS only, for the reason `AudioFileTypes.runOpenPanel` gives: a modal
+    /// panel can *return* a choice, and iPad's document picker cannot — it is a
+    /// presentation with a callback, so File ▸ Open on iPad is a `.fileImporter`
+    /// on a view rather than a function. `open(_:url:)` below, which is the one
+    /// way into `ViewerModel.open(url:)`, is shared by both and is what that
+    /// importer will call.
+    #if os(macOS)
     @MainActor
     public static func open(_ model: ViewerModel) {
         guard let url = AudioFileTypes.runOpenPanel() else { return }
         open(model, url: url)
     }
+    #endif
 
     /// The one way into `ViewerModel.open(url:)` from the UI.
     ///
@@ -22,21 +30,45 @@ public enum ViewerActions {
     /// file handed over by Launch Services.
     @MainActor
     public static func open(_ model: ViewerModel, url: URL) {
+        #if os(macOS)
         SessionPrompt.whenSafeToLeave(model) { proceed in
             guard proceed else { return }
             model.open(url: url)
         }
+        #else
+        // iPad has no sheet for this question yet. Rather than ask nothing and
+        // discard the outgoing session — which is precisely the silent data loss
+        // spec §7 exists to prevent — the unsaved case is *saved* and then
+        // opened. Nobody loses a loop they set two minutes ago; the cost is that
+        // a session they would have chosen to abandon is written instead, which
+        // is the recoverable direction to be wrong in.
+        //
+        // Replace with the real confirmation sheet when the sheets land.
+        if case .ask = model.closeAction { model.performClose() }
+        model.open(url: url)
+        #endif
     }
 
     /// **File ▸ Save As…** — the panel, then the write. The decision about what
     /// saving somewhere other than the canonical sidecar *means* is
     /// `ViewerModel.saveSession(to:)`'s, and is tested there.
+    ///
+    /// macOS only. Save As needs somewhere to *ask* — an `NSSavePanel` here, a
+    /// document picker on iPad — and the picker has to be presented from a view,
+    /// which this deliberately is not. Left unimplemented rather than quietly
+    /// redirected to the canonical sidecar, because "Save As…" that saves
+    /// somewhere else without saying so is worse than one that is absent.
+    ///
+    /// Unreachable on iPad today: there is no iPad app target, and no menu or
+    /// control invokes it. It must not stay that way once one exists — see `#58`.
+    #if os(macOS)
     @MainActor
     public static func saveAs(_ model: ViewerModel) {
         guard let suggestion = model.suggestedSessionSaveURL, model.canSaveSession else { return }
         guard let url = SessionPanels.runSavePanel(suggesting: suggestion) else { return }
         model.saveSession(to: url)
     }
+    #endif
 }
 
 /// **File** and **View**.

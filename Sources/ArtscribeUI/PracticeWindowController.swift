@@ -1,9 +1,10 @@
-#if os(macOS)
-
-import AppKit
 import ArtscribeKit
 import Foundation
 import SwiftUI
+
+#if os(macOS)
+import AppKit
+#endif
 
 /// The Practice window's identity, and the one way to open it.
 ///
@@ -48,8 +49,13 @@ public final class PracticeWindowController {
     /// front, a non-toggling key does *nothing at all*, which reads as broken.
     public func toggle() { windowState.toggle() }
 
+    #if os(macOS)
     /// Told which `NSWindow` the ramp ended up in, by the view inside it.
+    ///
+    /// macOS only: on iPad the sheet has no window object to be told about, and
+    /// `AuxiliaryWindow` tracks presentation directly instead.
     public func adopt(window: NSWindow?) { windowState.window = window }
+    #endif
 }
 
 extension View {
@@ -73,5 +79,3 @@ private struct PracticeWindowOpener: ViewModifier {
         }
     }
 }
-
-#endif

@@ -4,6 +4,8 @@ import SwiftUI
 
 #if os(macOS)
 import AppKit
+#else
+import UIKit
 #endif
 
 /// What the user chose, as opposed to what is on screen: `system` resolves to
@@ -37,9 +39,15 @@ public enum ThemePreference: String, Equatable, Sendable, CaseIterable, Identifi
         }
     }
 
+    #if os(macOS)
     /// `nil` means "whatever macOS is set to", which is what
     /// `NSApplication.appearance` takes as its follow-the-system value. Unlike
     /// SwiftUI's `preferredColorScheme`, AppKit honours the `nil` properly.
+    ///
+    /// macOS only, and there is deliberately no iOS counterpart: the thing this
+    /// exists to drive — `NSApp.appearance`, which reaches the menu bar, the
+    /// open panel and the title bar — has no equivalent on iOS, where every
+    /// pixel the app shows is SwiftUI's.
     var nsAppearance: NSAppearance? {
         switch self {
         case .system: return nil
@@ -47,6 +55,7 @@ public enum ThemePreference: String, Equatable, Sendable, CaseIterable, Identifi
         case .dark: return NSAppearance(named: .darkAqua)
         }
     }
+    #endif
 }
 
 /// Holds the theme preference, resolves it, and makes it stick.
@@ -151,17 +160,26 @@ public final class ThemeController {
         systemAppearance = readSystem()
         let stored = defaults.string(forKey: Self.defaultsKey)
         preference = stored.flatMap(ThemePreference.init(rawValue:)) ?? Self.fallback
+        // macOS only. The notification is `AppleInterfaceThemeChangedNotification`
+        // on the *distributed* centre, which is a Mac IPC mechanism with no iOS
+        // equivalent — iOS delivers a trait change to the view hierarchy instead.
+        // See `readSystemAppearance` for how the two platforms answer the same
+        // question, and `refreshSystemAppearance` for when iOS re-asks it.
+        #if os(macOS)
         systemObserver = DistributedNotificationCenter.default().addObserver(
             forName: Self.systemAppearanceDidChange, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshSystemAppearance() }
         }
+        #endif
     }
 
     deinit {
+        #if os(macOS)
         if let systemObserver {
             DistributedNotificationCenter.default().removeObserver(systemObserver)
         }
+        #endif
     }
 
     /// What macOS itself is set to, read from the global `AppleInterfaceStyle`
@@ -172,8 +190,16 @@ public final class ThemeController {
     /// reads back *this app's own override* rather than the system's. The
     /// global default is not touched by that: measured returning `Dark` with
     /// the app forced to Aqua, and `nil` with the app forced to Dark Aqua.
+    /// On iOS the same question is asked of the current trait collection, which
+    /// is the platform's own answer and needs no equivalent caveat: iOS has no
+    /// application-wide appearance override for it to be confused by.
     public static func macOSAppearance() -> Appearance {
-        UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" ? .dark : .light
+        #if os(macOS)
+        return UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+            ? .dark : .light
+        #else
+        return UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light
+        #endif
     }
 
     /// Re-read macOS's setting. Called on the system-appearance notification and
@@ -185,8 +211,13 @@ public final class ThemeController {
     /// The menu bar, the open panel and the window's title bar are AppKit's, not
     /// SwiftUI's, and `preferredColorScheme` does not reach them. Setting the
     /// application appearance does, and agrees with it.
+    /// A no-op on iOS, and correctly so rather than for want of an API: there is
+    /// no menu bar, no open panel and no title bar to reach, so
+    /// `preferredColorScheme` already covers everything the app draws.
     public func applyToApplication() {
+        #if os(macOS)
         NSApp?.appearance = preference.nsAppearance
+        #endif
         // Belt and braces for the cached value: if the notification above ever
         // stops arriving, `System` is still right at the moment it is chosen,
         // and only live-following would be lost.

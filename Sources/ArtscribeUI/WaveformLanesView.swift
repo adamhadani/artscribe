@@ -103,6 +103,7 @@ struct WaveformLanesView: View {
         // turns it into a magnifier, and back, with the pointer standing still;
         // and over a loop or selection edge it becomes the frame-resize arrow.
         // The scheme and its reasons are in `PointerAffordance`.
+        #if os(macOS)
         .pointerStyle(
             PointerAffordance.over(
                 .waveformLanes, optionHeld: optionHeld, shiftHeld: shiftHeld,
@@ -116,6 +117,7 @@ struct WaveformLanesView: View {
             if now.contains(.option) != optionHeld { optionHeld = now.contains(.option) }
             if now.contains(.shift) != shiftHeld { shiftHeld = now.contains(.shift) }
         }
+        #endif
         // The hover half of Task 23. The cursor and the highlight both come
         // from this, so an edge announces itself before the mouse goes down —
         // which is the whole difference between a discoverable handle and a
@@ -146,12 +148,24 @@ struct WaveformLanesView: View {
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
+                // ⌥ and ⇧ change what a lane drag *means* — zoom rather than
+                // select, extend rather than restart. On iPad there is no
+                // modifier to read without a hardware keyboard attached, and no
+                // SwiftUI hook to read one from inside a gesture, so a drag is
+                // always a plain drag there until the touch vocabulary lands.
+                #if os(macOS)
                 let modifiers = NSEvent.modifierFlags
+                let option = modifiers.contains(.option)
+                let shift = modifiers.contains(.shift)
+                #else
+                let option = false
+                let shift = false
+                #endif
                 model.laneDragChanged(
                     start: value.startLocation,
                     current: value.location,
-                    option: modifiers.contains(.option),
-                    shift: modifiers.contains(.shift))
+                    option: option,
+                    shift: shift)
             }
             .onEnded { value in
                 model.laneDragEnded(

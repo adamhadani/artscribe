@@ -100,17 +100,33 @@ extension ActionInvoker {
     /// guard that depends on when SwiftUI re-evaluates a `Commands` body is a
     /// guard that is sometimes not there.
     static let selectionActions: [ActionID: @MainActor (MenuContext) -> Void] = [
+        // The two `#if`s below are the same difference stated twice: on macOS the
+        // app sees the keystroke first and has to hand it back to a field editor;
+        // on iOS SwiftUI delivers to the focused view first, so by the time these
+        // run no field wanted it.
+        //
+        // **That is an assumption, and it is written here rather than assumed
+        // silently.** It matches how `onKeyPress` and `.keyboardShortcut` are
+        // documented to route on iPadOS, but nothing in this repository has
+        // exercised it — there is no iPad target yet to exercise it with. The
+        // check to run first, once there is one: focus the shortcut sheet's
+        // filter field, type ⌘A, and confirm the *text* is selected rather than
+        // the whole track.
         .selectionSelectAll: { context in
+            #if os(macOS)
             guard !TextFocus.isEditingText else { return send(#selector(NSText.selectAll(_:))) }
+            #endif
             context.model.selectAll()
         },
         .selectionClear: { context in
             // `⎋` in a text field ends the edit, which is what the platform
             // means by it; clearing the audio selection from under a field the
             // reader is typing in is not.
+            #if os(macOS)
             guard !TextFocus.isEditingText else {
                 return send(#selector(NSResponder.cancelOperation(_:)))
             }
+            #endif
             context.model.clearSelection()
         },
         .selectionExtendLeft: { $0.model.extendSelection(.backward) },
@@ -149,16 +165,46 @@ extension ActionInvoker {
     ///
     /// `app.settings` is absent on purpose: SwiftUI's `Settings` scene owns both
     /// the menu item and ⌘,. It is in the catalog so the reference lists it.
-    static let applicationActions: [ActionID: @MainActor (MenuContext) -> Void] = [
-        .fileOpen: { ViewerActions.open($0.model) },
-        .fileSave: { $0.model.saveSession() },
-        .fileSaveAs: { ViewerActions.saveAs($0.model) },
-        .editCut: { _ in send(#selector(NSText.cut(_:))) },
-        .editCopy: { _ in send(#selector(NSText.copy(_:))) },
-        .editPaste: { _ in send(#selector(NSText.paste(_:))) }
-    ]
+    /// Built in a closure rather than written as a literal because one entry is
+    /// conditional and `#if` is not allowed between a dictionary's elements.
+    static let applicationActions: [ActionID: @MainActor (MenuContext) -> Void] = {
+        var actions: [ActionID: @MainActor (MenuContext) -> Void] = [
+            .fileSave: { $0.model.saveSession() },
+            .editCut: { _ in send(#selector(TextResponder.cut(_:))) },
+            .editCopy: { _ in send(#selector(TextResponder.copy(_:))) },
+            .editPaste: { _ in send(#selector(TextResponder.paste(_:))) }
+        ]
+        // Save As needs somewhere to ask — a save panel, or a document picker on
+        // iPad — and there is no iPad picker yet. Absent from the table there
+        // rather than present and inert, so nothing offers a Save As… that
+        // silently does nothing.
+        //
+        // File ▸ Open is here for the same reason: iPad's document picker is a
+        // presentation on a view, not a function that returns a URL, so on that
+        // platform Open belongs to the view rather than to this table.
+        #if os(macOS)
+        actions[.fileOpen] = { ViewerActions.open($0.model) }
+        actions[.fileSaveAs] = { ViewerActions.saveAs($0.model) }
+        #endif
+        return actions
+    }()
+
+    /// Whichever class declares `cut:`/`copy:`/`paste:` on this platform.
+    ///
+    /// The selectors are identical — they are the same Objective-C names the
+    /// responder chain has used since before either framework existed — so only
+    /// the type the `#selector` is spelled against differs.
+    #if os(macOS)
+    private typealias TextResponder = NSText
+    #else
+    private typealias TextResponder = UIResponder
+    #endif
 
     private static func send(_ action: Selector) {
+        #if os(macOS)
         NSApp?.sendAction(action, to: nil, from: nil)
+        #else
+        UIApplication.shared.sendAction(action, to: nil, from: nil, for: nil)
+        #endif
     }
 }
