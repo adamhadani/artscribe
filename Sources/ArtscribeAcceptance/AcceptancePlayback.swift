@@ -288,12 +288,37 @@ extension AcceptanceRun {
         model.fitWholeFile()
         model.seek(to: 0)
         // Zoomed until a page is a few seconds wide, so several flips fit into
-        // the observation window below.
-        for _ in 0..<14 { press(.r) }
+        // the observation window below — **measured**, not a fixed number of
+        // presses.
+        //
+        // It was `for _ in 0..<14 { press(.r) }`, which is a bet on how long the
+        // file is. Fourteen steps put a three-minute track at a few seconds and a
+        // seventy-minute album at 25.6 s; the run below plays for 6 s starting an
+        // eighth of a page in, so at that width reaching the page edge would take
+        // ~22 s and **no flip can occur at all**. The check then reported "the
+        // view did not follow the playhead" — an accusation against the app for
+        // arithmetic the check itself got wrong. Zooming to a target width makes
+        // it independent of what it is pointed at.
+        func pageSeconds() -> Double { Double(model.viewport.visibleFrames) / model.sampleRate }
+
+        let targetPageSeconds = 3.0
+        var zoomPresses = 0
+        // The cap is a runaway guard, not a budget: 60 steps is far more than any
+        // real file needs, and hitting it is reported below rather than ignored.
+        while pageSeconds() > targetPageSeconds, zoomPresses < 60 {
+            press(.r)
+            zoomPresses += 1
+        }
         let visible = model.viewport.visibleFrames
+        let width = pageSeconds()
         log.note(
             "auto-scroll page width",
-            String(format: "%.2f s", Double(visible) / model.sampleRate))
+            String(format: "%.2f s after %d zoom steps", width, zoomPresses))
+        // If the cap were ever hit the measurement below would be meaningless, so
+        // say so here rather than let it surface as a page-flip failure.
+        log.check(
+            String(format: "the view zoomed in far enough to observe page flips (%.2f s)", width),
+            width <= targetPageSeconds)
         model.seek(to: model.viewport.startFrame + visible / 8)
 
         // The zoom above anchored on a playhead at 0, so the page starts at 0
