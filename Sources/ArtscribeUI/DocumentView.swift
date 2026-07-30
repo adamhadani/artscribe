@@ -131,9 +131,11 @@ public struct DocumentView: View {
         // Note the security-scoped access: a picked file lives outside the
         // app's container, and reading it without
         // `startAccessingSecurityScopedResource()` fails with a permission
-        // error that looks exactly like a corrupt file. The stop is
-        // deliberately *not* balanced here — the decoder reads the whole
-        // file up front, so access is released as soon as `open` returns.
+        // error that looks exactly like a corrupt file. The grant is
+        // **handed to the model**, not released here: `open` starts an
+        // async load and returns immediately, so a `defer` in this closure
+        // dropped access before the decode had read anything. See
+        // `ViewerModel.open(url:securityScoped:)`.
         .fileImporter(
             isPresented: $showingImporter,
             allowedContentTypes: AudioFileTypes.supported,
@@ -141,8 +143,14 @@ public struct DocumentView: View {
         ) { result in
             guard case .success(let urls) = result, let url = urls.first else { return }
             let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            ViewerActions.open(model, url: url)
+            // Minted here and nowhere else: a bookmark can only be made for a
+            // file the process is currently allowed to read, and this closure is
+            // the one moment that is true. `RecentFiles.note` runs when the
+            // decode *finishes*, long after the picker's grant would have gone.
+            if scoped { model.recents?.rememberBookmark(for: url) }
+            // The scope is handed to the model rather than released here. It has
+            // to outlive this closure: `open` starts an async load and returns.
+            ViewerActions.open(model, url: url, securityScoped: scoped)
         }
         #endif
         // Tells `KeyWindowTracker` which window the transport belongs to. That

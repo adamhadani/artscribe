@@ -13,7 +13,33 @@ import Waveform
 /// properties in extensions.
 extension ViewerModel {
 
-    public func open(url: URL) {
+    /// Opens a track.
+    ///
+    /// `securityScoped` says the caller has already called
+    /// `startAccessingSecurityScopedResource()` on `url` and is **handing that
+    /// access over**. The model holds it for as long as the file is the open
+    /// document and releases it on the next open — which is the correct lifetime
+    /// and was not what happened before.
+    ///
+    /// The iPad importer used to do this:
+    ///
+    ///     let scoped = url.startAccessingSecurityScopedResource()
+    ///     defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+    ///     ViewerActions.open(model, url: url)
+    ///
+    /// with a comment reasoning that "the decoder reads the whole file up
+    /// front, so access is released as soon as `open` returns". The premise is
+    /// false: `open` starts `loadTask` and returns immediately, so the `defer`
+    /// fired *before* the decode read anything. It survived testing because a
+    /// small local file is read faster than the release takes effect; a large
+    /// track coming from a File Provider — iCloud Drive, Dropbox — is exactly
+    /// where it would not.
+    public func open(url: URL, securityScoped: Bool = false) {
+        // Release the previous document's claim before taking a new one. Doing
+        // it here rather than in a `deinit` matters: these are per-file grants
+        // and the process is allowed a limited number of them.
+        releaseSecurityScope()
+        if securityScoped { scopedURL = url }
         // **Nothing is written here, deliberately.** Opening a track is not an
         // edit, and this method used to flush the outgoing session at exactly
         // this point — which meant reopening a track rewrote its sidecar

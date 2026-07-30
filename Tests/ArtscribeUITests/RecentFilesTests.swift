@@ -103,4 +103,72 @@ struct RecentFilesTests {
         defer { cleanUp() }
         #expect(store.urls.isEmpty)
     }
+
+    // MARK: - Security-scoped bookmarks (iPad)
+    //
+    // The bookmarks themselves cannot be exercised on macOS: `rememberBookmark`
+    // is a deliberate no-op there, because this build is not sandboxed and a
+    // path is sufficient. What *is* portable, and what these cover, is the
+    // bookkeeping around them — the key both stores agree on, and the pruning
+    // that stops the dictionary growing without bound. Resolution itself is
+    // exercised on the simulator by the iOS run.
+
+    /// Bookmarks and the recent list must agree on what "the same file" means,
+    /// or a file reached through a symlink gets an entry that can never find its
+    /// own bookmark.
+    @Test("the bookmark key matches the de-duplication key")
+    func bookmarkKeyMatchesDeduplication() {
+        let direct = url("/tmp/track.wav")
+        let awkward = url("/tmp/./track.wav")
+        #expect(RecentFiles.key(for: direct) == RecentFiles.key(for: awkward))
+
+        // And the list agrees: the awkward path is not a second entry.
+        let list = RecentFiles.updated([direct], with: awkward, limit: 5)
+        #expect(list.count == 1)
+    }
+
+    /// A missing bookmark must be a no-op, not a crash and not a substitution.
+    /// This is the macOS path in full, and the iPad path whenever a file was
+    /// added before bookmarks existed.
+    @Test("resolving a file with no bookmark returns nil rather than guessing")
+    func resolvingWithoutABookmark() {
+        let (store, cleanup) = makeStore()
+        defer { cleanup() }
+        store.note(url("/tmp/never-bookmarked.wav"))
+        #expect(store.resolveBookmark(for: url("/tmp/never-bookmarked.wav")) == nil)
+    }
+
+    /// Clearing has to take the bookmarks with it. Leaving them behind would
+    /// keep a record of files the user asked to forget.
+    @Test("clearing forgets the bookmarks too")
+    func clearingForgetsBookmarks() {
+        let suite = "artscribe.tests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else { return }
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        defaults.set(["/tmp/a.wav": Data([1, 2, 3])], forKey: "recentFileBookmarks")
+        let store = RecentFiles(defaults: defaults)
+        store.clear()
+        #expect(defaults.dictionary(forKey: "recentFileBookmarks") == nil)
+    }
+
+    /// The dictionary is otherwise append-only: every file ever opened would
+    /// keep a bookmark forever, in a preferences file, for a menu showing eight.
+    @Test("a bookmark is dropped once its file falls off the end of the list")
+    func bookmarksArePruned() {
+        let suite = "artscribe.tests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else { return }
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let stale = "/tmp/stale.wav"
+        defaults.set([stale: Data([1, 2, 3])], forKey: "recentFileBookmarks")
+        let store = RecentFiles(defaults: defaults)
+
+        // Push the list past its cap with other files; `stale` is never noted,
+        // so it is not in the list and its bookmark has nothing to belong to.
+        for i in 0..<(RecentFiles.limit + 2) { store.note(url("/tmp/f\(i).wav")) }
+
+        let kept = defaults.dictionary(forKey: "recentFileBookmarks") as? [String: Data] ?? [:]
+        #expect(kept[stale] == nil, "a bookmark outlived every reference to its file")
+    }
 }
