@@ -25,7 +25,7 @@ final class PlaybackSession {
     init(audio: DecodedAudio, stretchEngine: StretchEngine) throws {
         ring = CommandRing(capacity: 256)
         engine = PlaybackEngine(
-            audio: audio, stretcher: RubberBandStretcher(engine: stretchEngine), ring: ring,
+            audio: audio, stretcher: PlatformStretcher.make(engine: stretchEngine), ring: ring,
             maxBlock: 1024)
         output = try AudioOutput(
             engine: engine, sampleRate: audio.sampleRate)

@@ -107,7 +107,24 @@ struct ActionMenuItem: View {
     let context: MenuContext
     /// Read inside this `View` body so the items re-evaluate when the key
     /// window changes.
+    #if os(macOS)
     private let keyWindow = KeyWindowTracker.shared
+    private var documentIsKey: Bool { keyWindow.documentIsKey }
+    #else
+    /// iPad has one window. What `KeyWindowTracker` exists to answer on macOS —
+    /// *is the document the thing the keyboard is aimed at, or has an auxiliary
+    /// window taken it?* — has no equivalent while the auxiliary UI is a sheet
+    /// over the document.
+    ///
+    /// **A simplification, and a knowingly incomplete one.** A presented sheet
+    /// does take the keyboard, so this should eventually consult the sheet
+    /// state rather than answer `true` unconditionally; until the sheets exist
+    /// there is nothing to consult. Erring towards *enabled* is the right
+    /// direction to be wrong in — the commands guard themselves, and this
+    /// project has already shipped one bug (⌘9, #8) from an enablement rule
+    /// being stricter than the command behind it.
+    private var documentIsKey: Bool { true }
+    #endif
 
     var body: some View {
         let entry = ActionCatalog.entry(id)
@@ -123,7 +140,7 @@ struct ActionMenuItem: View {
         // nudge tiers also take, and every ⇧-letter `NSMenu` refuses to match.
         .keyboardShortcut(entry.primaryChord?.keyboardShortcut)
         .disabled(
-            !ActionAvailability.isEnabled(id, context, documentIsKey: keyWindow.documentIsKey))
+            !ActionAvailability.isEnabled(id, context, documentIsKey: documentIsKey))
     }
 
     private var toggleBinding: Binding<Bool> {

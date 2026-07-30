@@ -116,8 +116,16 @@ enum PointerAffordance: Equatable, Sendable {
         }
     }
 
+    #if os(macOS)
     /// The one-line translation into SwiftUI's opaque type. Everything worth
     /// deciding was decided above.
+    ///
+    /// macOS only, and it is only this last line that is: everything above —
+    /// which affordance a given position and drag state *deserves* — is a
+    /// statement about the timeline, not about a pointer, and stays available
+    /// everywhere. On iPad it is the input side that differs rather than the
+    /// meaning, so when the touch vocabulary lands it can hang off the same
+    /// decisions instead of duplicating them.
     var pointerStyle: PointerStyle {
         switch self {
         case .verticalDrag: return .rowResize
@@ -129,4 +137,5 @@ enum PointerAffordance: Equatable, Sendable {
         case .movingRegion: return .grabActive
         }
     }
+    #endif
 }

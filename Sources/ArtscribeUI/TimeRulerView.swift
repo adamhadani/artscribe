@@ -86,7 +86,9 @@ struct TimeRulerView: View {
         // A drag nobody can see is not an affordance. The ruler's answer takes
         // neither a modifier nor a gesture in flight, but it is asked through
         // the same function as the lanes' so the scheme lives in one place.
+        #if os(macOS)
         .pointerStyle(Self.pointerAffordance.pointerStyle)
+        #endif
         .gesture(zoomDragGesture)
         // Reported for the same reason the lanes report theirs: so a pointer
         // aimed at the ruler is aimed at where the ruler actually is. Nothing

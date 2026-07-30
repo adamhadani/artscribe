@@ -148,7 +148,7 @@ final class TextWidthCache {
         if let known = widths[text] { return known }
         let measured = NSAttributedString(
             string: text,
-            attributes: [.font: NSFont.systemFont(ofSize: 10, weight: .medium)]
+            attributes: [.font: PlatformFont.systemFont(ofSize: 10, weight: .medium)]
         ).size().width
         widths[text] = measured
         return measured

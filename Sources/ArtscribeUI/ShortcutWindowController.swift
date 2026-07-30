@@ -1,8 +1,9 @@
-#if os(macOS)
-
-import AppKit
 import Foundation
 import Observation
+
+#if os(macOS)
+import AppKit
+#endif
 
 /// The shortcut window's state, and the one way to open it.
 ///
@@ -61,10 +62,12 @@ public final class ShortcutWindowController {
     /// `@ObservationIgnored` for the same reason `present` is — it is plumbing,
     /// and a view that observed it would re-render every time the window was
     /// created.
+    #if os(macOS)
     @ObservationIgnored public weak var window: NSWindow? {
         get { windowState.window }
         set { windowState.window = newValue }
     }
+    #endif
 
     /// Where the keyboard is in that window — see `ShortcutFocusMonitor`.
     ///
@@ -72,7 +75,11 @@ public final class ShortcutWindowController {
     /// once and this window is closed and reopened all day: SwiftUI hands the
     /// filter first responder on every reopen, so a monitor with the view's
     /// lifetime would have covered only the first one.
+    /// macOS only: it exists to notice clicks *outside* the filter field in the
+    /// same window, which is not a situation a sheet has.
+    #if os(macOS)
     @ObservationIgnored private let focusMonitor = ShortcutFocusMonitor()
+    #endif
 
     private static let listWidthKey = "shortcutWindow.listWidth"
 
@@ -156,6 +163,11 @@ public final class ShortcutWindowController {
     /// together: `⌘/`'s toggle, which has to know whether this window is in
     /// front, and the focus monitor, which has to know which window's clicks
     /// are its business.
+    ///
+    /// macOS only, and both of those reasons are macOS-shaped: a sheet is always
+    /// the frontmost thing, so there is nothing for the toggle to ask, and there
+    /// is no click-outside-the-field problem for a focus monitor to solve.
+    #if os(macOS)
     public func adopt(window: NSWindow?) {
         self.window = window
         guard let window else { return focusMonitor.stop() }
@@ -164,6 +176,7 @@ public final class ShortcutWindowController {
             filter: { [weak self] in self?.query ?? "" },
             clearFilter: { [weak self] in self?.query = "" })
     }
+    #endif
 
     /// Pins a layer, comparing first.
     ///
@@ -177,5 +190,3 @@ public final class ShortcutWindowController {
         pinnedLayer = layer
     }
 }
-
-#endif

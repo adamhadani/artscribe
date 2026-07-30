@@ -1,7 +1,8 @@
-#if os(macOS)
-
-import AppKit
 import Foundation
+
+#if os(macOS)
+import AppKit
+#endif
 
 /// Opening, raising, focusing and closing an auxiliary window — the behaviour
 /// the shortcut window and the Practice window share.
@@ -45,6 +46,8 @@ public final class AuxiliaryWindow {
     /// `EnvironmentValues` member reachable only from inside a `View` body while
     /// `ActionInvoker`'s table is deliberately not a view.
     public var present: (@MainActor () -> Void)?
+
+    #if os(macOS)
 
     /// The `NSWindow`, reported by the view once it is in one. Held rather than
     /// looked up by title, because a title is not an identity. Weak: the window
@@ -102,6 +105,51 @@ public final class AuxiliaryWindow {
         guard NSApp?.keyWindow == nil else { return false }
         return NSApp?.orderedWindows.first { $0.isVisible } === window
     }
-}
 
-#endif
+    #else
+
+    // MARK: - iOS: the same behaviour, presented as a sheet
+    //
+    // Everything above is one idea — *is this thing in front of the reader, and
+    // what should the toggle key do about it* — expressed in the only vocabulary
+    // macOS has for it. On iPad a sheet is the whole answer: it is either
+    // presented or it is not, and a presented sheet is by definition the thing in
+    // front of you. So `isFrontmost` collapses into `isOpen`, and with it the
+    // entire screen-locked fallback that exists on macOS because no window can
+    // become key there.
+    //
+    // `action(isOpen:isFrontmost:)` above is shared and unchanged, which is the
+    // point of it having been a pure function: the *rule* — show it if you cannot
+    // use it, put it away if you can — is not platform-specific, only the two
+    // facts it reads are.
+
+    /// Whether the sheet is up. The view binds a `.sheet(isPresented:)` to this.
+    ///
+    /// Not yet observed by anything: the sheets themselves are the next piece of
+    /// work, and until a view binds to it this is state with no reader. Wiring
+    /// that up needs it to be observable — see the note in `#58`.
+    public var isPresented = false
+
+    public init() {}
+
+    public var isOpen: Bool { isPresented }
+
+    /// No activation, no key window, no ordering: presenting a sheet is the whole
+    /// of "show it" on iPad, and it comes with the keyboard for free.
+    public func show() {
+        present?()
+        isPresented = true
+    }
+
+    public func toggle() {
+        switch Self.action(isOpen: isOpen, isFrontmost: isFrontmost) {
+        case .close: isPresented = false
+        case .present: show()
+        }
+    }
+
+    /// A presented sheet is always the frontmost thing. See the note above.
+    public var isFrontmost: Bool { isPresented }
+
+    #endif
+}
