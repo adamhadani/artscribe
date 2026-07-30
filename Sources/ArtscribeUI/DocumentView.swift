@@ -114,7 +114,7 @@ public struct DocumentView: View {
                 WaveformLanesView(model: model)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                EmptyStateView()
+                EmptyStateView(model: model)
             }
 
             // Directly above the status bar, and given the keyboard back after
@@ -250,18 +250,102 @@ public struct DocumentView: View {
 /// What the window says before anything is loaded. An empty screen is an
 /// invitation to act, so it names both ways in.
 struct EmptyStateView: View {
+    let model: ViewerModel
     @Environment(\.palette) private var palette
 
+    /// Five, not the eight the menu holds. This is a resting screen, not a
+    /// browser — a short list is read at a glance, and Open Recent is still
+    /// there for the rest.
+    private static let shown = 5
+
+    private var recents: [URL] {
+        Array((model.recents?.urls ?? []).prefix(Self.shown))
+    }
+
     var body: some View {
-        VStack(spacing: 10) {
-            Text("Drop an audio file here")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(palette.text.color())
-            Text("or press ⌘O to choose one")
-                .font(Typography.readout)
-                .foregroundStyle(palette.dimmed.color())
+        VStack(spacing: 26) {
+            VStack(spacing: 8) {
+                Text("Drop an audio file here")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(palette.text.color())
+                Text(hint)
+                    .font(Typography.readout)
+                    .foregroundStyle(palette.dimmed.color())
+            }
+
+            // Only when there is something to list. An empty "Recent" heading on
+            // a first run would be a promise the app cannot keep.
+            if !recents.isEmpty {
+                VStack(alignment: .leading, spacing: 1) {
+                    Eyebrow("RECENT")
+                        .padding(.leading, 10)
+                        .padding(.bottom, 7)
+                    ForEach(recents, id: \.self) { url in
+                        RecentEntryRow(url: url) { ViewerActions.open(model, url: url) }
+                    }
+                }
+                // Wide enough for a long track name, narrow enough that the
+                // block still reads as one thing rather than spanning a large
+                // window.
+                .frame(maxWidth: 460)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(palette.panel.color())
+    }
+
+    /// ⌘O is only advice if there is a keyboard to press it on. The header's
+    /// Open button is the one thing every platform has.
+    private var hint: String {
+        #if os(macOS)
+        return "or press ⌘O to choose one"
+        #else
+        return "or use Open… above"
+        #endif
+    }
+}
+
+/// One row of the resting screen's recent list.
+///
+/// A whole-row button rather than a text link: the target is the row, which is
+/// what a finger expects on iPad and what a pointer expects anywhere. The
+/// highlight is drawn on hover *and* on press so the affordance exists for both
+/// input methods — on iOS `onHover` simply never fires, which is the right
+/// nothing rather than a special case.
+private struct RecentEntryRow: View {
+    let url: URL
+    let open: () -> Void
+    @Environment(\.palette) private var palette
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: open) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(RecentEntryLabel.name(for: url))
+                    .font(Typography.fileName)
+                    .foregroundStyle(palette.text.color())
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                if let folder = RecentEntryLabel.folder(for: url) {
+                    Text(folder)
+                        .font(Typography.readoutSmall)
+                        .foregroundStyle(palette.dimmed.color())
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(palette.rule.color(opacity: hovering ? 0.5 : 0))
+            )
+            // The whole row, including the gap beside a short name, not just the
+            // glyphs.
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }
