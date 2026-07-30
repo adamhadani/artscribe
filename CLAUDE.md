@@ -138,6 +138,32 @@ through an entire run in which not one click was delivered. Assert the **transit
 (`after > before && after >= fitted`), and print both numbers in the check's name — the
 `19821.6 -> 19821.6` in a skipped line is what makes a dead path obvious at a glance.
 
+**A red acceptance run is more often the harness than the app — check that first.** On
+2026-07-30 two separate failures were escalated as product bugs and both were the harness. A
+"99% CPU freeze" was `nohup`: launched in the background the app can never come to the front,
+so `regainKeyWindow`'s retries and `activate(ignoringOtherApps:)` spin forever — the identical
+command in the foreground finished in 237 s. And eleven failures headed by `0 wraps observed
+over 18 s`, the signature of the *one* feature already proven by a differential render test,
+never reproduced in isolation. Two cheap discriminators, in order: **run the group alone**
+(`--only playback` is 37 s — passing alone but failing in the full run means ordering, timing
+or environment, not the feature), and **run the same groups at the merge-base** (byte-identical
+failures mean it is not your change). Then ask the user; "looping is fine, I use it daily"
+outweighed two `sample` traces here.
+
+**A check that hard-codes a magnitude is betting on its input.** `checkAutoScroll` zoomed
+`for _ in 0..<14 { press(.r) }` for "a page a few seconds wide". Fourteen steps give 2.27 s on
+a short track and **25.6 s** on a seventy-minute album; the check then watched 6 s for a flip
+that needed ~22 s, and reported "the view did not follow the playhead" — blaming the app for
+its own arithmetic, on every run against album-length input. Drive to a **measured target**
+instead, and print what was reached (`2.27 s after 21 zoom steps`) so a changed zoom step
+surfaces as a number rather than a mystery.
+
+**`model.playhead` is not the engine's position.** It is polled by `PlayheadClock`'s
+`CADisplayLink` on `NSScreen.main`. If that link stops — display asleep — the value freezes
+while audio renders normally at 130%+ CPU on CoreAudio threads, and every position-based check
+fails while nothing is wrong. If the position cluster ever goes red again, assert
+`PlayheadClock.isRunning` and **skip** rather than fail.
+
 **Deliverability is a fact about the machine; never infer it from the result.** A press that
 does nothing must fail on a machine that *can* deliver presses, or a broken button excuses
 itself. Ask `screenIsLocked()` and `NSApp.isActive`, collect "did any press land" across
