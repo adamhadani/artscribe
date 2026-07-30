@@ -248,6 +248,25 @@ public final class ViewerModel {
     /// Module-internal, not private, so `ViewerModel+Loading` can reach it —
     /// Swift has no stored properties in extensions.
     var loadTask: Task<Void, Never>?
+
+    /// The open document's security-scoped URL, on the platforms that have such
+    /// a thing.
+    ///
+    /// Held for as long as the file is the open document rather than for the
+    /// duration of a function call — see `open(url:securityScoped:)` for the bug
+    /// that shape replaced. `@ObservationIgnored` because nothing on screen
+    /// depends on it and a menu should not be invalidated by a file being
+    /// opened.
+    @ObservationIgnored var scopedURL: URL?
+
+    /// Gives back the claim on the open document, if there was one.
+    ///
+    /// Idempotent, and safe to call when there is nothing to release, so every
+    /// path out of a document can simply call it.
+    func releaseSecurityScope() {
+        scopedURL?.stopAccessingSecurityScopedResource()
+        scopedURL = nil
+    }
     /// Identifies the in-flight load. A load cancelled mid-flight can already be
     /// past its cancellation check and merely waiting for the main actor, so the
     /// token — not the `Task`— is what decides whose result is still wanted.

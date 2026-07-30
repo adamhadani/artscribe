@@ -28,14 +28,27 @@ public enum ViewerActions {
     /// disappears because you reached for Open Recent. Every route in goes
     /// through here: the Open panel, Open Recent, a drop on the window, and a
     /// file handed over by Launch Services.
+    ///
+    /// `securityScoped` is passed straight through to `ViewerModel.open`, which
+    /// owns the grant for the life of the document. Callers that did not start
+    /// scoped access — every macOS route, and the Recent menu — leave it false
+    /// and let the resolution below do the work.
     @MainActor
-    public static func open(_ model: ViewerModel, url: URL) {
+    public static func open(_ model: ViewerModel, url: URL, securityScoped: Bool = false) {
         #if os(macOS)
         SessionPrompt.whenSafeToLeave(model) { proceed in
             guard proceed else { return }
             model.open(url: url)
         }
         #else
+        // **Open Recent, on iPad.** The stored URL is a path, and a path to a
+        // file outside the container stops being readable the moment the app
+        // relaunches — so the list would show eight tracks and open none of
+        // them. `resolveBookmark` returns a URL that already has scoped access
+        // started, or nil when there is nothing remembered, in which case the
+        // original is tried unchanged and behaves exactly as it did before.
+        let resolved = model.recents?.resolveBookmark(for: url)
+        let target = resolved ?? url
         // iPad has no sheet for this question yet. Rather than ask nothing and
         // discard the outgoing session — which is precisely the silent data loss
         // spec §7 exists to prevent — the unsaved case is *saved* and then
@@ -45,7 +58,7 @@ public enum ViewerActions {
         //
         // Replace with the real confirmation sheet when the sheets land.
         if case .ask = model.closeAction { model.performClose() }
-        model.open(url: url)
+        model.open(url: target, securityScoped: securityScoped || resolved != nil)
         #endif
     }
 

@@ -15,9 +15,21 @@ import AppKit
 /// Dock menu once the app is bundled (Task 12) — but the menu is drawn from
 /// this, which is storage this app controls and can test.
 ///
-/// Plain file URLs, not security-scoped bookmarks: this build is not sandboxed.
-/// A sandboxed build would have to store bookmark data instead, and that is a
-/// change here rather than at the call sites.
+/// The list itself is plain file URLs. Alongside it, and **only where one is
+/// offered**, sits a security-scoped bookmark keyed by the same path.
+///
+/// That split is deliberate. On macOS this build is not sandboxed, a path is
+/// enough, and no bookmark is ever recorded. On iPad a path is *not* enough: a
+/// file picked out of Files — which is to say out of iCloud Drive, Dropbox or
+/// anything else with a File Provider extension — lives outside the app's
+/// container, and the URL the picker hands over stops being readable when the
+/// app relaunches. Open Recent would list eight tracks and fail to open any of
+/// them.
+///
+/// Bookmarks are stored under their own defaults key rather than by changing
+/// how `urls` is written. Nothing has to migrate, an older build reading a newer
+/// preferences file still finds its list, and the feature degrades to exactly
+/// today's behaviour wherever a bookmark is missing or stale.
 @MainActor
 @Observable
 public final class RecentFiles {
@@ -26,11 +38,17 @@ public final class RecentFiles {
     public static let limit = 8
 
     private static let defaultsKey = "recentFiles"
+    private static let bookmarksKey = "recentFileBookmarks"
 
     private let defaults: UserDefaults
 
     /// Most recent first.
     public private(set) var urls: [URL]
+
+    /// Bookmark data by standardised path. Not `@Observable` state anyone reads
+    /// — it changes nothing on screen — so it is kept out of the tracked
+    /// surface, where it would invalidate the menu on every open.
+    @ObservationIgnored private var bookmarks: [String: Data]
 
     /// - Parameter defaults: injectable so tests get their own suite instead of
     ///   writing into the user's real preferences.
@@ -38,12 +56,69 @@ public final class RecentFiles {
         self.defaults = defaults
         urls = (defaults.array(forKey: Self.defaultsKey) as? [String] ?? [])
             .map { URL(fileURLWithPath: $0) }
+        bookmarks = defaults.dictionary(forKey: Self.bookmarksKey) as? [String: Data] ?? [:]
+    }
+
+    /// The key both stores agree on: the same standardisation `updated` uses to
+    /// spot duplicates, so a file reached through a symlink or a `/private`
+    /// prefix finds its own bookmark rather than growing a second one.
+    static func key(for url: URL) -> String {
+        url.standardizedFileURL.resolvingSymlinksInPath().path
+    }
+
+    /// Records how to reach `url` again after the app is relaunched.
+    ///
+    /// **Must be called while security-scoped access to `url` is held**, which
+    /// on iPad means inside the document picker's completion — a bookmark cannot
+    /// be minted for a file the process is not currently allowed to read. That
+    /// is also why this is separate from `note(_:)`: `note` runs when the decode
+    /// *finishes*, by which time the picker's scope is long gone.
+    ///
+    /// Failure is not an error. A volume that does not support bookmarks, or a
+    /// URL that has already lost its scope, simply leaves the entry as it is
+    /// today — a path — and Open Recent behaves as it did before this existed.
+    public func rememberBookmark(for url: URL) {
+        #if os(macOS)
+        // Not sandboxed: the path in `urls` is already sufficient, and minting
+        // bookmarks would be storage nobody reads.
+        _ = url
+        #else
+        guard let data = try? url.bookmarkData() else { return }
+        bookmarks[Self.key(for: url)] = data
+        defaults.set(bookmarks, forKey: Self.bookmarksKey)
+        #endif
+    }
+
+    /// Resolves a remembered entry to a URL the app may actually read.
+    ///
+    /// Returns `nil` when there is nothing to resolve, which is the normal case
+    /// on macOS and the graceful one everywhere: the caller falls back to the
+    /// URL it already had.
+    ///
+    /// The returned URL has **already had `startAccessingSecurityScopedResource`
+    /// called on it**, and the caller owns stopping it. `ViewerModel` is what
+    /// does, because it is what knows when the file stops being read — see
+    /// `open(url:securityScoped:)`.
+    public func resolveBookmark(for url: URL) -> URL? {
+        guard let data = bookmarks[Self.key(for: url)] else { return nil }
+        var stale = false
+        guard
+            let resolved = try? URL(
+                resolvingBookmarkData: data, bookmarkDataIsStale: &stale),
+            resolved.startAccessingSecurityScopedResource()
+        else { return nil }
+        // A stale bookmark still resolved, so the file is reachable — it has
+        // just moved or been rewritten. Re-minting it now, while access is held,
+        // is the one moment it can be done.
+        if stale { rememberBookmark(for: resolved) }
+        return resolved
     }
 
     /// Records a file that was opened successfully.
     public func note(_ url: URL) {
         urls = Self.updated(urls, with: url, limit: Self.limit)
         defaults.set(urls.map(\.path), forKey: Self.defaultsKey)
+        pruneBookmarks()
         // Keeps the Dock menu and the system's own recents in step. Harmless
         // when it has nowhere to store them.
         //
@@ -59,10 +134,24 @@ public final class RecentFiles {
 
     public func clear() {
         urls = []
+        bookmarks = [:]
         defaults.removeObject(forKey: Self.defaultsKey)
+        defaults.removeObject(forKey: Self.bookmarksKey)
         #if os(macOS)
         NSDocumentController.shared.clearRecentDocuments(nil)
         #endif
+    }
+
+    /// Drops bookmarks for files that have fallen off the end of the list.
+    ///
+    /// Without this the dictionary is append-only: every file ever opened keeps
+    /// a bookmark forever, in a preferences file, for a menu that shows eight.
+    private func pruneBookmarks() {
+        let live = Set(urls.map(Self.key(for:)))
+        let kept = bookmarks.filter { live.contains($0.key) }
+        guard kept.count != bookmarks.count else { return }
+        bookmarks = kept
+        defaults.set(bookmarks, forKey: Self.bookmarksKey)
     }
 
     /// The whole policy, as a pure function: most recent first, no duplicates,
