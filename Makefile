@@ -1,4 +1,4 @@
-.PHONY: bootstrap format format-check lint test coverage check ios-check ios-test app dist notarize clean
+.PHONY: bootstrap format format-check lint test coverage check ios-check ios-test acceptance app dist notarize clean
 
 # Where the Xcode build lands. Inside .build so `make clean` and .gitignore
 # already cover it.
@@ -79,6 +79,28 @@ ios-test:
 	    -destination 'platform=iOS Simulator,name=$(SIM)' \
 	    -derivedDataPath $(XCODE_DERIVED)-iostest \
 	    | grep -E "Test run with|Suite .* (passed|failed)|error:|TEST (SUCCEEDED|FAILED)"
+
+# The acceptance harness, with the display held awake.
+#
+# `caffeinate -dimsu` is not a nicety. `model.playhead` is polled by
+# `PlayheadClock`'s `CADisplayLink` on `NSScreen.main`, and when the display
+# sleeps that link stops: the value freezes while audio renders normally, and
+# every position-based check fails at once — "0 frames", "0 wraps observed over
+# 18 s". It looks exactly like a looping bug and is not one. Measured on
+# 2026-07-30: 13 failures without it, 0 with, on identical code.
+#
+#   make acceptance AUDIO=/path/to/track.flac
+#   make acceptance AUDIO=... ARGS='--only loop'
+#
+# It takes the foreground and the keyboard. Checks that need a key window skip
+# themselves rather than fail if you use the machine during the run, so the
+# summary will say NOT CHECKED — leave it alone for the three minutes.
+AUDIO ?=
+ARGS ?=
+acceptance:
+	@test -n "$(AUDIO)" || { echo "usage: make acceptance AUDIO=<file> [ARGS='--only loop']"; exit 2; }
+	swift build -c release --product ArtscribeAcceptance
+	caffeinate -dimsu .build/release/ArtscribeAcceptance --acceptance "$(AUDIO)" $(ARGS)
 
 # The double-clickable app. `project.yml` is the source of truth; the
 # .xcodeproj it generates is disposable and gitignored, so it is rebuilt every
