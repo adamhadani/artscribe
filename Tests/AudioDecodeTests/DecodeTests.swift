@@ -22,10 +22,29 @@ private func fixture(_ name: String) -> URL {
     #expect(abs(audio.frameCount - 17640) < 50)
 }
 
-@Test(arguments: [
-    ("sine.mp3", 44100.0), ("sine.flac", 44100.0), ("sine.m4a", 44100.0),
-    ("sine.ogg", 44100.0), ("sine.opus", 48000.0)
-])
+/// What this platform decodes without a bundled codec.
+///
+/// **The format list is a macOS fact, not an Apple-platform one.** Measured on an
+/// iPad simulator, 2026-07-30: every entry below passes on both, and `sine.ogg`
+/// passes only on macOS — on iOS it fails `.unreadable("Operation Stopped")`.
+///
+/// Ogg is therefore moved into `oggVorbisDoesNotDecodeOnThisPlatform` rather than
+/// dropped. Deleting the case would have made this suite green on a simulator
+/// while hiding a difference a user meets as "this file just will not open", and
+/// the *asserted* version has the property that matters: if iOS ever gains Ogg
+/// support, a test fails and says so.
+private let nativeFormats: [(String, Double)] = {
+    var formats: [(String, Double)] = [
+        ("sine.mp3", 44100.0), ("sine.flac", 44100.0), ("sine.m4a", 44100.0),
+        ("sine.opus", 48000.0)
+    ]
+    #if os(macOS)
+    formats.append(("sine.ogg", 44100.0))
+    #endif
+    return formats
+}()
+
+@Test(arguments: nativeFormats)
 func decodesEveryNativeFormat(name: String, expectedRate: Double) async throws {
     let audio = try await AudioFileDecoder.decode(url: fixture(name))
     #expect(audio.channels == 2)
@@ -338,3 +357,19 @@ func decodesRealWorldTrackWithoutTruncation() async throws {
     }
     #expect(foundSubQuantumValue)
 }
+
+#if !os(macOS)
+
+/// The other half of `nativeFormats`, stated as a fact rather than an omission.
+///
+/// A platform difference that is only expressed by a shorter list is invisible:
+/// nothing fails when it changes, in either direction. This fails if iOS starts
+/// decoding Ogg Vorbis — which is the day `AudioFileTypes.supported` should stop
+/// excluding it, and the day this test should be deleted.
+@Test func oggVorbisDoesNotDecodeOnThisPlatform() async {
+    await #expect(throws: (any Error).self) {
+        _ = try await AudioFileDecoder.decode(url: fixture("sine.ogg"))
+    }
+}
+
+#endif

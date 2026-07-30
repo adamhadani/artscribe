@@ -10,10 +10,26 @@ import AppKit
 /// extensions that AVFoundation can in fact decode are not always registered on
 /// a given machine, so they are named explicitly rather than left to chance.
 public enum AudioFileTypes {
-    private static let extraExtensions = [
-        "flac", "ogg", "oga", "opus", "wav", "aiff", "aif", "aifc", "mp3", "m4a",
-        "aac", "caf", "wma"
-    ]
+    /// Named explicitly rather than left to `UTType.audio`, which does not always
+    /// have these registered on a given machine.
+    ///
+    /// **Ogg Vorbis is macOS-only**, and that is a measured fact rather than a
+    /// guess: on iOS, `AVAssetReader` fails a `.ogg` with "Operation Stopped"
+    /// (see `oggVorbisDoesNotDecodeOnThisPlatform`). Offering it in the iPad
+    /// document picker would let someone choose a file the app then refuses to
+    /// open — silent degradation of exactly the kind spec §8 forbids, and worse
+    /// than the file simply being greyed out. `.opus` stays: Opus and Vorbis are
+    /// different codecs and only Vorbis is missing.
+    private static let extraExtensions: [String] = {
+        var extensions = [
+            "flac", "opus", "wav", "aiff", "aif", "aifc", "mp3", "m4a",
+            "aac", "caf", "wma"
+        ]
+        #if os(macOS)
+        extensions.append(contentsOf: ["ogg", "oga"])
+        #endif
+        return extensions
+    }()
 
     public static var supported: [UTType] {
         var types: [UTType] = [.audio, .mpeg4Audio, .mp3, .wav, .aiff]

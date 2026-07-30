@@ -159,15 +159,17 @@ targets:
   # simply vanish here, which is honest — Homebrew builds a macOS dylib and
   # nothing else.
   #
-  # `AudioDecodeTests` is deliberately absent: iOS does not decode Ogg Vorbis
-  # (measured 2026-07-30), so its supported-format expectation has to become
-  # platform-aware before it can run. Dropping the case to make it green would
-  # hide a difference a user meets as "this file just will not open". See #59.
+  # `AudioDecodeTests` is included, and the Ogg Vorbis difference is *asserted*
+  # rather than papered over: iOS cannot decode Vorbis (measured 2026-07-30), so
+  # the expected-format list is platform-aware and a separate test states the
+  # negative. Dropping the case instead would have made this green while hiding
+  # a difference a user meets as "this file just will not open".
   ArtscribePortableTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - path: Tests/ArtscribeKitTests
+      - path: Tests/AudioDecodeTests
       - path: Tests/WaveformTests
       - path: Tests/TimeStretchTests
       - path: Tests/PlaybackTests
