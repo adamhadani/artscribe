@@ -97,3 +97,13 @@ jobs:
           xcodebuild build -scheme Playback \
             -destination 'generic/platform=iOS' \
             -derivedDataPath .build/xcode-ios -quiet
+
+      # The UI layer as well, as of the iPad port. Separate step rather than
+      # replacing the one above: `Playback` building for iOS is the stronger
+      # guarantee (it is the part that must stay portable forever), and if the UI
+      # step is the one that breaks the log should say so directly.
+      - name: Build the UI layer for iOS
+        run: |
+          xcodebuild build -scheme ArtscribeUI \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath .build/xcode-ios -quiet
