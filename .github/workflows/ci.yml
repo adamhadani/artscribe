@@ -107,3 +107,34 @@ jobs:
           xcodebuild build -scheme ArtscribeUI \
             -destination 'generic/platform=iOS' \
             -derivedDataPath .build/xcode-ios -quiet
+
+  # Compiling for iOS proves the code *builds* there. This proves it **behaves**
+  # there, which is a different and stronger claim: 144 tests — the viewport
+  # maths, selection and loop regions, the cue parser, pitch, the peak pyramid —
+  # run on a real iPad simulator.
+  #
+  # Only the two portable suites. `ArtscribeUITests` needs AppKit and
+  # `PlaybackTests` needs the CoreAudio HAL and Rubber Band, so both are macOS
+  # facts by construction and belong in `build-and-test` above.
+  #
+  # `AudioDecodeTests` is deliberately **not** here: Ogg Vorbis decodes on macOS
+  # and fails on iOS with `.unreadable("Operation Stopped")`, so the shared
+  # format expectation has to become platform-aware before that suite can run on
+  # both. Adding it with the case removed would hide a real product difference.
+  ios-simulator-tests:
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned to a device family rather than a specific OS point release: the
+      # runner image decides which simulator runtimes exist, and naming one that
+      # a later image drops would fail for a reason that has nothing to do with
+      # the code.
+      - name: Run the portable suites on an iPad simulator
+        run: |
+          for scheme in ArtscribeKitTests WaveformTests; do
+            xcodebuild test -scheme "$scheme" \
+              -destination 'platform=iOS Simulator,name=iPad (A16)' \
+              -derivedDataPath .build/xcode-sim -quiet
+          done

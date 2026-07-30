@@ -330,7 +330,14 @@ Studio is the default and earns it. Fast is for low-CPU scrubbing, not pitch ref
 ## Formats
 
 Decoded natively by macOS — no ffmpeg, no bundled codecs: MP3, AAC, M4A/MP4, ALAC, FLAC
-(incl. 24-bit), WAV, AIFF, CAF, Ogg Vorbis, Opus. `AVAssetReader` must be explicitly
+(incl. 24-bit), WAV, AIFF, CAF, Ogg Vorbis, Opus.
+
+**That list is a macOS fact, not an Apple-platform one. iOS does not decode Ogg Vorbis.**
+Measured 2026-07-30 on an iPad simulator: `decodesEveryNativeFormat` passes for every format
+above except `sine.ogg`, which fails `.unreadable("Operation Stopped")`. So
+`AudioDecodeTests` is the one portable suite CI does *not* run on iOS — the supported-format
+expectation has to become platform-aware first, and dropping the case to make the suite green
+would hide a difference a user would meet as "this file just will not open". `AVAssetReader` must be explicitly
 configured for Float32; the default path can return Int16 and silently discard 8 bits of a
 24-bit source.
 
