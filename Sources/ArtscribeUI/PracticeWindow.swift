@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppKit
 import ArtscribeKit
 import SwiftUI
@@ -288,3 +290,5 @@ struct NoLoopGuidance: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
+#endif

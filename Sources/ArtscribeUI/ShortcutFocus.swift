@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppKit
 
 /// **The shortcut window's filter is a two-way door.**
@@ -223,3 +225,5 @@ final class ShortcutFocusMonitor {
 
     private static let escapeKeyCode: UInt16 = 53
 }
+
+#endif

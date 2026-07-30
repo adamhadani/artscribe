@@ -1,6 +1,9 @@
-import AppKit
 import Foundation
 import Observation
+
+#if os(macOS)
+import AppKit
+#endif
 
 /// The **Open Recent** list.
 ///
@@ -43,13 +46,23 @@ public final class RecentFiles {
         defaults.set(urls.map(\.path), forKey: Self.defaultsKey)
         // Keeps the Dock menu and the system's own recents in step. Harmless
         // when it has nowhere to store them.
+        //
+        // macOS only, and not for want of an iOS equivalent to call: iOS has no
+        // shared recent-documents list for an app to contribute to. The list
+        // above *is* the feature on that platform, which is why it was never
+        // left to `NSDocumentController` in the first place (see the type's own
+        // comment).
+        #if os(macOS)
         NSDocumentController.shared.noteNewRecentDocumentURL(url)
+        #endif
     }
 
     public func clear() {
         urls = []
         defaults.removeObject(forKey: Self.defaultsKey)
+        #if os(macOS)
         NSDocumentController.shared.clearRecentDocuments(nil)
+        #endif
     }
 
     /// The whole policy, as a pure function: most recent first, no duplicates,

@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppKit
 
 extension KeyModifiers {
@@ -85,3 +87,5 @@ final class ModifierMonitor {
         TextFocus.editor(in: event.window ?? NSApp?.keyWindow) != nil
     }
 }
+
+#endif

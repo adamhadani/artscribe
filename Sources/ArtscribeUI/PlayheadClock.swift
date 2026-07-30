@@ -1,6 +1,11 @@
-import AppKit
 import Foundation
 import QuartzCore
+
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 /// Drives the playhead poll at the display's refresh rate.
 ///
@@ -29,8 +34,7 @@ final class PlayheadClock: NSObject {
     func start(_ tick: @escaping () -> Void) {
         guard !isRunning else { return }
         self.tick = tick
-        if let screen = NSScreen.main {
-            let link = screen.displayLink(target: self, selector: #selector(fire))
+        if let link = Self.makeDisplayLink(target: self, selector: #selector(fire)) {
             link.add(to: .main, forMode: .common)
             self.link = link
             fallbackNotice = nil
@@ -56,5 +60,29 @@ final class PlayheadClock: NSObject {
 
     @objc private func fire() {
         tick?()
+    }
+
+    /// A display link for whichever platform this is.
+    ///
+    /// macOS hangs it off an `NSScreen`, and there may be none — a headless
+    /// session, or a run before any screen is attached — which is what the timer
+    /// fallback above exists for. iOS always has a display, so `CADisplayLink`'s
+    /// own initialiser is used directly and the fallback is unreachable there;
+    /// it is left in place rather than `#if`-ed away because "no display link"
+    /// is a state the class already models honestly.
+    ///
+    /// **This is the whole upward path for the playhead, and it stops when the
+    /// display stops.** A sleeping display freezes `ViewerModel.playhead` while
+    /// audio carries on rendering perfectly — which cost a day's investigation
+    /// on 2026-07-30, when eleven position checks failed against a healthy
+    /// engine. See `isRunning`, and prefer skipping a position check to failing
+    /// it when this is not running.
+    private static func makeDisplayLink(target: Any, selector: Selector) -> CADisplayLink? {
+        #if os(macOS)
+        guard let screen = NSScreen.main else { return nil }
+        return screen.displayLink(target: target, selector: selector)
+        #else
+        return CADisplayLink(target: target, selector: selector)
+        #endif
     }
 }

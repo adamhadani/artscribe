@@ -1,5 +1,8 @@
-import AppKit
 import UniformTypeIdentifiers
+
+#if os(macOS)
+import AppKit
+#endif
 
 /// The file types the open panel offers.
 ///

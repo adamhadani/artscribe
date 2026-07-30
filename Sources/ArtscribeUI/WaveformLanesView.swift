@@ -1,6 +1,9 @@
-import AppKit
 import ArtscribeKit
 import SwiftUI
+
+#if os(macOS)
+import AppKit
+#endif
 
 /// The main timeline: the cached waveform bitmap with live overlays on top.
 ///

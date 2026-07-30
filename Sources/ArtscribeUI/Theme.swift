@@ -1,7 +1,10 @@
-import AppKit
 import Foundation
 import Observation
 import SwiftUI
+
+#if os(macOS)
+import AppKit
+#endif
 
 /// What the user chose, as opposed to what is on screen: `system` resolves to
 /// one of the two `Appearance`s and follows macOS as it changes.

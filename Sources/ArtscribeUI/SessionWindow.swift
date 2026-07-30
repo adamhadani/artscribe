@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppKit
 import Foundation
 import UniformTypeIdentifiers
@@ -231,3 +233,5 @@ enum SessionPanels {
         return panel.url
     }
 }
+
+#endif
