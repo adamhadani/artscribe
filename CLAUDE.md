@@ -256,7 +256,20 @@ only; the acceptance harness has its own target and must stay out of the product
 
 **There is a second boundary crossing the same diagram: platform.** Everything up to and
 including `Playback` builds for **iOS as well as macOS**, and CI builds it for iOS on every
-push so it stays that way. `ArtscribeUI` and above are AppKit and are macOS-only. When adding
+push so it stays that way — *and*, as of 2026-07-30, **runs 248 of the tests on an iPad
+simulator** (`make ios-test`, and the `ios-tests` CI job). Compiling is not behaviour, and the
+gap mattered: `signalsmithLoopingIsIndistinguishableFromAContiguousRender` proves the most
+important property in the product against the backend that is the *only* one on iOS, and until
+that job existed it ran exclusively on the Mac, where Rubber Band is what actually plays.
+
+Two things about that job worth keeping:
+
+- **Suites needing Rubber Band are behind `#if canImport(CRubberBand)`** and vanish from the
+  iOS run. If it ever needs `brew install rubberband` to pass, that guard has been breached.
+- **It asserts a test *count*, not just an exit code.** `xcodebuild test` exits 0 against a
+  scheme with nothing attached, and `-quiet` removes even the count from the log — the same
+  shape as the seventeen acceptance checks that silently skipped themselves for a whole run
+  here. A green run that executed nothing must fail. `ArtscribeUI` and above are AppKit and are macOS-only. When adding
 to `Playback`, that is the line to keep — `swift build --destination` will not tell you, but
 `make ios-check` will.
 

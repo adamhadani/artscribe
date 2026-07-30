@@ -145,6 +145,53 @@ targets:
         # No Homebrew search paths, and that is the point — if this target ever
         # needs them, something macOS-only has crept below `ArtscribeUI`.
 
+  # The portable suites, run on an iOS simulator.
+  #
+  # **Why this exists as an Xcode target at all.** A bare SwiftPM package exposes
+  # xcodebuild schemes only for products and executables — never for test
+  # targets — so `xcodebuild -scheme ArtscribeKitTests` fails with "the workspace
+  # does not contain a scheme". That was tried, and it passed locally only
+  # because a generated `Artscribe.xcodeproj` happened to be lying around. The
+  # route that works is declaring the test bundle here, which is what this is.
+  #
+  # It compiles the same test *files* SwiftPM does; there is no second copy.
+  # Suites that need Rubber Band are behind `#if canImport(CRubberBand)` and
+  # simply vanish here, which is honest — Homebrew builds a macOS dylib and
+  # nothing else.
+  #
+  # `AudioDecodeTests` is deliberately absent: iOS does not decode Ogg Vorbis
+  # (measured 2026-07-30), so its supported-format expectation has to become
+  # platform-aware before it can run. Dropping the case to make it green would
+  # hide a difference a user meets as "this file just will not open". See #59.
+  ArtscribePortableTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/ArtscribeKitTests
+      - path: Tests/WaveformTests
+      - path: Tests/TimeStretchTests
+      - path: Tests/PlaybackTests
+      - path: Tests/Fixtures
+        buildPhase: resources
+    dependencies:
+      - package: Artscribe
+        product: ArtscribeKit
+      - package: Artscribe
+        product: AudioDecode
+      - package: Artscribe
+        product: Waveform
+      - package: Artscribe
+        product: TimeStretch
+      - package: Artscribe
+        product: Playback
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.artscribe.ArtscribePortableTests
+        GENERATE_INFOPLIST_FILE: YES
+        # No TEST_HOST: these are logic tests with nothing to host them. Every
+        # suite here is below `ArtscribeUI` and needs no window.
+        CODE_SIGNING_ALLOWED: NO
+
 schemes:
   Artscribe:
     build:
@@ -161,3 +208,14 @@ schemes:
         ArtscribeiPad: all
     run:
       config: Debug
+
+  # Named so CI can say `-scheme ArtscribePortableTests`, which is the whole
+  # reason the target above exists.
+  ArtscribePortableTests:
+    build:
+      targets:
+        ArtscribePortableTests: [test]
+    test:
+      config: Debug
+      targets:
+        - ArtscribePortableTests

@@ -1,4 +1,4 @@
-.PHONY: bootstrap format format-check lint test coverage check ios-check app dist notarize clean
+.PHONY: bootstrap format format-check lint test coverage check ios-check ios-test app dist notarize clean
 
 # Where the Xcode build lands. Inside .build so `make clean` and .gitignore
 # already cover it.
@@ -64,6 +64,21 @@ check: format-check lint test
 ios-check:
 	xcodebuild build -scheme Playback -destination 'generic/platform=iOS' \
 	    -derivedDataPath $(XCODE_DERIVED)-ios -quiet
+
+# The portable suites, actually *run* on an iPad simulator rather than merely
+# compiled for one. Regenerates the project first because the test bundle is
+# declared in project.yml and the .xcodeproj is gitignored.
+#
+# A named simulator, not `generic/platform=iOS Simulator`: `xcodebuild test`
+# refuses a generic destination, and says only "Unable to find a device matching
+# the provided destination specifier". Override with `SIM=`.
+SIM ?= iPad (A16)
+ios-test:
+	xcodegen generate
+	xcodebuild test -scheme ArtscribePortableTests \
+	    -destination 'platform=iOS Simulator,name=$(SIM)' \
+	    -derivedDataPath $(XCODE_DERIVED)-iostest \
+	    | grep -E "Test run with|Suite .* (passed|failed)|error:|TEST (SUCCEEDED|FAILED)"
 
 # The double-clickable app. `project.yml` is the source of truth; the
 # .xcodeproj it generates is disposable and gitignored, so it is rebuilt every

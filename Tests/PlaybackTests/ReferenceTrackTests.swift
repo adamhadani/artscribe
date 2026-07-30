@@ -7,6 +7,12 @@ import TimeStretch
 
 @testable import Playback
 
+// Rubber Band is a macOS dylib from Homebrew and does not exist for iOS, so this suite is
+// conditional. It is guarded rather than deleted or ported: these are measurements *of Rubber
+// Band*, and a version of them running against a different backend would be a different test
+// wearing the same name.
+#if canImport(CRubberBand)
+
 /// Integration checks against real material, through the whole shipped output
 /// path: decode → `PlaybackEngine` → Rubber Band R3 → `AVAudioSourceNode` →
 /// mixer → 48 kHz conversion. Only the DAC is missing.
@@ -161,3 +167,5 @@ private func makeReferencePlayer(audio: DecodedAudio) throws -> (PlaybackEngine,
     ring.push(.setPlaying(true))
     return (engine, output)
 }
+
+#endif  // canImport(CRubberBand)

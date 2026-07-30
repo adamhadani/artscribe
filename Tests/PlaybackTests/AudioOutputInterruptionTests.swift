@@ -29,10 +29,9 @@ private final class FakeAudioSession: AudioSessionCoordinator {
 }
 
 /// Building an `AVAudioEngine` graph needs an output device to *exist*, even
-/// though nothing here starts hardware or makes a sound. Gated for the same
-/// reason `AudioOutputTests` is: a headless runner has none, and a test that
-/// silently passes there would be worse than one that is skipped.
-private let hasOutputDevice = CoreAudioHAL.defaultOutputDevice() != nil
+/// though nothing here starts hardware or makes a sound. See
+/// `OutputDeviceAvailability` for why the question is platform-dependent.
+private let hasOutputDevice = OutputDeviceAvailability.hasOutputDevice
 
 @Suite("Audio session interruptions through AudioOutput", .enabled(if: hasOutputDevice))
 @MainActor

@@ -107,3 +107,86 @@ jobs:
           xcodebuild build -scheme ArtscribeUI \
             -destination 'generic/platform=iOS' \
             -derivedDataPath .build/xcode-ios -quiet
+
+  # **Compiling is not behaviour.** `ios-build` proves the audio stack still
+  # builds for a phone; this proves it still *works* there, which is a different
+  # claim and the one that matters now that iOS has a stretcher of its own.
+  #
+  # Most of all it runs `signalsmithLoopingIsIndistinguishableFromAContiguousRender`
+  # on iOS. Signalsmith is the only backend on that platform, and until this job
+  # existed the seam property — the single most important guarantee in the
+  # product — was proved exclusively on the Mac, where Rubber Band is what
+  # actually plays.
+  #
+  # Needs xcodegen, because a bare SwiftPM package exposes schemes for products
+  # and executables but never for test targets: `-scheme ArtscribeKitTests` dies
+  # with "the workspace does not contain a scheme". The bundle is declared in
+  # `project.yml` instead. See #59.
+  ios-tests:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # No `brew install rubberband`, for the same reason `ios-build` omits it:
+      # every suite that needs Rubber Band is behind `#if canImport(CRubberBand)`
+      # and must simply vanish here. If this job ever needs it, that guard has
+      # been breached.
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate the Xcode project
+        run: xcodegen generate
+
+      # A concrete simulator name rather than a generic destination: `xcodebuild
+      # test` cannot run against `generic/platform=iOS Simulator`, and the error
+      # it gives ("Unable to find a device matching the provided destination
+      # specifier") does not say so.
+      - name: Run the portable suites on an iPad simulator
+        run: |
+          set -o pipefail
+          xcodebuild test -scheme ArtscribePortableTests \
+            -destination 'platform=iOS Simulator,name=iPad (A16)' \
+            -derivedDataPath .build/xcode-iostest | tee ios-tests.log
+
+      # **A green run that executed nothing also exits 0.** `xcodebuild test`
+      # succeeds against a scheme with no test target attached, an empty bundle,
+      # or a filter that matched nothing — and with `-quiet` there is not even a
+      # count in the log to notice it by. That is the same shape as the
+      # acceptance harness's "a partial run cannot exit 0" rule, and the same
+      # shape as the seventeen checks that skipped themselves for a whole run
+      # here once. So the count is asserted rather than assumed.
+      #
+      # 200 is a floor, not the number: the run is 248 today, and the bound is
+      # loose enough that adding or moving a suite does not trip it while still
+      # catching "nothing ran".
+      - name: Assert the suites actually ran
+        run: |
+          count=$(grep -oE "Test run with [0-9]+ tests" ios-tests.log \
+            | grep -oE "[0-9]+" | head -1)
+          echo "ran ${count:-0} tests on the simulator"
+          if [ -z "$count" ] || [ "$count" -lt 200 ]; then
+            echo "::error::expected 200+ tests on the simulator, saw ${count:-none}"
+            exit 1
+          fi
+
+  # The iPad application target itself, which `ios-build` does not cover: that
+  # job builds the *library* products, and a bundle can fail for reasons a
+  # library cannot — an Info.plist key, a device family, a build phase that
+  # assumes macOS. Signing is off because CI has no provisioning profile and
+  # does not need one to prove the thing compiles and links.
+  ipad-app:
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install xcodegen
+        run: brew install xcodegen
+      - name: Generate the Xcode project
+        run: xcodegen generate
+      - name: Build the iPad app
+        run: |
+          xcodebuild build -scheme ArtscribeiPad \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath .build/xcode-ipad \
+            CODE_SIGNING_ALLOWED=NO -quiet

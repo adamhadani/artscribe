@@ -28,6 +28,15 @@ let package = Package(
         // there is exactly one copy of the real code and both build systems
         // read it. See `project.yml`.
         .library(name: "ArtscribeUI", targets: ["ArtscribeUI"]),
+        // Exported so the Xcode-side iOS test bundle in `project.yml` can depend
+        // on them. Xcode consumes *products*, not targets, and these three carry
+        // suites that are portable and worth running on a simulator — most of
+        // all `TimeStretch`, since Signalsmith is the only backend on iOS and
+        // was until now proved exclusively on the Mac. No new code, no new
+        // dependency direction: these were already targets of this package.
+        .library(name: "AudioDecode", targets: ["AudioDecode"]),
+        .library(name: "Waveform", targets: ["Waveform"]),
+        .library(name: "TimeStretch", targets: ["TimeStretch"]),
         .executable(name: "artscribe-cli", targets: ["ArtscribeCLI"])
     ],
     targets: [

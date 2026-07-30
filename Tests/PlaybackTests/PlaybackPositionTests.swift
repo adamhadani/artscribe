@@ -133,6 +133,11 @@ import TimeStretch
 }
 
 // MARK: - Real stretcher
+//
+// Guarded from here down: everything above drives `IdentityStretcher` and deliberate fakes,
+// which is exactly the part worth running on a phone, and everything below needs Rubber Band.
+
+#if canImport(CRubberBand)
 
 private let sineHz = 220.0
 private let sineAmplitude = 0.5
@@ -276,3 +281,5 @@ private func expectIsTheSine(_ out: [Float], _ label: String) {
     #expect(Double(engine.currentFrame) > expected * 0.9)
     #expect(Double(engine.currentFrame) < expected * 1.1)
 }
+
+#endif  // canImport(CRubberBand)

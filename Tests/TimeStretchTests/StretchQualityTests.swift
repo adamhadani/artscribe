@@ -5,6 +5,12 @@ import Testing
 
 @testable import TimeStretch
 
+// Rubber Band is a macOS dylib from Homebrew and does not exist for iOS, so this suite is
+// conditional. It is guarded rather than deleted or ported: these are measurements *of Rubber
+// Band*, and a version of them running against a different backend would be a different test
+// wearing the same name.
+#if canImport(CRubberBand)
+
 @Test func identityStretcherPassesSamplesThroughUnchanged() {
     let input = sine(freq: 440, seconds: 0.5, sampleRate: 44100)
     let out = runStretcher(IdentityStretcher(), input: input, sampleRate: 44100)
@@ -183,3 +189,5 @@ func doubleSpeedPreservesPitch(core: RubberBandStretcher.Core, freq: Double) {
     s.configure(sampleRate: 44100, channels: 2, maxBlock: 1024)
     #expect(s.startDelay > 0)
 }
+
+#endif  // canImport(CRubberBand)
