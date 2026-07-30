@@ -1,4 +1,5 @@
-.PHONY: bootstrap format format-check lint test coverage check ios-check ios-test acceptance app dist notarize clean
+.PHONY: bootstrap format format-check lint test coverage check ios-check ios-test acceptance \
+	ipad ipad-build ipad-install ipad-container app dist notarize clean
 
 # Where the Xcode build lands. Inside .build so `make clean` and .gitignore
 # already cover it.
@@ -101,6 +102,64 @@ acceptance:
 	@test -n "$(AUDIO)" || { echo "usage: make acceptance AUDIO=<file> [ARGS='--only loop']"; exit 2; }
 	swift build -c release --product ArtscribeAcceptance
 	caffeinate -dimsu .build/release/ArtscribeAcceptance --acceptance "$(AUDIO)" $(ARGS)
+
+# Build, install and run on a connected iPad, with the console attached.
+#
+#   make ipad                       # build, install, launch, stream stdout/stderr
+#   make ipad DEV=1                 # …with Playback > Developer > Stretch Engine
+#   make ipad-install               # build and install only, no console
+#
+# The device is found by name so there is nothing to paste. `--console` keeps
+# the process attached and streams its output, which is the only channel that
+# reaches this terminal: `log stream` has no `--device-name` on this macOS, and
+# `devicectl`'s own `--log-output` logs the tool, not the app. So anything you
+# want to see from a device run has to be `print`ed or `FileHandle`-written by
+# the app itself.
+#
+# Ctrl-C detaches the console; it does not kill the app.
+#
+# Requires Developer Mode on the iPad (Settings > Privacy & Security) and a
+# signing team configured once in Xcode. `direnv exec` supplies ARTSCRIBE_TEAM_ID
+# without it appearing in any command line or log.
+IPAD_NAME ?= iPad
+DEV ?=
+# Both `available` and `connected` count: devicectl reports either depending on
+# how recently the tunnel was used, and both can be built to.
+#
+# Matched by UUID pattern rather than by column: the Name column contains
+# spaces ("iPad Pro M4"), so field-splitting picks up a fragment of the name.
+IPAD_ID = $(shell xcrun devicectl list devices 2>/dev/null \
+	| grep "$(IPAD_NAME)" | grep -E 'available|connected' \
+	| grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
+IPAD_APP = .build/xcode-device/Build/Products/Debug-iphoneos/Artscribe.app
+
+ipad-build:
+	@test -n "$(IPAD_ID)" || { echo "No device matching '$(IPAD_NAME)' is connected. Plugged in, unlocked, Developer Mode on?"; exit 2; }
+	xcodegen generate
+	direnv exec . xcodebuild build -scheme ArtscribeiPad \
+	    -destination 'platform=iOS,id=$(IPAD_ID)' \
+	    -derivedDataPath .build/xcode-device -allowProvisioningUpdates -quiet
+
+ipad-install: ipad-build
+	xcrun devicectl device install app --device $(IPAD_ID) $(IPAD_APP)
+
+ipad: ipad-install
+	xcrun devicectl device process launch --console \
+	    $(if $(DEV),--environment-variables '{"ARTSCRIBE_DEV_MENU":"1"}',) \
+	    --device $(IPAD_ID) com.artscribe.Artscribe
+
+# Everything the app has written into its container — the `.artscribe` sidecars
+# and, most usefully, its UserDefaults. Reading that plist is how the Open Recent
+# bookmark bug was diagnosed: the stored keys disagreed with the stored paths by
+# exactly the `/private` prefix, which no amount of reading the code would have
+# shown.
+ipad-container:
+	@test -n "$(IPAD_ID)" || { echo "No device matching '$(IPAD_NAME)' is connected."; exit 2; }
+	rm -rf .build/ipad-container && mkdir -p .build/ipad-container
+	xcrun devicectl device copy from --device $(IPAD_ID) \
+	    --domain-type appDataContainer --domain-identifier com.artscribe.Artscribe \
+	    --source Library/Preferences --destination .build/ipad-container
+	@find .build/ipad-container -type f -print
 
 # The double-clickable app. `project.yml` is the source of truth; the
 # .xcodeproj it generates is disposable and gitignored, so it is rebuilt every

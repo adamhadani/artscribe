@@ -48,7 +48,39 @@ let bars: [Double] = [0.30, 0.55, 0.80, 1.00, 0.72, 0.92, 0.60, 0.38, 0.24]
 /// How many of the bars, from the right, are the picked-out passage.
 let emphasised = 3
 
-func draw(size: Int) -> CGImage? {
+/// How the square is filled.
+///
+/// The two platforms want opposite things, and getting it wrong is not a matter
+/// of taste: **an iOS app icon must be a full-bleed opaque square with no alpha
+/// channel.** The system applies its own rounded mask, and App Store validation
+/// rejects transparency outright. macOS is the reverse — icons sit *inside* the
+/// grid with transparent margins and draw their own rounded corners.
+///
+/// One drawing, two framings, so the artwork cannot drift between platforms.
+enum IconStyle {
+    case macOS
+    case iOS
+
+    /// Fraction of the side left empty around the artwork.
+    var inset: Double {
+        switch self {
+        case .macOS: return 0.09
+        case .iOS: return 0
+        }
+    }
+
+    /// Corner radius as a fraction of the drawn rect. iOS is squared off
+    /// because the system rounds it — rounding here too would show a dark
+    /// hairline where our radius and theirs disagree.
+    var cornerFraction: Double {
+        switch self {
+        case .macOS: return 0.225
+        case .iOS: return 0
+        }
+    }
+}
+
+func draw(size: Int, style: IconStyle = .macOS) -> CGImage? {
     let space = CGColorSpaceCreateDeviceRGB()
     guard
         let context = CGContext(
@@ -57,10 +89,10 @@ func draw(size: Int) -> CGImage? {
     else { return nil }
 
     let side = Double(size)
-    // macOS icons sit inside the grid rather than filling it.
-    let inset = side * 0.09
+    // macOS icons sit inside the grid rather than filling it; iOS icons fill it.
+    let inset = side * style.inset
     let rect = CGRect(x: inset, y: inset, width: side - 2 * inset, height: side - 2 * inset)
-    let radius = rect.width * 0.225
+    let radius = rect.width * style.cornerFraction
 
     context.setFillColor(
         CGColor(red: background.r, green: background.g, blue: background.b, alpha: 1))
@@ -135,6 +167,47 @@ for variant in variants {
         FileHandle.standardError.write(Data("could not finalise \(url.path)\n".utf8))
         exit(1)
     }
+}
+
+// The iOS icon: one 1024x1024 PNG, which modern Xcode derives every other size
+// from. Written into the asset catalog the iPad target points at.
+//
+// `CGImageAlphaInfo.noneSkipFirst` rather than `premultipliedFirst`: the PNG
+// must carry no alpha channel at all. A 1024 icon with alpha is not a cosmetic
+// problem — it is an App Store rejection.
+let iosIconSet = root.appendingPathComponent("iOS/Assets.xcassets/AppIcon.appiconset")
+if FileManager.default.fileExists(atPath: iosIconSet.path) {
+    guard let iosImage = draw(size: 1024, style: .iOS) else {
+        FileHandle.standardError.write(Data("could not draw the iOS icon\n".utf8))
+        exit(1)
+    }
+    let opaque = CGContext(
+        data: nil, width: 1024, height: 1024, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue)
+    guard let opaque else {
+        FileHandle.standardError.write(Data("could not make an opaque iOS context\n".utf8))
+        exit(1)
+    }
+    opaque.draw(iosImage, in: CGRect(x: 0, y: 0, width: 1024, height: 1024))
+    guard let flattened = opaque.makeImage() else {
+        FileHandle.standardError.write(Data("could not flatten the iOS icon\n".utf8))
+        exit(1)
+    }
+    let iosURL = iosIconSet.appendingPathComponent("icon-1024.png")
+    guard
+        let destination = CGImageDestinationCreateWithURL(
+            iosURL as CFURL, "public.png" as CFString, 1, nil)
+    else {
+        FileHandle.standardError.write(Data("could not write \(iosURL.path)\n".utf8))
+        exit(1)
+    }
+    CGImageDestinationAddImage(destination, flattened, nil)
+    guard CGImageDestinationFinalize(destination) else {
+        FileHandle.standardError.write(Data("could not finalise \(iosURL.path)\n".utf8))
+        exit(1)
+    }
+    print("wrote \(iosURL.path)")
 }
 
 let iconutil = Process()

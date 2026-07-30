@@ -132,6 +132,18 @@ it drifts pitch up to 26 cents at half speed and 108 at the extremes — and it 
 iOS, where Rubber Band cannot be linked. `artscribe-cli --engine` is the headless equivalent and
 prints the engine on every run.
 
+**`@ObservationIgnored` is a silent opt-out, and the failure looks like missing data.**
+`ViewerModel.recents` is marked with it, so a view that read `model.recents?.urls` registered
+nothing with SwiftUI: the resting screen rendered once while it was still nil — `attach(recents:)`
+runs after the first layout pass — and never rendered again. The list was correct, stored and
+reachable the whole time, and the screen simply looked like a first run. Nothing errors, nothing
+logs, and the obvious hypothesis ("the recents are empty") is wrong.
+
+Read observable state from an object the view is *given*, not from an `@ObservationIgnored`
+field on something else. Where a model has to hold a reference for its own use, pass the same
+object into the view separately — `MenuContext` already carries `recents`, `devices`, `theme`
+and the rest for exactly this reason.
+
 **Match the fix to the tool.** Small contained changes — a layout tweak, a one-file fix, a
 doc correction — should just be made. Spawning a subagent costs 20–80 minutes and 200–400k
 tokens because it re-reads this file, re-establishes context, runs the acceptance harness and

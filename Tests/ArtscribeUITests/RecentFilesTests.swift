@@ -113,18 +113,40 @@ struct RecentFilesTests {
     // that stops the dictionary growing without bound. Resolution itself is
     // exercised on the simulator by the iOS run.
 
-    /// Bookmarks and the recent list must agree on what "the same file" means,
-    /// or a file reached through a symlink gets an entry that can never find its
-    /// own bookmark.
-    @Test("the bookmark key matches the de-duplication key")
-    func bookmarkKeyMatchesDeduplication() {
-        let direct = url("/tmp/track.wav")
-        let awkward = url("/tmp/./track.wav")
-        #expect(RecentFiles.key(for: direct) == RecentFiles.key(for: awkward))
+    /// **The bug that broke Open Recent on iPad, as a test.**
+    ///
+    /// The key must round-trip a persisted entry back to its own bookmark
+    /// without touching the filesystem. `note` stores `url.path` and `init`
+    /// rebuilds with `URL(fileURLWithPath:)`, so the key has to survive exactly
+    /// that trip — and nothing else.
+    ///
+    /// It used to be `standardizedFileURL.resolvingSymlinksInPath().path`, which
+    /// does filesystem I/O and therefore answers differently depending on
+    /// whether the file is reachable at the time. On device the two stores
+    /// disagreed by exactly the `/private` prefix: bookmarks under
+    /// `/var/mobile/…`, recents under `/private/var/mobile/…`. Every lookup
+    /// missed.
+    @Test("a persisted entry finds its own bookmark after a round trip")
+    func keyRoundTripsThroughPersistence() {
+        let picked = url("/private/var/mobile/Containers/Shared/track.mp3")
+        let key = RecentFiles.key(for: picked)
 
-        // And the list agrees: the awkward path is not a second entry.
-        let list = RecentFiles.updated([direct], with: awkward, limit: 5)
-        #expect(list.count == 1)
+        // Exactly what `init` does to what `note` wrote.
+        let rebuilt = URL(fileURLWithPath: picked.path)
+        #expect(RecentFiles.key(for: rebuilt) == key)
+    }
+
+    /// And it must not quietly re-introduce filesystem-dependent normalisation:
+    /// `/var` and `/private/var` are the same file on iOS, and a key that
+    /// resolved them together would be right in a test and wrong on a device
+    /// where only one of the two is reachable.
+    @Test("the key does not resolve symlinks")
+    func keyDoesNotTouchTheFilesystem() {
+        let short = url("/var/mobile/track.mp3")
+        let long = url("/private/var/mobile/track.mp3")
+        #expect(
+            RecentFiles.key(for: short) != RecentFiles.key(for: long),
+            "the key resolved a symlink — it will answer differently with and without access")
     }
 
     /// A missing bookmark must be a no-op, not a crash and not a substitution.
