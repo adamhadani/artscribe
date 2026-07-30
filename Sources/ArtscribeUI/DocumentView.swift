@@ -114,7 +114,7 @@ public struct DocumentView: View {
                 WaveformLanesView(model: model)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                EmptyStateView(model: model)
+                EmptyStateView(model: model, recents: context.recents)
             }
 
             // Directly above the status bar, and given the keyboard back after
@@ -251,6 +251,16 @@ public struct DocumentView: View {
 /// invitation to act, so it names both ways in.
 struct EmptyStateView: View {
     let model: ViewerModel
+    /// Taken from `MenuContext`, **not** read off the model.
+    ///
+    /// `ViewerModel.recents` is `@ObservationIgnored`, so reading it registers
+    /// nothing with SwiftUI: this view rendered once while it was still nil —
+    /// `attach(recents:)` runs after the first layout pass — and never rendered
+    /// again. The list was correct, stored and reachable, and simply never
+    /// appeared. The object here is `@Observable` and owned by the app shell,
+    /// so `urls` is tracked and a newly opened file shows up without anything
+    /// having to invalidate the view by hand.
+    let recents: RecentFiles
     @Environment(\.palette) private var palette
 
     /// Five, not the eight the menu holds. This is a resting screen, not a
@@ -258,8 +268,8 @@ struct EmptyStateView: View {
     /// there for the rest.
     private static let shown = 5
 
-    private var recents: [URL] {
-        Array((model.recents?.urls ?? []).prefix(Self.shown))
+    private var shownRecents: [URL] {
+        Array(recents.urls.prefix(Self.shown))
     }
 
     var body: some View {
@@ -275,12 +285,12 @@ struct EmptyStateView: View {
 
             // Only when there is something to list. An empty "Recent" heading on
             // a first run would be a promise the app cannot keep.
-            if !recents.isEmpty {
+            if !shownRecents.isEmpty {
                 VStack(alignment: .leading, spacing: 1) {
                     Eyebrow("RECENT")
                         .padding(.leading, 10)
                         .padding(.bottom, 7)
-                    ForEach(recents, id: \.self) { url in
+                    ForEach(shownRecents, id: \.self) { url in
                         RecentEntryRow(url: url) { ViewerActions.open(model, url: url) }
                     }
                 }
@@ -323,7 +333,12 @@ private struct RecentEntryRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(RecentEntryLabel.name(for: url))
                     .font(Typography.fileName)
-                    .foregroundStyle(palette.text.color())
+                    // The accent, not the ordinary text colour: these are the
+                    // only actionable things on the screen, and the hover
+                    // highlight that would otherwise say so **never fires on
+                    // iPad**. Colour is the one affordance both a pointer and a
+                    // finger can see.
+                    .foregroundStyle(palette.accent.color())
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if let folder = RecentEntryLabel.folder(for: url) {
