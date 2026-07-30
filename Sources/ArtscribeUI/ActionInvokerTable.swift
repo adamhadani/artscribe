@@ -1,5 +1,8 @@
-import AppKit
 import SwiftUI
+
+#if os(macOS)
+import AppKit
+#endif
 
 /// The dispatch table itself, split from `ActionInvoker` for file length and
 /// grouped the way the catalog is.

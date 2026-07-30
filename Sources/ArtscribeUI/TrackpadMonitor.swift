@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppKit
 
 /// What a scroll or pinch event means to the viewer. Extracted from the
@@ -287,3 +289,5 @@ extension TrackpadAction {
         }
     }
 }
+
+#endif

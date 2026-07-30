@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppKit
 import SwiftUI
 
@@ -290,3 +292,5 @@ private struct ShortcutWindowOpener: ViewModifier {
         }
     }
 }
+
+#endif

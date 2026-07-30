@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppKit
 import Foundation
 
@@ -101,3 +103,5 @@ public final class AuxiliaryWindow {
         return NSApp?.orderedWindows.first { $0.isVisible } === window
     }
 }
+
+#endif

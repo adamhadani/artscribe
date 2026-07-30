@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppKit
 import Observation
 import SwiftUI
@@ -143,3 +145,5 @@ struct WindowReader: NSViewRepresentable {
         }
     }
 }
+
+#endif

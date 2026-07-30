@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppKit
 
 /// **Where the keyboard is going: into text, or into the app.**
@@ -58,3 +60,5 @@ enum TextFocus {
         return container.convert(field.frame, to: nil).contains(point)
     }
 }
+
+#endif
