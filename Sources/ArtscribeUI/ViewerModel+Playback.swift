@@ -282,69 +282,6 @@ extension ViewerModel {
         session?.push(.seek(target))
     }
 
-    // MARK: - Speed
-
-    public func slower(fine isFine: Bool) {
-        applySpeed(
-            SpeedStepping.stepped(speed, by: -(isFine ? SpeedStepping.fine : SpeedStepping.coarse)))
-    }
-
-    public func faster(fine isFine: Bool) {
-        applySpeed(
-            SpeedStepping.stepped(speed, by: isFine ? SpeedStepping.fine : SpeedStepping.coarse))
-    }
-
-    /// **Set the speed to a given ratio**, quantised and clamped. Named after
-    /// the `1`–`4` keys, its first caller; it is the general path, and Task 21's
-    /// practice ramp is its second caller for exactly that reason — a ramp with
-    /// its own `setTimeRatio` would be a second way to reach the render thread.
-    public func setSpeedPreset(_ ratio: Double) {
-        var next = speed
-        next.setRatio(SpeedStepping.quantise(ratio))
-        applySpeed(next)
-    }
-
-    /// `⌥E`. Rubber Band's engine is fixed at construction, and `PlaybackCommand`
-    /// deliberately carries only POD payloads, so a running stretcher cannot be
-    /// swapped through the ring. The graph is rebuilt instead, off the render
-    /// thread, and the position, speed, loop and transport state are restored —
-    /// which is audible as a short gap, and is the honest cost of the switch.
-    public func toggleStretchEngine() {
-        var next = speed
-        next.engine = speed.engine == .studio ? .fast : .studio
-        applySpeed(next)
-    }
-
-    private func applySpeed(_ next: SpeedState) {
-        guard next != speed else { return }
-        let enginesDiffer = next.engine != speed.engine
-        speed = next
-        // Before the engine-rebuild branch, not after it: `⌥E` changes the
-        // active engine, which spec §7 persists, and marking only the ratio
-        // path would leave an engine switch out of the sidecar and out of the
-        // close prompt.
-        markSessionEdited()
-        guard !enginesDiffer else {
-            rebuildSession()
-            return
-        }
-        // Applied on the next render quantum, with no reset and therefore no
-        // click: `PlaybackEngine` only re-scales its pending-output accounting.
-        session?.push(.setTimeRatio(speed.timeRatio))
-    }
-
-    private func rebuildSession() {
-        guard let audio else { return }
-        let wasPlaying = transport.isPlaying
-        let position = playhead
-        teardownSession()
-        openSession(for: audio)
-        guard session != nil else { return }
-        session?.push(.setLoop(loop.range, loop.isEnabled))
-        seek(to: position)
-        if wasPlaying { play() }
-    }
-
     // MARK: - Loop
 
     public func setLoopIn() {

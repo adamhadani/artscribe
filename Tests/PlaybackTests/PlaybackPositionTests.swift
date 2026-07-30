@@ -191,7 +191,7 @@ private func expectIsTheSine(_ out: [Float], _ label: String) {
     let ring = CommandRing(capacity: 16)
     let engine = PlaybackEngine(
         audio: makeSineAudio(frames: 44100),
-        stretcher: RubberBandStretcher(engine: .studio),
+        stretcher: RubberBandStretcher(core: .finer),
         ring: ring, maxBlock: 512)
     ring.push(.setLoop(FrameRange(start: 0, count: 22050), true))  // 110 whole cycles
     ring.push(.setPlaying(true))
@@ -220,7 +220,7 @@ private func expectIsTheSine(_ out: [Float], _ label: String) {
 
     let ring = CommandRing(capacity: 16)
     let engine = PlaybackEngine(
-        audio: audio, stretcher: RubberBandStretcher(engine: .studio),
+        audio: audio, stretcher: RubberBandStretcher(core: .finer),
         ring: ring, maxBlock: 512)
     ring.push(.setLoop(FrameRange(start: 0, count: FrameIndex(loopLength)), true))
     ring.push(.setPlaying(true))
@@ -241,7 +241,7 @@ private func expectIsTheSine(_ out: [Float], _ label: String) {
     let ring = CommandRing(capacity: 16)
     let engine = PlaybackEngine(
         audio: makeSineAudio(frames: 44100),
-        stretcher: RubberBandStretcher(engine: .studio),
+        stretcher: RubberBandStretcher(core: .finer),
         ring: ring, maxBlock: 512)
     ring.push(.setLoop(FrameRange(start: 10_000, count: 4000), true))
     ring.push(.seek(10_000))
@@ -260,7 +260,7 @@ private func expectIsTheSine(_ out: [Float], _ label: String) {
     let ring = CommandRing(capacity: 16)
     let engine = PlaybackEngine(
         audio: makeSineAudio(frames: 44100),
-        stretcher: RubberBandStretcher(engine: .studio),
+        stretcher: RubberBandStretcher(core: .finer),
         ring: ring, maxBlock: 512)
     ring.push(.setTimeRatio(2.0))  // half speed
     ring.push(.setPlaying(true))

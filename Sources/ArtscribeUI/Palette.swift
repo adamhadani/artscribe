@@ -198,6 +198,14 @@ struct Eyebrow: View {
         Text(text)
             .font(Typography.eyebrow)
             .tracking(0.9)
+            // Never wraps. A label squeezed narrow used to break one character
+            // per line into a tall invisible column — the status bar's trailing
+            // field is the only one without a fixed width, so at a narrow window
+            // "LOADED IN" became a nine-line stack off the right edge and set the
+            // whole bar's height. The visible symptom was a band of dead space
+            // under the readouts with nothing in it.
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(palette.dimmed.color())
     }
 }

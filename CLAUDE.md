@@ -16,6 +16,12 @@ swift test --filter <TargetName>    # one module while iterating
 
 swift run -c release ArtscribeApp   # the app
 
+# The app with the developer menu: Playback ▸ Developer ▸ Stretch Engine.
+ARTSCRIBE_DEV_MENU=1 swift run -c release ArtscribeApp
+
+# Headless A/B between backends, with the degradation counters a menu cannot show.
+swift run -c release artscribe-cli --engine signalsmith <audio> 0.5 10 14
+
 # The acceptance harness: a live window driven through ~600 checks.
 swift run -c release ArtscribeAcceptance --list
 swift run -c release ArtscribeAcceptance --acceptance <audio> [--bad-file <f>] [--out <dir>] \
@@ -109,6 +115,19 @@ is untouched, so the volume checks still read back the value the user's control 
   renders offline and never reaches a device, so it needs no gate.
 - Verified by `aSilencedGraphEmitsExactlyZero`, which renders the real graph offline and
   asserts every sample is exactly 0 against a control that is not.
+
+**Engine choice is developer-only, and the gate is an environment variable rather than
+`#if DEBUG`.** `ARTSCRIBE_DEV_MENU=1` adds **Playback ▸ Developer ▸ Stretch Engine** — the four
+`StretchEngine` cases as a radio group. `#if DEBUG` would have been the obvious choice and is
+the wrong one: the menu exists to judge stretchers *by ear*, a debug build decodes roughly 4×
+slower, and comparing two engines on a build that stalls under both measures nothing. The gate
+has to survive `-c release`. A bundle launched from Finder inherits no shell environment and so
+never shows it, which is the point.
+
+Playback ▸ "Use Fast Engine" (`⌥E`) is **gone**. Offering R2 Faster to users was never right —
+it drifts pitch up to 26 cents at half speed and 108 at the extremes — and it means nothing on
+iOS, where Rubber Band cannot be linked. `artscribe-cli --engine` is the headless equivalent and
+prints the engine on every run.
 
 **Match the fix to the tool.** Small contained changes — a layout tweak, a one-file fix, a
 doc correction — should just be made. Spawning a subagent costs 20–80 minutes and 200–400k

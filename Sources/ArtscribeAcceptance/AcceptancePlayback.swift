@@ -145,14 +145,6 @@ extension AcceptanceRun {
         press(.one)
         log.check("1 returns to 100%", model.speed.ratio == 1.0)
 
-        let engineBefore = model.speed.engine
-        press(.optionE)
-        log.check(
-            "⌥E toggles the stretch engine (\(engineBefore) → \(model.speed.engine))",
-            model.speed.engine != engineBefore)
-        press(.optionE)
-        log.check("⌥E toggles back", model.speed.engine == engineBefore)
-
         // Changing speed while playing must not lose position. Measured across
         // the change, at the position the listener is at.
         model.seek(to: FrameIndex(model.sampleRate * 5))

@@ -93,7 +93,7 @@ func makeSession(url: URL, device: String?, speed: SpeedState) async throws -> S
 
     let ring = CommandRing(capacity: 64)
     let engine = PlaybackEngine(
-        audio: audio, stretcher: RubberBandStretcher(engine: speed.engine), ring: ring,
+        audio: audio, stretcher: PlatformStretcher.make(engine: speed.engine), ring: ring,
         maxBlock: 1024)
     let output = try AudioOutput(
         engine: engine, sampleRate: audio.sampleRate)
@@ -207,9 +207,15 @@ func run() async throws {
 
     var speed = SpeedState()
     speed.setRatio(options.speed)
+    speed.engine = options.engine
     if speed.ratio != options.speed {
         print(String(format: "Speed clamped to %.2f×.", speed.ratio))
     }
+    // Printed unconditionally, not only when it was chosen. Listening to the
+    // wrong engine and not knowing is exactly the mistake this tool exists to
+    // stop, and on a build without Rubber Band `PlatformStretcher` substitutes
+    // Signalsmith for the two Rubber Band cases.
+    print("Engine: \(speed.engine.displayName)")
 
     let session = try await makeSession(url: url, device: options.device, speed: speed)
     try startPlayback(session, options: options, speed: speed)

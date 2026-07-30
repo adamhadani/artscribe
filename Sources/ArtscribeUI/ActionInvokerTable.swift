@@ -74,8 +74,7 @@ extension ActionInvoker {
         .speedPreset100: preset(0),
         .speedPreset75: preset(1),
         .speedPreset50: preset(2),
-        .speedPreset33: preset(3),
-        .speedEngineToggle: { $0.model.toggleStretchEngine() }
+        .speedPreset33: preset(3)
     ]
 
     private static func preset(_ index: Int) -> @MainActor (MenuContext) -> Void {

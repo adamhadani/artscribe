@@ -53,7 +53,6 @@ public enum ActionID: String, CaseIterable, Hashable, Sendable {
     case speedPreset75 = "speed.preset.75"
     case speedPreset50 = "speed.preset.50"
     case speedPreset33 = "speed.preset.33"
-    case speedEngineToggle = "speed.engineToggle"
 
     // Pitch — independent of speed
     case pitchUp = "pitch.up"

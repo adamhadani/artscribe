@@ -16,6 +16,10 @@ struct CommandLineOptions {
     /// Seconds after which to switch to the next output device, for verifying
     /// that a device change preserves position, speed and loop.
     var switchAfterSeconds: Double?
+    /// Which stretching backend to listen to. The CLI is the A/B tool that does
+    /// not need a window, and it prints the render-thread degradation counters,
+    /// which is the part a menu cannot show you.
+    var engine: StretchEngine = .studio
 
     static let usage = """
         usage: artscribe-cli [options] <file> [speed] [loopStart loopEnd]
@@ -24,7 +28,12 @@ struct CommandLineOptions {
           --list-devices     print the output devices and exit
           --device <name>    play to the device whose name contains <name>
           --switch-after <s> switch to the next output device after <s> seconds
+          --engine <name>    \(engineNames) (default studio)
         """
+
+    /// Built from `allCases` rather than typed out, so a new backend appears in
+    /// the help text without anyone remembering to add it.
+    static let engineNames = StretchEngine.allCases.map(\.rawValue).joined(separator: " | ")
 
     static func parse(_ arguments: [String]) throws -> CommandLineOptions {
         var options = CommandLineOptions()
@@ -56,6 +65,15 @@ struct CommandLineOptions {
             let text = try value()
             guard let seconds = Double(text) else { throw CLIError.notANumber(text) }
             switchAfterSeconds = seconds
+            return 2
+        case "--engine":
+            let text = try value()
+            // A typo must not silently play the default engine — the whole point
+            // of the flag is knowing which one you are listening to.
+            guard let parsed = StretchEngine(rawValue: text) else {
+                throw CLIError.unknownEngine(text)
+            }
+            engine = parsed
             return 2
         case "-h", "--help":
             throw CLIError.help
@@ -91,6 +109,7 @@ enum CLIError: Error, LocalizedError {
     case notANumber(String)
     case emptyLoop
     case noSuchDevice(String)
+    case unknownEngine(String)
     case noFile
 
     var errorDescription: String? {
@@ -101,6 +120,8 @@ enum CLIError: Error, LocalizedError {
         case .notANumber(let text): return "\(text) is not a number."
         case .emptyLoop: return "The loop end must be after the loop start."
         case .noSuchDevice(let name): return "No output device matches “\(name)”."
+        case .unknownEngine(let name):
+            return "Unknown engine “\(name)”. One of: \(CommandLineOptions.engineNames)."
         case .noFile: return "No input file given.\n\n\(CommandLineOptions.usage)"
         }
     }

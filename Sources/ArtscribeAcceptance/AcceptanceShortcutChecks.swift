@@ -216,11 +216,17 @@ extension AcceptanceRun {
         press(.z)
         log.check("Z nudges back once", model.playhead == middle)
 
-        let engine = model.speed.engine
-        press(.optionE)
-        log.check("⌥E still toggles once with the plain keys live", model.speed.engine != engine)
-        press(.optionE)
-        log.check("⌥E toggles back once", model.speed.engine == engine)
+        // The ⌥-modified pair, for the reason the plain Z/X pair above is here:
+        // the window's own binding and the menu's key equivalent must not both
+        // fire. ⌥E carried this until the engine toggle was removed.
+        let coarse = FrameIndex((model.prefs.nudgeAmounts[.coarse] * model.sampleRate).rounded())
+        press(.optionX)
+        log.check(
+            "⌥X nudges once with the plain keys live "
+                + "(\(model.playhead - middle) frames, one step is \(coarse))",
+            model.playhead - middle == coarse)
+        press(.optionZ)
+        log.check("⌥Z nudges back once", model.playhead == middle)
 
         model.clearLoop()
         press(.a)

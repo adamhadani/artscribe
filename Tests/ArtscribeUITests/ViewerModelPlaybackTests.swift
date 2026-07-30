@@ -58,13 +58,32 @@ struct ViewerModelPlaybackTests {
         #expect(model.speed.ratio == 0.33)
     }
 
-    @Test("the engine toggle flips between studio and fast and back")
-    func engineToggle() {
+    /// Every engine is selectable, and selecting one sticks.
+    ///
+    /// Was "the engine toggle flips between studio and fast and back", which
+    /// could only ever have described two backends. There are four now, the
+    /// control is a developer-only radio group rather than a toggle, and a test
+    /// that walked a two-element cycle would keep passing while two of the four
+    /// were unreachable.
+    @Test("every stretch engine can be selected")
+    func engineSelection() {
         let model = makeModel()
-        #expect(model.speed.engine == .studio)
-        model.toggleStretchEngine()
-        #expect(model.speed.engine == .fast)
-        model.toggleStretchEngine()
+        #expect(model.speed.engine == .studio, "studio is the default")
+        for engine in StretchEngine.allCases {
+            model.setStretchEngine(engine)
+            #expect(model.speed.engine == engine, "\(engine.rawValue) did not stick")
+        }
+    }
+
+    /// Selecting the engine that is already running must not rebuild the graph.
+    ///
+    /// `applySpeed` returns early on an unchanged `SpeedState`, which is what
+    /// stops a radio item's `Binding` — re-evaluated on every menu pass — from
+    /// tearing the audio down and back up while the menu is merely open.
+    @Test("re-selecting the running engine is not an edit")
+    func reselectingIsNotAnEdit() {
+        let model = makeModel()
+        model.setStretchEngine(.studio)
         #expect(model.speed.engine == .studio)
     }
 

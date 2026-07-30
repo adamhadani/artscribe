@@ -58,17 +58,12 @@ public enum ActionTitle {
 
     /// The two titles that name a *state* rather than an action.
     ///
-    /// The engine item says which engine is running now, because "Studio /
-    /// Fast" alone leaves you guessing which half is current. It is set off
-    /// with a dash rather than `"  (now: Studio)"`: "no menu title contains
-    /// `  (`" is the one-line rule the acceptance run uses to prove no shortcut
-    /// is spelled into a title, and it is only worth having with no exceptions.
+    /// Only Play/Pause now. The engine toggle used to live here too, spelling
+    /// out which of Rubber Band's two engines was running; engine choice is
+    /// developer-only since, and the checkmarks in `DeveloperEngineMenu` say
+    /// which is current without a title having to.
     private static let live: [ActionID: @MainActor (MenuContext) -> String] = [
-        .transportPlayPause: { $0.model.isPlaying ? "Pause" : "Play" },
-        .speedEngineToggle: {
-            $0.model.speed.engine == .studio
-                ? "Use Fast Engine — now: Studio" : "Use Studio Engine — now: Fast"
-        }
+        .transportPlayPause: { $0.model.isPlaying ? "Pause" : "Play" }
     ]
 }
 
@@ -172,6 +167,8 @@ struct MenuItems: View {
                 RecentFilesMenu(model: context.model, recents: context.recents)
             case .dynamicSubmenu(.outputDevice):
                 OutputDeviceMenu(devices: context.devices)
+            case .dynamicSubmenu(.developer):
+                DeveloperEngineMenu(model: context.model)
             }
         }
     }

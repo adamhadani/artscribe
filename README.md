@@ -130,6 +130,37 @@ Release, not debug — a debug build decodes roughly four times slower.
 > focus back. It also never receives Launch Services open events, so "Open With" and dock
 > drops only work from the bundle.
 
+#### The developer menu — comparing stretch engines
+
+Artscribe has two time-stretching backends, and which one is running is **not** a user-facing
+choice. It is one for whoever is working on the audio:
+
+```sh
+ARTSCRIBE_DEV_MENU=1 swift run -c release ArtscribeApp
+```
+
+That adds **Playback ▸ Developer ▸ Stretch Engine**: Rubber Band R3 (Studio), Rubber Band R2
+(Fast), Signalsmith, Signalsmith (Cheaper). Switching rebuilds the audio graph, so you will
+hear a short gap — you are comparing two renders separated by a reload, not crossfading
+between them.
+
+An environment variable rather than a `DEBUG`-only build, deliberately: the menu exists to
+judge engines *by ear*, and a debug build decodes about four times slower, so it would make
+both engines sound bad and the comparison worthless. The gate has to survive `-c release`.
+
+A bundle launched from Finder inherits no shell environment and so never shows it, which is
+the point — the menu cannot appear for someone who did not ask for it from a terminal.
+
+For a headless A/B, with the render-thread degradation counters a menu cannot show you:
+
+```sh
+swift run -c release artscribe-cli --engine signalsmith track.flac 0.5 10 14
+```
+
+`--engine` takes `studio`, `fast`, `signalsmith` or `signalsmithCheaper`, and the chosen
+engine is printed on every run — listening to the wrong one without knowing is the mistake
+the tool exists to prevent.
+
 ### Running it on an iPad
 
 There is an iPad target — `ArtscribeiPad` — and it needs no App Store, no TestFlight and no
@@ -430,7 +461,6 @@ Release, not debug — a debug build decodes roughly four times slower.
 | `Q` / `W` | Slower / faster (5%) |
 | `⇧Q` / `⇧W` | Slower / faster (1%) |
 | `1` `2` `3` `4` | 100% / 75% / 50% / 33% |
-| `⌥E` | Toggle Studio / Fast engine |
 | `↑` / `↓` | Volume up / down — `⇧↑` / `⇧↓` in finer steps |
 | `M` | Mute |
 

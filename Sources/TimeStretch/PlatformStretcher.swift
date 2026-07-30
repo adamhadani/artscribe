@@ -36,15 +36,35 @@ import ArtscribeKit
 /// Reinstate it when a platform can actually answer `false`.
 public enum PlatformStretcher {
 
+    /// The one translation between `StretchEngine` — four backends, a persisted
+    /// user-visible name — and the two libraries that implement them.
+    ///
+    /// Exhaustive on purpose. A fifth engine has to be routed here before it
+    /// compiles, which is the property the old `engine == .studio ? … : …`
+    /// comparison did not have.
     public static func make(engine: StretchEngine) -> any TimeStretcher {
-        #if canImport(CRubberBand)
-        return RubberBandStretcher(engine: engine)
-        #else
-        // `.fast` is the user asking for less CPU, which is what `presetCheaper`
-        // is; `.studio` is the user asking for quality. The two enum cases name
-        // Rubber Band's engines, so the mapping is by *intent* rather than by
-        // name — see the note above about the case this enum is still missing.
-        return SignalsmithStretcher(quality: engine == .fast ? .cheaper : .standard)
-        #endif
+        switch engine {
+        case .signalsmith:
+            return SignalsmithStretcher(quality: .standard)
+        case .signalsmithCheaper:
+            return SignalsmithStretcher(quality: .cheaper)
+        case .studio, .fast:
+            #if canImport(CRubberBand)
+            return RubberBandStretcher(core: engine == .fast ? .faster : .finer)
+            #else
+            // **A substitution, and it is not silent by accident.** A sidecar
+            // written on a Mac carries `engine: "studio"`, and opening that file
+            // on an iPad has to do *something* — there is no Rubber Band to
+            // link. Signalsmith is the honest choice rather than refusing to
+            // play, and it is the closer of the two in measured pitch accuracy
+            // anyway.
+            //
+            // Nothing surfaces this to the user because nothing can select it
+            // there: engine choice is developer-only and the iPad has no menu
+            // bar to expose it. If engine choice ever becomes user-facing, this
+            // is the branch that owes them a notice — spec §8.
+            return SignalsmithStretcher(quality: .standard)
+            #endif
+        }
     }
 }

@@ -34,7 +34,7 @@ struct ViewerModelSessionTests {
     @Test("switching the stretch engine is an edit")
     func engineIsAnEdit() throws {
         let model = SessionTestModel.make(try SessionScratch())
-        model.toggleStretchEngine()
+        model.setStretchEngine(.fast)
         #expect(model.isDirty)
     }
 
@@ -206,7 +206,7 @@ struct ViewerModelSessionTests {
         let scratch = try SessionScratch()
         let first = SessionTestModel.make(scratch)
         first.setSpeedPreset(0.5)
-        first.toggleStretchEngine()
+        first.setStretchEngine(.fast)
         first.seek(to: 1000)
         first.setLoopIn()
         first.seek(to: 60_000)
