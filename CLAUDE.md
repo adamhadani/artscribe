@@ -22,7 +22,10 @@ ARTSCRIBE_DEV_MENU=1 swift run -c release ArtscribeApp
 # Headless A/B between backends, with the degradation counters a menu cannot show.
 swift run -c release artscribe-cli --engine signalsmith <audio> 0.5 10 14
 
-# The acceptance harness: a live window driven through ~600 checks.
+# The acceptance harness: a live window driven through ~700 checks.
+# **Use `make acceptance`** — it holds the display awake, which is not optional.
+make acceptance AUDIO=<audio> [ARGS='--only loop']
+
 swift run -c release ArtscribeAcceptance --list
 swift run -c release ArtscribeAcceptance --acceptance <audio> [--bad-file <f>] [--out <dir>] \
     [--only <groups>] [--skip <groups>] [--quick]
@@ -182,6 +185,13 @@ surfaces as a number rather than a mystery.
 while audio renders normally at 130%+ CPU on CoreAudio threads, and every position-based check
 fails while nothing is wrong. If the position cluster ever goes red again, assert
 `PlayheadClock.isRunning` and **skip** rather than fail.
+
+**This has now bitten twice, and `make acceptance` is the fix.** It wraps the run in
+`caffeinate -dimsu`. Measured 2026-07-30 on identical code: **13 failures without it, 0 with**
+— "0 frames", "0 wraps observed over 18 s", the whole playback and practice cluster. The
+diagnosis took two runs of the documented discriminators (run the group alone; run at the
+merge-base and diff the FAIL lines — they were byte-identical). Reach for `caffeinate` first
+now; it is cheaper than either.
 
 **Deliverability is a fact about the machine; never infer it from the result.** A press that
 does nothing must fail on a machine that *can* deliver presses, or a broken button excuses
