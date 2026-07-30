@@ -180,11 +180,24 @@ its own arithmetic, on every run against album-length input. Drive to a **measur
 instead, and print what was reached (`2.27 s after 21 zoom steps`) so a changed zoom step
 surfaces as a number rather than a mystery.
 
-**`model.playhead` is not the engine's position.** It is polled by `PlayheadClock`'s
-`CADisplayLink` on `NSScreen.main`. If that link stops — display asleep — the value freezes
-while audio renders normally at 130%+ CPU on CoreAudio threads, and every position-based check
-fails while nothing is wrong. If the position cluster ever goes red again, assert
-`PlayheadClock.isRunning` and **skip** rather than fail.
+**`model.playhead` is not the engine's position — it is polled, and the poll used to stop.**
+`PlayheadClock` drives it from a `CADisplayLink`, which stops firing while the display sleeps.
+Audio carries on rendering perfectly, so the symptom was every position-based check failing
+against a healthy engine ("0 frames", "0 wraps observed over 18 s") — and, far worse than a red
+test, **the practice ramp silently stopped advancing**, because it counts loop wraps from polled
+positions. A ten-minute ramp left running while the screen slept stayed on repetition one.
+
+**Fixed:** the clock watches its own pulse and hands over to a 60 Hz timer when the link goes
+quiet for more than 250 ms, handing back the moment a real tick arrives. Verified as a
+controlled A/B — same script, `pmset displaysleepnow` ten seconds in, no `caffeinate`:
+**13 failures on the old code, 0 on the new.**
+
+Two corrections to what used to be written here. The advice to "assert `PlayheadClock.isRunning`
+and skip" could never have worked: `isRunning` answered `link != nil`, and a stopped
+`CADisplayLink` is still a valid non-nil object, so it reported good health about a
+clock that had not ticked in ten minutes. Staleness is a question about elapsed time, which is why
+`PlayheadClockPolicy` exists. And `make acceptance` wraps runs in `caffeinate` anyway — keep
+that, since it removes the *test* flake, but it was never the fix for the product.
 
 **This has now bitten twice, and `make acceptance` is the fix.** It wraps the run in
 `caffeinate -dimsu`. Measured 2026-07-30 on identical code: **13 failures without it, 0 with**
