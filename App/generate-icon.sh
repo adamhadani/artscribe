@@ -18,4 +18,20 @@ if [ -f "$icns" ] && [ "$icns" -nt "$source_file" ] \
     exit 0
 fi
 
-exec swift "$source_file" "$here"
+# **Run against the macOS SDK, whatever build invoked this.**
+#
+# This is a macOS command-line script that draws with CoreGraphics, but it is now
+# a pre-build step of the *iOS* target as well — and Xcode exports SDKROOT,
+# PLATFORM_NAME and friends into script phases. Inheriting those makes `swift`
+# try to compile a macOS script for iOS and fail with
+#
+#     error: unable to load standard library for target 'arm64-apple-macosx26.0'
+#
+# which names macOS and so reads like the opposite problem.
+#
+# It passed locally and failed in CI for a reason worth remembering: the outputs
+# are gitignored, so a working copy that already has them short-circuits above
+# and never runs this line. Only a clean checkout does. Deleting both outputs
+# before testing is what reproduces it.
+exec env -u SDKROOT -u PLATFORM_NAME -u SUPPORTED_PLATFORMS -u TOOLCHAINS \
+    xcrun --sdk macosx swift "$source_file" "$here"
