@@ -55,6 +55,25 @@ extension ViewerModel {
         }
     }
 
+    /// Pinch-to-zoom on the waveform lanes.
+    ///
+    /// `x` is in the **lanes' own** coordinate space, not the window's — which is
+    /// why this exists rather than the view calling `zoom(by:at:)`. That one
+    /// takes a window point because a pointer can be over the lanes, the
+    /// overview strip, or neither; a pinch arrives already attached to the view
+    /// it happened on, so the hit-testing step is not merely unnecessary but
+    /// wrong: converting to window coordinates and back can land the anchor in
+    /// the overview strip when the lanes are short.
+    ///
+    /// The mapping is direct — `Viewport.zoom(by:)` treats a factor above 1 as
+    /// zooming in, and so does `MagnifyGesture.magnification`. Anchoring on the
+    /// frame under the fingers is the whole point: a pinch that anchored on the
+    /// playhead would slide the passage you are pinching out from under them.
+    public func pinchZoom(by factor: Double, atLaneX x: CGFloat) {
+        guard hasTrack, factor > 0, factor.isFinite, x.isFinite else { return }
+        zoom(by: factor, anchorFrame: PixelMapping.frame(atPixel: x, in: viewport))
+    }
+
     // MARK: - Drag to zoom
 
     /// How far the drag-to-zoom travels per doubling. Published so the

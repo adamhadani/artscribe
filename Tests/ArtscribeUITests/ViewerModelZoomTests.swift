@@ -118,4 +118,54 @@ struct ViewerModelZoomTests {
         model.zoom(by: 2, at: CGPoint(x: 250, y: 300))
         #expect(model.viewport.startFrame == 0)
     }
+
+    // MARK: - Pinch (iPad)
+
+    /// A pinch anchors on the frame under the fingers, not on the playhead.
+    ///
+    /// This is the property the whole method exists for. Anchoring on the
+    /// playhead — which is what plain `zoom(by:)` does, and what you get by
+    /// forgetting to pass an anchor — slides the passage being pinched out from
+    /// under the fingers doing the pinching.
+    @Test("a pinch keeps the frame under the fingers under the fingers")
+    func pinchAnchorsUnderTheFingers() {
+        let model = makeModel()
+        model.seek(to: 0)
+        let x: CGFloat = 750
+        let anchored = model.viewport.frame(atPixel: Double(x))
+
+        model.pinchZoom(by: 2.0, atLaneX: x)
+        expectFrame(anchored, staysAtPixel: Double(x), in: model)
+    }
+
+    /// Magnification above 1 is a pinch *out*, and must zoom in — fewer frames
+    /// per pixel. The two conventions agree, but only by luck: `MagnifyGesture`
+    /// and `Viewport.zoom(by:)` were written by different people for different
+    /// reasons, and a reciprocal here would be invisible until someone pinched.
+    @Test("pinching out zooms in, pinching in zooms out")
+    func pinchDirection() {
+        let model = makeModel()
+        let start = model.framesPerPixel
+
+        model.pinchZoom(by: 2.0, atLaneX: 500)
+        #expect(model.framesPerPixel < start, "pinching out did not zoom in")
+
+        let zoomedIn = model.framesPerPixel
+        model.pinchZoom(by: 0.5, atLaneX: 500)
+        #expect(model.framesPerPixel > zoomedIn, "pinching in did not zoom out")
+    }
+
+    /// A gesture that reports a nonsense scale must not corrupt the viewport.
+    /// `MagnifyGesture` deltas are a division, and a division can produce these.
+    @Test("a non-finite or non-positive pinch is ignored")
+    func pinchRejectsNonsense() {
+        let model = makeModel()
+        let start = model.framesPerPixel
+        for factor in [0.0, -1.0, Double.nan, Double.infinity] {
+            model.pinchZoom(by: factor, atLaneX: 500)
+            #expect(model.framesPerPixel == start, "factor \(factor) changed the viewport")
+        }
+        model.pinchZoom(by: 2.0, atLaneX: .nan)
+        #expect(model.framesPerPixel == start, "a NaN anchor changed the viewport")
+    }
 }
