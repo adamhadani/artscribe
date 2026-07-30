@@ -35,11 +35,9 @@ private func playingEngine(_ audio: DecodedAudio) -> (PlaybackEngine, CommandRin
     return (engine, ring)
 }
 
-/// Every test here builds a real `AVAudioEngine` graph. That needs an output
-/// device to *exist* — nothing below starts hardware or makes a sound — which a
-/// headless CI runner may not have, so these tests are gated rather than
-/// silently passing on a machine where the graph cannot be built.
-private let hasOutputDevice = CoreAudioHAL.defaultOutputDevice() != nil
+/// See `OutputDeviceAvailability` — why the graph needs a device to exist, and
+/// why the question is platform-dependent.
+private let hasOutputDevice = OutputDeviceAvailability.hasOutputDevice
 
 private enum TestSetupError: Error { case unsupportedFormat }
 
@@ -289,7 +287,9 @@ func theLatencyTheGraphAddsIsMeasuredNotAssumed() throws {
 
     let frameBefore = engine.currentFrame
     let playingBefore = engine.isPlaying
-    guard let device = CoreAudioDeviceSource().defaultOutputDevice() else { return }
+    // Via `PlatformAudio` so this runs on iOS too, where it asserts the other
+    // half of the contract: `setOutputDevice` is a no-op that must *succeed*.
+    guard let device = PlatformAudio.makeDeviceSource().defaultOutputDevice() else { return }
     try output.setOutputDevice(device)
 
     #expect(engine.currentFrame == frameBefore)

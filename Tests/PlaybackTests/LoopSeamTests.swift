@@ -128,9 +128,13 @@ private struct SeamMeasurement {
 ///
 /// `halfWindow` has to exceed the backend's start delay, or a stretcher that re-primes at
 /// the wrap can hide its silent gap just outside the window and score zero for it.
+/// The stretcher is required rather than defaulted, and the default it lost was
+/// `RubberBandStretcher` — which does not exist on iOS. Naming it at each call site is what
+/// lets this file's machinery compile for a phone, and therefore what lets the Signalsmith
+/// sweep below run on the one platform where Signalsmith is the *only* backend.
 private func measureLoopSeam(
     loopLength: Int, halfWindow: Int = seamHalfWindow,
-    stretcher: () -> any TimeStretcher = { RubberBandStretcher(core: .finer) }
+    stretcher: () -> any TimeStretcher
 ) -> SeamMeasurement {
     // At least one wrap always, several for the short loops, without paying nine seconds
     // of audio per length for the long ones.
@@ -174,6 +178,12 @@ private func measureLoopSeam(
         wraps: wraps, stalls: loopedStalls + controlStalls)
 }
 
+// Rubber Band exists on macOS only — Homebrew builds a macOS dylib and nothing else — so the
+// sweep against it is conditional while the Signalsmith sweep below is not. Guarding the test
+// rather than the whole file is deliberate: everything above is shared, and the point of this
+// change is that the *portable* backend's seam gets proved on the portable platform.
+#if canImport(CRubberBand)
+
 /// The single most important property in the product, swept across the loop lengths a
 /// user actually works in: looping a passage must sound exactly like playing that passage
 /// written out end to end. Nothing may be flushed, re-primed or re-aligned at the wrap.
@@ -185,7 +195,8 @@ private func measureLoopSeam(
 /// one-frame slip at the wrap, which is not a click at all, still scores 0.031 (3×).
 @Test func rubberBandLoopingIsIndistinguishableFromAContiguousRender() {
     for loopLength in sweptLoopLengths {
-        let m = measureLoopSeam(loopLength: loopLength)
+        let m = measureLoopSeam(
+            loopLength: loopLength, stretcher: { RubberBandStretcher(core: .finer) })
         let label = "loopLength \(loopLength)"
 
         // The comparison is only meaningful if there was something to compare, and if the
@@ -203,6 +214,8 @@ private func measureLoopSeam(
             "\(label): worst sample disagreement \(m.worstSample) against a contiguous render")
     }
 }
+
+#endif  // canImport(CRubberBand)
 
 /// Signalsmith's start delay, measured: 6615 output frames at 44.1 kHz and ratio 1.0
 /// (`inputLatency` 2646 + `outputLatency` 3969). The window has to be wider than that, or a

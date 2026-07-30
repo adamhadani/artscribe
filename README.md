@@ -157,6 +157,19 @@ For a headless A/B, with the render-thread degradation counters a menu cannot sh
 swift run -c release artscribe-cli --engine signalsmith track.flac 0.5 10 14
 ```
 
+#### Running the tests on an iPad simulator
+
+```sh
+make ios-test              # or: make ios-test SIM='iPad Pro 13-inch (M4)'
+```
+
+248 tests — everything portable, which is all of `ArtscribeKit`, `Waveform`, `TimeStretch` and
+`Playback` except the suites that need Rubber Band. Those are behind
+`#if canImport(CRubberBand)` and simply do not exist on iOS.
+
+`make ios-check` only *compiles* for iOS. This runs, which is a different claim: Signalsmith is
+the only stretcher on iOS, so its loop-seam proof belongs on the platform that uses it.
+
 `--engine` takes `studio`, `fast`, `signalsmith` or `signalsmithCheaper`, and the chosen
 engine is printed on every run — listening to the wrong one without knowing is the mistake
 the tool exists to prevent.
