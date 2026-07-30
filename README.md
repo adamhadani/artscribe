@@ -174,6 +174,25 @@ the only stretcher on iOS, so its loop-seam proof belongs on the platform that u
 engine is printed on every run — listening to the wrong one without knowing is the mistake
 the tool exists to prevent.
 
+#### Debugging on the iPad
+
+```sh
+make ipad              # build, install, launch with the console attached
+make ipad DEV=1        # …and with Playback ▸ Developer ▸ Stretch Engine
+make ipad-container    # pull the app's UserDefaults and sidecars off the device
+```
+
+`--console` keeps the process attached and streams its output. That is the *only*
+channel that reaches the terminal — this macOS's `log stream` has no
+`--device-name`, and `devicectl`'s `--log-output` logs the tool rather than the
+app — so anything you want to see from a device run has to be printed by the app
+itself. Ctrl-C detaches the console without killing the app.
+
+`make ipad-container` is the one that earns its keep. The Open Recent bookmark
+bug was diagnosed by reading the stored preferences: the bookmark keys and the
+recent-file paths disagreed by exactly the `/private` prefix, which no amount of
+reading the code would have revealed.
+
 ### Running it on an iPad
 
 There is an iPad target — `ArtscribeiPad` — and it needs no App Store, no TestFlight and no

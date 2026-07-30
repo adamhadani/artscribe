@@ -59,11 +59,38 @@ public final class RecentFiles {
         bookmarks = defaults.dictionary(forKey: Self.bookmarksKey) as? [String: Data] ?? [:]
     }
 
-    /// The key both stores agree on: the same standardisation `updated` uses to
-    /// spot duplicates, so a file reached through a symlink or a `/private`
-    /// prefix finds its own bookmark rather than growing a second one.
+    /// The key the bookmark store uses: **exactly the string `urls` is persisted
+    /// as**, and nothing cleverer.
+    ///
+    /// This used to be `standardizedFileURL.resolvingSymlinksInPath().path`,
+    /// borrowed from the de-duplication logic on the reasoning that two views of
+    /// the same file should share a bookmark. That was wrong in a way only a
+    /// device could show, and it broke Open Recent completely on iPad.
+    ///
+    /// **`resolvingSymlinksInPath()` touches the filesystem**, so its answer
+    /// depends on whether the file is reachable *at that moment*. Minting a
+    /// bookmark happens inside the document picker's completion, with access
+    /// held; looking one up happens after a relaunch, with no access at all.
+    /// Pulled off the device, the two stores disagreed exactly as that predicts:
+    ///
+    ///     recentFiles         /private/var/mobile/Library/CloudStorage/…
+    ///     recentFileBookmarks         /var/mobile/Library/CloudStorage/…
+    ///
+    /// The bookmark was stored correctly every time. The lookup key simply never
+    /// matched it, so every Open Recent fell back to the stale path and iOS
+    /// refused with "you don't have permission to view it".
+    ///
+    /// Keying on `url.path` is correct **by construction** rather than by
+    /// argument: `note` persists `urls.map(\.path)` and `init` rebuilds them
+    /// with `URL(fileURLWithPath:)`, so this round-trips a listed entry to its
+    /// own bookmark with no filesystem access and no cleverness in between.
+    ///
+    /// The cost is that the same file reached by two different paths keeps two
+    /// bookmarks. That is a few hundred bytes, and it is the direction to be
+    /// wrong in — de-duplication is `updated`'s job, and a bookmark that cannot
+    /// be found is worth less than one stored twice.
     static func key(for url: URL) -> String {
-        url.standardizedFileURL.resolvingSymlinksInPath().path
+        url.path
     }
 
     /// Records how to reach `url` again after the app is relaunched.
