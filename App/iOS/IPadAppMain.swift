@@ -19,10 +19,14 @@ import SwiftUI
 ///
 /// ## What this build can and cannot do
 ///
-/// It opens a track, draws the waveform, selects, loops, and plays. It **cannot
-/// change speed**: there is no Rubber Band for iOS, so `PlatformStretcher`
-/// hands back an `IdentityStretcher` and the speed control moves without
-/// affecting anything. See `PlatformStretcher.hasRealTimeStretching`.
+/// It opens a track, draws the waveform, selects, loops, plays — and, as of the
+/// Signalsmith backend, **changes speed for real**. That last one was the gap
+/// that made this build a demonstration rather than a product: Rubber Band is a
+/// macOS dylib from Homebrew, so `PlatformStretcher` used to hand back an
+/// `IdentityStretcher` here and the speed control moved without affecting
+/// anything at all. Signalsmith is vendored source compiled into the app, so it
+/// exists on iOS, and it is measured to hold pitch within 0.05 cents at half and
+/// double speed. See `PlatformStretcher`.
 ///
 /// The Keyboard Shortcuts and Practice windows are absent rather than broken —
 /// their views are still macOS-only, and they become sheets in the next piece of

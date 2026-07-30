@@ -16,8 +16,10 @@ Rubber Band Library — https://breakfastquay.com/rubberband/
   Present in: the macOS build only. Linked dynamically from Homebrew and embedded
   into the app bundle by App/embed-dependencies.sh.
 
-  Absent from: every iOS and iPadOS build. There is no Rubber Band for iOS, which
-  is why `PlatformStretcher` reports `hasRealTimeStretching == false` there.
+  Absent from: every iOS and iPadOS build. Homebrew builds a macOS dylib and
+  nothing else, so `CRubberBand` is a `.when(platforms: [.macOS])` dependency and
+  the wrapper sits behind `#if canImport(CRubberBand)`. Verified on the artefact
+  rather than assumed: the iPad build contains zero symbols matching "rubberband".
 
   **A binary that links Rubber Band is a combined work and may only be
   distributed under the GPL.** That is a fact about the binary, not about this
@@ -25,8 +27,28 @@ Rubber Band Library — https://breakfastquay.com/rubberband/
   Rubber Band's licence is load-bearing: Apache-2.0 is compatible with GPLv3 and
   is NOT compatible with GPLv2, so the combination must be taken as v3.
 
+Signalsmith Stretch — https://github.com/Signalsmith-Audio/signalsmith-stretch
+  Copyright (c) 2022 Geraint Luff / Signalsmith Audio Ltd.
+  MIT License. Full text: LICENSES/MIT-signalsmith-stretch.txt
+
+  Present in: every build, on every platform. Vendored as source under
+  Sources/CSignalsmithStretch/vendor/ and compiled with the app rather than
+  linked from a package manager, which is what allows it to exist on iOS at all.
+
+  On iOS and iPadOS it is the only stretcher, and therefore the one that makes
+  those builds a product rather than a demonstration.
+
+Signalsmith Linear — https://github.com/Signalsmith-Audio/linear
+  Copyright (c) 2025 Signalsmith Audio.
+  MIT License. Full text: LICENSES/MIT-signalsmith-linear.txt
+
+  Present in: every build. A separate repository from Signalsmith Stretch, which
+  includes its FFT and STFT headers directly; it is vendored alongside for that
+  reason and is not an optional component.
+
 --------------------------------------------------------------------------------
 
-The source in this repository is Apache-2.0 and is not encumbered by the above.
-Anything built from it *without* Rubber Band — which today means any iOS or
-iPadOS build — carries no GPL obligation.
+The source in this repository is Apache-2.0. Both Signalsmith libraries are MIT,
+which imposes only attribution — satisfied by this file. So a build that contains
+no Rubber Band carries no copyleft obligation, and today that means every iOS and
+iPadOS build.

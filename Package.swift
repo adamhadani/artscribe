@@ -37,6 +37,22 @@ let package = Package(
             pkgConfig: "rubberband",
             providers: [.brew(["rubberband"])]
         ),
+        // Signalsmith Stretch, vendored, plus the C shim that makes it callable
+        // from Swift. Unlike `CRubberBand` this is **not** a system library: the
+        // sources are in-tree and we compile them, which is precisely what makes
+        // an iOS build possible — there is no Homebrew on a phone.
+        //
+        // `vendor` is on the header search path because
+        // `signalsmith-stretch.h` includes `"signalsmith-linear/stft.h"`, and a
+        // quoted include resolves relative to the *including* file first. Only
+        // `include/` is public, so Swift sees the flat C surface and never the
+        // C++ templates behind it.
+        //
+        // Accelerate is deliberately not enabled here yet; see `VENDOR.md`.
+        .target(
+            name: "CSignalsmithStretch",
+            cxxSettings: [.headerSearchPath("vendor")]
+        ),
         .target(name: "ArtscribeKit", swiftSettings: sharedSwiftSettings),
         .target(
             name: "AudioDecode",
@@ -78,7 +94,11 @@ let package = Package(
             name: "TimeStretch",
             dependencies: [
                 "ArtscribeKit",
-                .target(name: "CRubberBand", condition: .when(platforms: [.macOS]))
+                .target(name: "CRubberBand", condition: .when(platforms: [.macOS])),
+                // No platform condition, and that is the point: this backend
+                // exists so that `PlatformStretcher` has something real to
+                // return on iOS.
+                "CSignalsmithStretch"
             ],
             swiftSettings: sharedSwiftSettings
         ),
@@ -138,5 +158,7 @@ let package = Package(
             dependencies: ["ArtscribeAcceptance"],
             swiftSettings: sharedSwiftSettings
         )
-    ]
+    ],
+    // For the vendored Signalsmith headers. Nothing else in the package is C++.
+    cxxLanguageStandard: .cxx17
 )
