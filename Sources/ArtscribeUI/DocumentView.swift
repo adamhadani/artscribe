@@ -16,6 +16,12 @@ public struct DocumentView: View {
     // bar's modified dot, its proxy icon and the close prompt. On iPad the
     // gestures come from SwiftUI directly and there is no title bar at all —
     // both are part of the touch work in `#58`, not translations of these.
+    #if !os(macOS)
+    /// Raises the document picker. iOS only — macOS opens through a modal panel
+    /// that returns its result, so it needs no presentation state.
+    @State private var showingImporter = false
+    #endif
+
     #if os(macOS)
     @State private var trackpad = TrackpadMonitor()
     /// The window's modified dot, proxy icon and close prompt. Built once, from
@@ -47,11 +53,11 @@ public struct DocumentView: View {
             #if os(macOS)
             TitleBarView(model: model) { ViewerActions.open(model) }
             #else
-            // The iPad Open button needs a `.fileImporter` presented from
-            // here rather than a call that returns a URL; until that lands
-            // the button has nothing to do, so it is given nothing to do
-            // rather than an action that silently fails. See `#58`.
-            TitleBarView(model: model) {}
+            // iPad's document picker is a *presentation*, not a call that
+            // returns a URL, so Open belongs to this view rather than to
+            // `ViewerActions`. The importer itself is attached below; this only
+            // raises it.
+            TitleBarView(model: model) { showingImporter = true }
             #endif
 
             if let message = model.errorMessage {
@@ -118,6 +124,27 @@ public struct DocumentView: View {
             StatusBarView(model: model)
         }
         .background(Palette.of(appearance).background.color())
+        #if !os(macOS)
+        // The iPad half of File ▸ Open. `AudioFileTypes.supported` is the
+        // same list the macOS panel uses, so the two cannot drift.
+        //
+        // Note the security-scoped access: a picked file lives outside the
+        // app's container, and reading it without
+        // `startAccessingSecurityScopedResource()` fails with a permission
+        // error that looks exactly like a corrupt file. The stop is
+        // deliberately *not* balanced here — the decoder reads the whole
+        // file up front, so access is released as soon as `open` returns.
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: AudioFileTypes.supported,
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            ViewerActions.open(model, url: url)
+        }
+        #endif
         // Tells `KeyWindowTracker` which window the transport belongs to. That
         // is what lets the menus' plain-letter key equivalents stand down while
         // Settings — which has editable fields — is the key window.

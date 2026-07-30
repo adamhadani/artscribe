@@ -130,6 +130,54 @@ Release, not debug — a debug build decodes roughly four times slower.
 > focus back. It also never receives Launch Services open events, so "Open With" and dock
 > drops only work from the bundle.
 
+### Running it on an iPad
+
+There is an iPad target — `ArtscribeiPad` — and it needs no App Store, no TestFlight and no
+review to get onto your own device. What it can do so far: open a track, draw the waveform,
+select, loop and play. What it **cannot** do is change speed, because there is no Rubber Band
+build for iOS yet; the control moves and nothing happens. See [Formats](#formats) and
+`PlatformStretcher`.
+
+**Once, on the iPad:** Settings ▸ Privacy & Security ▸ **Developer Mode** ▸ on, then restart.
+(iOS 17 or newer; `devicectl` does not support older devices.)
+
+**Once, on the Mac:** export `ARTSCRIBE_TEAM_ID` — the same one signing already uses. Device
+builds are signed automatically with an *Apple Development* certificate, which Xcode mints
+from your account; this is not the Developer ID path the Mac release uses.
+
+Connect the iPad by USB and find its identifier:
+
+```sh
+xcrun devicectl list devices
+```
+
+The column you want is **Identifier** — a UUID like `00008103-000A1B2C3D4E5F00`, not the
+device name and not the serial number. If nothing is listed, the iPad is locked, has never
+trusted this Mac (unlock it and answer *Trust*), or Developer Mode is still off.
+
+Then build, install and launch:
+
+```sh
+xcodegen generate                       # regenerate the project; it is gitignored
+xcodebuild build -scheme ArtscribeiPad -destination 'id=<identifier>' \
+    -derivedDataPath .build/xcode-ipad
+
+xcrun devicectl device install app --device <identifier> \
+    .build/xcode-ipad/Build/Products/Debug-iphoneos/Artscribe.app
+
+xcrun devicectl device process launch --device <identifier> com.artscribe.Artscribe
+```
+
+To iterate without a device, build for a simulator instead — no signing, no team:
+
+```sh
+xcodebuild build -scheme ArtscribeiPad \
+    -destination 'platform=iOS Simulator,name=iPad (A16)' CODE_SIGNING_ALLOWED=NO
+```
+
+> The provisioning profile lasts a year with a paid Apple Developer membership, and seven days
+> with a free Apple ID — after which the app stops launching until you reinstall it.
+
 ### What it links, and where that runs
 
 Artscribe links [Rubber Band](https://breakfastquay.com/rubberband/) and, through it,
