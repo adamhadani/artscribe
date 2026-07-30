@@ -1,0 +1,32 @@
+Artscribe
+Copyright 2026 Adam Ever-Hadani
+
+This product includes software developed by Adam Ever-Hadani, licensed under the
+Apache License, Version 2.0. See LICENSE.
+
+--------------------------------------------------------------------------------
+Third-party components, and which builds contain them
+--------------------------------------------------------------------------------
+
+Rubber Band Library — https://breakfastquay.com/rubberband/
+  Copyright Particular Programs Ltd, trading as Breakfast Quay.
+  GNU General Public License, version 2 or later. Full text: LICENSES/GPL-3.0.txt
+  (this project elects version 3 for the combination; see below).
+
+  Present in: the macOS build only. Linked dynamically from Homebrew and embedded
+  into the app bundle by App/embed-dependencies.sh.
+
+  Absent from: every iOS and iPadOS build. There is no Rubber Band for iOS, which
+  is why `PlatformStretcher` reports `hasRealTimeStretching == false` there.
+
+  **A binary that links Rubber Band is a combined work and may only be
+  distributed under the GPL.** That is a fact about the binary, not about this
+  source tree — see docs/LICENSING.md, which also records why the "or later" in
+  Rubber Band's licence is load-bearing: Apache-2.0 is compatible with GPLv3 and
+  is NOT compatible with GPLv2, so the combination must be taken as v3.
+
+--------------------------------------------------------------------------------
+
+The source in this repository is Apache-2.0 and is not encumbered by the above.
+Anything built from it *without* Rubber Band — which today means any iOS or
+iPadOS build — carries no GPL obligation.

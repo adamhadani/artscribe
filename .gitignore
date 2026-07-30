@@ -99,3 +99,9 @@ id_ed25519*
 .env
 .env.*
 !.env.example
+
+# Working plans and strategy notes. Deliberately not checked in: these hold
+# commercial thinking — pricing, what to charge for, how to split editions —
+# that is nobody's business but ours, and they go stale faster than the
+# repository does. Durable policy that others need lives in docs/ instead.
+docs/plans/
