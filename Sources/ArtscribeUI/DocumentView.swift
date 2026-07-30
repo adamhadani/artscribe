@@ -379,5 +379,12 @@ private struct RecentEntryRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
+        #if os(macOS)
+        // The pointing hand, matching the accent colour's promise. `.link` and
+        // not `.grabIdle` or a crosshair: this opens a thing, it does not
+        // manipulate the timeline, and the rest of this app's cursors are
+        // reserved for the waveform gestures `PointerAffordance` governs.
+        .pointerStyle(.link)
+        #endif
     }
 }
