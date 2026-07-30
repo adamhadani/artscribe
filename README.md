@@ -8,7 +8,7 @@ Load a track · select a passage · loop it seamlessly · slow it down without c
 
 [![CI](https://github.com/adamhadani/artscribe/actions/workflows/ci.yml/badge.svg)](https://github.com/adamhadani/artscribe/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/adamhadani/artscribe?include_prereleases&sort=semver)](https://github.com/adamhadani/artscribe/releases)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%2026%20·%20Apple%20Silicon-lightgrey)](#-quick-start)
 [![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 
@@ -624,8 +624,20 @@ Design documents live in `docs/superpowers/specs/` and `docs/superpowers/plans/`
 
 ## Licence
 
-GPL-3.0-or-later. See [LICENSE](LICENSE).
+**Artscribe's own source is Apache-2.0.** See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-Artscribe links Rubber Band, which is GPL-2.0-or-later, so a distributed binary must be
-GPL-compatible. This is a deliberate trade: R3 is the best open time-stretching engine
-available, and quality at low speeds is the whole point of the product.
+**A distributed binary may be a different matter, and which one depends on what it links.**
+The GPL binds the combined work at the moment it is distributed, not the repository:
+
+| Build | Time stretcher | The binary may be distributed as |
+|---|---|---|
+| macOS | Rubber Band (GPL-2.0-or-later) | **GPLv3 only** — no App Store |
+| iOS / iPadOS | none yet | Apache-2.0, unencumbered |
+
+Rubber Band is the best open time-stretching engine available and quality at low speeds is
+the whole point of the product, so the macOS build takes that trade deliberately. Its "or
+later" clause is what makes the arrangement legal at all — Apache-2.0 is compatible with
+GPLv3 and **not** with GPLv2, so the combination is taken as v3.
+
+[docs/LICENSING.md](docs/LICENSING.md) has the full reasoning, including what changes when a
+permissively-licensed backend lands.
