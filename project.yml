@@ -16,6 +16,7 @@ options:
   bundleIdPrefix: com.artscribe
   deploymentTarget:
     macOS: "26.0"
+    iOS: "26.0"
   createIntermediateGroups: true
   generateEmptyDirectories: false
 
@@ -110,6 +111,40 @@ targets:
           "$SRCROOT/App/embed-dependencies.sh"
         basedOnDependencyAnalysis: false
 
+  # The iPad build. Deliberately minimal: it is the `App` scene only, and takes
+  # everything else from the same `ArtscribeUI` product the Mac app does, so
+  # there is one copy of the application and both platforms compile the same
+  # files.
+  #
+  # No `preBuildScripts` and no `postBuildScripts`: the icon generator draws an
+  # `.icns`, which is a macOS format, and `embed-dependencies.sh` exists to carry
+  # Homebrew's Rubber Band dylibs — which do not exist for iOS, and are the
+  # reason this build cannot yet change playback speed.
+  ArtscribeiPad:
+    type: application
+    platform: iOS
+    sources:
+      - path: App/iOS
+    dependencies:
+      - package: Artscribe
+        product: ArtscribeUI
+    settings:
+      base:
+        PRODUCT_NAME: Artscribe
+        PRODUCT_BUNDLE_IDENTIFIER: com.artscribe.Artscribe
+        INFOPLIST_FILE: App/iOS/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "2"
+        # Automatic signing, unlike the Mac target's manual Developer ID: this
+        # build is installed on your own iPad for testing, and automatic signing
+        # is what mints and renews the development profile for it. There is no
+        # notarisation step on iOS for this to interfere with.
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: "$(ARTSCRIBE_TEAM_ID)"
+        # No Homebrew search paths, and that is the point — if this target ever
+        # needs them, something macOS-only has crept below `ArtscribeUI`.
+
 schemes:
   Artscribe:
     build:
@@ -119,3 +154,10 @@ schemes:
       config: Debug
     archive:
       config: Release
+
+  ArtscribeiPad:
+    build:
+      targets:
+        ArtscribeiPad: all
+    run:
+      config: Debug
