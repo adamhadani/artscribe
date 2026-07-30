@@ -37,6 +37,13 @@ struct WaveformLanesView: View {
     /// lane costs zero body evaluations.
     @State private var hovering: TimelineHandle?
 
+    #if !os(macOS)
+    /// The magnification the pinch had reached last time it reported. See
+    /// `magnifyGesture` — the gesture's value is cumulative, so this is what
+    /// turns it into a per-event delta.
+    @State private var lastMagnification: CGFloat = 1
+    #endif
+
     /// Everything the overlay draw needs, read once at body level and handed
     /// down to the `Canvas` closure as a single value — not read piecemeal
     /// from `model` inside the closure, and not passed as a long parameter
@@ -131,6 +138,19 @@ struct WaveformLanesView: View {
             if found != hovering { hovering = found }
         }
         .gesture(dragGesture)
+        #if !os(macOS)
+        // Pinch is how you get around a waveform on a tablet. macOS is excluded
+        // deliberately rather than by oversight: it already has ⌘-scroll and the
+        // ⌥-drag magnifier through `TrackpadMonitor`, and a `MagnifyGesture`
+        // alongside those would be a third path into the same viewport competing
+        // for the same trackpad events.
+        //
+        // `simultaneousGesture`, not `.gesture`: the lanes already carry a
+        // one-finger `DragGesture` for selection, and an exclusive pinch would
+        // make the first finger of a pinch start a selection that the second
+        // finger then cannot cancel.
+        .simultaneousGesture(magnifyGesture)
+        #endif
         // The frame, not just the size: a scroll event arrives at the window, so
         // pointer-anchored zoom needs to know where this lane sits in it.
         .onGeometryChange(for: CGRect.self) {
@@ -140,6 +160,26 @@ struct WaveformLanesView: View {
             model.setLaneSize(frame.size, scale: displayScale)
         }
     }
+
+    #if !os(macOS)
+    /// Pinch-to-zoom, anchored under the fingers.
+    ///
+    /// `MagnifyGesture.magnification` is **cumulative from the start of the
+    /// gesture**, not per-event, so it is differenced against the last value
+    /// rather than applied directly — feeding the running total to a multiplying
+    /// zoom would accelerate wildly across a single pinch.
+    private var magnifyGesture: some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                let delta = value.magnification / lastMagnification
+                lastMagnification = value.magnification
+                model.pinchZoom(by: Double(delta), atLaneX: value.startLocation.x)
+            }
+            // Reset, or the next pinch begins by dividing by wherever the last
+            // one happened to stop.
+            .onEnded { _ in lastMagnification = 1 }
+    }
+    #endif
 
     /// Selection, ⇧-extend, or an ⌥-modified zoom. Which of the three it is gets
     /// decided by the model when the mouse goes down and held for the gesture's
