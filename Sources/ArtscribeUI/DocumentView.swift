@@ -162,6 +162,9 @@ public struct DocumentView: View {
                 KeyWindowTracker.shared.adopt(document: window)
                 // And which window carries the modified dot and answers ⌘W.
                 chrome.adopt(window)
+                // And how far in the header must start to clear the traffic
+                // lights this window draws over it.
+                TrafficLightInset.shared.adopt(window)
             }
         )
         #endif

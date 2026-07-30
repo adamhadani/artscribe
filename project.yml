@@ -116,10 +116,13 @@ targets:
   # there is one copy of the application and both platforms compile the same
   # files.
   #
-  # No `preBuildScripts` and no `postBuildScripts`: the icon generator draws an
-  # `.icns`, which is a macOS format, and `embed-dependencies.sh` exists to carry
-  # Homebrew's Rubber Band dylibs — which do not exist for iOS, and are the
-  # reason this build cannot yet change playback speed.
+  # No `postBuildScripts`: `embed-dependencies.sh` exists to carry Homebrew's
+  # Rubber Band dylibs, which do not exist for iOS — this build uses Signalsmith,
+  # compiled from vendored source.
+  #
+  # It *does* get the icon pre-build script. The same generator writes both the
+  # macOS `.icns` and the 1024 PNG this target's asset catalog needs, so the
+  # artwork cannot drift between platforms.
   ArtscribeiPad:
     type: application
     platform: iOS
@@ -135,6 +138,10 @@ targets:
         INFOPLIST_FILE: App/iOS/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "2"
+        # The icon. iOS wants an asset catalog, not the `.icns` the Mac target
+        # builds — same artwork, drawn full-bleed and opaque, because the system
+        # applies its own rounded mask and App Store validation rejects alpha.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Automatic signing, unlike the Mac target's manual Developer ID: this
         # build is installed on your own iPad for testing, and automatic signing
         # is what mints and renews the development profile for it. There is no
@@ -144,6 +151,13 @@ targets:
         DEVELOPMENT_TEAM: "$(ARTSCRIBE_TEAM_ID)"
         # No Homebrew search paths, and that is the point — if this target ever
         # needs them, something macOS-only has crept below `ArtscribeUI`.
+    preBuildScripts:
+      - name: Icon
+        script: |
+          "$SRCROOT/App/generate-icon.sh"
+        outputFiles:
+          - $(SRCROOT)/App/iOS/Assets.xcassets/AppIcon.appiconset/icon-1024.png
+        basedOnDependencyAnalysis: false
 
   # The portable suites, run on an iOS simulator.
   #

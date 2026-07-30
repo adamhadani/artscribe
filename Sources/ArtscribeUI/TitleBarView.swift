@@ -5,6 +5,13 @@ struct TitleBarView: View {
     let model: ViewerModel
     let onOpen: () -> Void
     @Environment(\.palette) private var palette
+    #if os(macOS)
+    /// Computed, not stored: a stored `private` property would make the
+    /// synthesised memberwise initialiser private too, and `DocumentView`
+    /// constructs this. Reading `.leading` inside `body` is what registers the
+    /// observation, so this still follows a full-screen transition.
+    private var trafficLights: TrafficLightInset { .shared }
+    #endif
 
     var body: some View {
         HStack(spacing: 14) {
@@ -62,6 +69,13 @@ struct TitleBarView: View {
                         .stroke(palette.rule.color(), lineWidth: 1))
         }
         .padding(.horizontal, 14)
+        // Clear of the window's traffic lights, which macOS draws on top of this
+        // header — the wordmark used to read `A ● ● ● IBE`. Measured rather than
+        // assumed so that full screen, where the buttons are removed, gets no
+        // gap. See `TrafficLightInset`.
+        #if os(macOS)
+        .padding(.leading, trafficLights.leading)
+        #endif
         .padding(.vertical, 9)
         .background(palette.background.color())
         .overlay(alignment: .bottom) {
