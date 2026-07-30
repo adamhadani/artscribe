@@ -274,6 +274,11 @@ struct EmptyStateView: View {
 
     var body: some View {
         VStack(spacing: 26) {
+            // The drop target, drawn as one. A dashed outline does two jobs
+            // here: it says *this rectangle is where a file goes*, which the
+            // words alone only assert, and it separates the centred invitation
+            // from the left-aligned list below it — two different kinds of
+            // thing that were previously distinguished only by alignment.
             VStack(spacing: 8) {
                 Text("Drop an audio file here")
                     .font(.system(size: 15, weight: .medium))
@@ -282,6 +287,18 @@ struct EmptyStateView: View {
                     .font(Typography.readout)
                     .foregroundStyle(palette.dimmed.color())
             }
+            .padding(.horizontal, 44)
+            .padding(.vertical, 30)
+            .frame(maxWidth: 460)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    // Dashed and dim: an invitation, not a control. A solid
+                    // border at this size reads as a panel with a job, which is
+                    // the wrong weight for the emptiest screen in the app.
+                    .strokeBorder(
+                        palette.rule.color(),
+                        style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+            )
 
             // Only when there is something to list. An empty "Recent" heading on
             // a first run would be a promise the app cannot keep.
