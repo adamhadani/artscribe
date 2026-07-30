@@ -8,16 +8,23 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # Vendored third-party source is excluded from all three whitespace
+      # hooks. `Sources/CSignalsmithStretch/vendor/` must stay byte-identical to
+      # upstream: `git diff` against a freshly downloaded release is how that
+      # library gets reviewed when it is updated, and a hook that silently
+      # retabbed 3000 lines would bury the real change completely. See its
+      # VENDOR.md.
       - id: trailing-whitespace
-        exclude: '\.(flac|wav|mp3|m4a|ogg|opus)$'
+        exclude: '(\.(flac|wav|mp3|m4a|ogg|opus)$|^Sources/CSignalsmithStretch/vendor/)'
       - id: end-of-file-fixer
-        exclude: '\.(flac|wav|mp3|m4a|ogg|opus)$'
+        exclude: '(\.(flac|wav|mp3|m4a|ogg|opus)$|^Sources/CSignalsmithStretch/vendor/)'
       - id: check-yaml
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: check-executables-have-shebangs
       - id: mixed-line-ending
         args: [--fix=lf]
+        exclude: '^Sources/CSignalsmithStretch/vendor/'
       # Enforces the project rule that test fixtures stay small. Real audio
       # (the reference album) must never be committed — it lives behind
       # $ARTSCRIBE_TEST_MEDIA_DIR instead.

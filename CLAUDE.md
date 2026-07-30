@@ -272,9 +272,32 @@ call cannot arrive. Two rules there are worth knowing before touching it:
 
 **Rubber Band is macOS-only, and that is a Homebrew fact, not a design one.** The formula
 builds a macOS dylib and nothing else, so `CRubberBand` is a `.when(platforms: [.macOS])`
-dependency and `RubberBandStretcher.swift` sits behind `#if canImport(CRubberBand)`. On iOS
-`TimeStretch` is the protocol plus `IdentityStretcher` — enough for `Playback` to compile, and
-exactly the seam a second backend plugs into.
+dependency and `RubberBandStretcher.swift` sits behind `#if canImport(CRubberBand)`.
+
+**The second backend that seam existed for has landed: Signalsmith Stretch, MIT, vendored as
+source under `Sources/CSignalsmithStretch/` and compiled with the app.** That is what makes it
+work on iOS — there is no Homebrew on a phone. iOS used to get `IdentityStretcher`, which played
+everything back unaltered while the speed control moved; it now gets a real stretcher, and the
+iPad binary was checked to contain 640 Signalsmith symbols and zero Rubber Band ones.
+
+Three things about it are worth knowing before touching it:
+
+- **A C++ shim is required and is not optional.** Signalsmith's entry point is a template on
+  its argument types, and Swift cannot instantiate an arbitrary C++ template. The shim
+  (`signalsmith_stretch_shim.cpp`) exists only to name concrete `float` pointer tables; it holds
+  no state and no policy, and anything you are tempted to add there belongs in Swift.
+- **It is two vendored libraries, not one.** `signalsmith-stretch.h` includes
+  `signalsmith-linear/stft.h` from a *separate* repository that upstream pulls with CMake
+  `FetchContent`. See `Sources/CSignalsmithStretch/VENDOR.md` for versions and the refresh
+  recipe. Do not edit vendored files; the pre-commit whitespace hooks are excluded from that
+  directory precisely so `git diff` against a fresh download stays readable.
+- **Its two latency numbers are in different units, and mixing them is the bug that does not
+  announce itself.** `inputLatency()` counts *input* frames, `outputLatency()` counts *output*
+  frames. `startDelay` must be `inputLatency * timeRatio + outputLatency`, and the flush at
+  end-of-file must drain that same total. Draining only the synthesis half loses 0.94% of the
+  track at 0.1× speed — the last half-second of every file — with nothing failing at 1×. Both
+  mistakes are mutation-tested, and the start-delay test sweeps three ratios because summing
+  the halves unconverted is *correct at ratio 1.0* and wrong everywhere else.
 
 ## Speed vs time ratio
 
@@ -324,8 +347,16 @@ worst step. Do not go back to a step threshold, and do not "simplify" the contro
 |---|---|---|---|
 | Rubber Band R3 | Studio (default) | ~0.00 cents | fraction of a cent |
 | Rubber Band R2 | Fast | up to ~26 cents | up to **−108 cents** |
+| Signalsmith | either preset | within 0.05 cents | within 0.05 cents |
 
 Studio is the default and earns it. Fast is for low-CPU scrubbing, not pitch reference.
+
+**Signalsmith's row is a floor, not a ceiling.** Its error is *identical* at both ratios and for
+both quality presets, to five decimal places, which means the number being reported is the FFT
+estimator's own bias on each test frequency rather than anything the stretcher did — the true
+error is below it. It sits with R3, not with R2. That matters commercially as much as
+technically: the free, MIT, App-Store-shippable backend is not the compromise it was assumed to
+be. See `docs/LICENSING.md`.
 
 ## Formats
 
