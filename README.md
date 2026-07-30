@@ -483,6 +483,17 @@ signal's natural step size.
 
 Release, not debug — a debug build decodes roughly four times slower.
 
+### Opening a track
+
+Drop a file on the window, press `⌘O`, or pick one from the **recent list on the
+resting screen** — the five most recent, named by file and folder so two rips of
+the same track are told apart. On iPad that list is the only route to recents,
+since there is no menu bar to hang Open Recent from.
+
+Recents survive a relaunch on both platforms. On iPad that needs a security-scoped
+bookmark, because a file picked out of Files lives outside the app's container and
+its URL stops being readable when the app restarts.
+
 ### Transport and speed
 
 | Key | Action |
