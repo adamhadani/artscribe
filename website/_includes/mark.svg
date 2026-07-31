@@ -1,0 +1,11 @@
+<svg class="mark" viewBox="0 0 34 24" width="34" height="24" role="img" aria-label="Artscribe">
+  <rect x="0"  y="9"   width="2" height="6"  rx="1" fill="currentColor"/>
+  <rect x="4"  y="6.5" width="2" height="11" rx="1" fill="currentColor"/>
+  <rect x="8"  y="4"   width="2" height="16" rx="1" fill="currentColor"/>
+  <rect x="12" y="2"   width="2" height="20" rx="1" fill="currentColor"/>
+  <rect x="16" y="4.8" width="2" height="14.4" rx="1" fill="currentColor"/>
+  <rect x="20" y="2.8" width="2" height="18.4" rx="1" fill="currentColor"/>
+  <rect x="24" y="6"   width="2" height="12" rx="1" fill="var(--selection)"/>
+  <rect x="28" y="8.2" width="2" height="7.6" rx="1" fill="var(--selection)"/>
+  <rect x="32" y="9.6" width="2" height="4.8" rx="1" fill="var(--selection)"/>
+</svg>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if page.title and page.title != site.title %}{{ page.title }} · {{ site.title }}{% else %}{{ site.title }} — {{ site.tagline }}{% endif %}</title>
+<meta name="description" content="{{ page.description | default: site.description | strip_newlines }}">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="{{ page.url | absolute_url }}">
+<link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ '/assets/img/favicon-32.png' | relative_url }}">
+<link rel="icon" type="image/png" sizes="192x192" href="{{ '/assets/img/icon-192.png' | relative_url }}">
+<link rel="apple-touch-icon" href="{{ '/assets/img/icon-192.png' | relative_url }}">
+<meta property="og:title" content="{{ page.title | default: site.title }}">
+<meta property="og:description" content="{{ page.description | default: site.description | strip_newlines }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ page.url | absolute_url }}">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="masthead">
+  <div class="bar">
+    <a class="wordmark" href="{{ '/' | relative_url }}">
+      {% include mark.svg %}
+      <span>Artscribe</span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="{{ '/docs/' | relative_url }}"{% if page.nav == 'docs' %} aria-current="page"{% endif %}>Docs</a>
+      <a href="{{ '/support/' | relative_url }}"{% if page.nav == 'support' %} aria-current="page"{% endif %}>Support</a>
+      <a href="{{ '/privacy/' | relative_url }}"{% if page.nav == 'privacy' %} aria-current="page"{% endif %}>Privacy</a>
+      <a href="{{ site.repo_url }}">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+{{ content }}
+</main>
+
+<footer class="colophon">
+  <div class="wrap">
+    <p class="links">
+      <a href="{{ site.download_url }}">Download</a>
+      <a href="{{ '/docs/' | relative_url }}">Docs</a>
+      <a href="{{ '/support/' | relative_url }}">Support</a>
+      <a href="{{ '/privacy/' | relative_url }}">Privacy</a>
+      <a href="{{ site.repo_url }}">Source</a>
+    </p>
+    <p class="fine">
+      Artscribe’s own source is Apache-2.0. A distributed macOS binary links
+      <a href="https://breakfastquay.com/rubberband/">Rubber Band</a> and is
+      therefore conveyed under the GPLv3; the iPadOS build links
+      <a href="https://github.com/Signalsmith-Audio/signalsmith-stretch">Signalsmith Stretch</a>
+      (MIT) and is not so encumbered. See
+      <a href="{{ site.repo_url }}/blob/main/NOTICE">NOTICE</a>.
+    </p>
+    <p class="fine">
+      This site loads no fonts, no scripts, no analytics and nothing from any
+      other host. It could not track you if it wanted to.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

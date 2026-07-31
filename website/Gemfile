@@ -1,0 +1,20 @@
+source "https://rubygems.org"
+
+# Pinned rather than floating: the site is built by a workflow that nobody
+# watches, and a Jekyll major bump that changes Sass or Kramdown behaviour
+# should be a commit somebody made on purpose, not a surprise on a Tuesday.
+gem "jekyll", "~> 4.3.4"
+
+# `jekyll serve` needs it on Ruby 3+, where WEBrick left the standard library.
+# Kept in the default group so `bundle exec jekyll serve` works from a clean
+# clone without a second install.
+gem "webrick", "~> 1.8"
+
+# Ruby 3.4 moved these out of the default gems. Jekyll 4.3 still requires them
+# unconditionally and dies with `cannot load such file -- csv` on a machine
+# running 3.4, while a CI runner pinned to 3.3 builds happily — a difference
+# that would show up as "works in CI, broken on my laptop" and waste an
+# afternoon. Declaring them costs nothing on either version.
+gem "base64", "~> 0.2"
+gem "bigdecimal", "~> 3.1"
+gem "csv", "~> 3.3"

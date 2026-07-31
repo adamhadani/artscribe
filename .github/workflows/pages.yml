@@ -1,0 +1,96 @@
+name: Pages
+
+# The marketing and documentation site at https://adamhadani.github.io/artscribe/.
+#
+# Built with the GitHub Actions Pages deployment, not the legacy `gh-pages`
+# branch and not GitHub's own "build from a folder" Jekyll: this repository's
+# `docs/` folder holds internal engineering documents — specs, plans, the
+# licensing analysis — that must never be published, and the built-in path would
+# publish exactly that. The site's source is `website/` and nothing else is
+# uploaded.
+#
+# The build runs on Linux. It is a Jekyll site with no Swift in it, and a macOS
+# runner bills at 10x for no benefit.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# `pages` and `id-token` are what `actions/deploy-pages` needs; `contents: read`
+# is all the checkout requires. Nothing here writes to the repository.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel one in flight — a half-finished
+# deploy is a broken site, which is worse than a slightly stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: website
+
+      # `--baseurl` comes from configure-pages rather than being hard-coded a
+      # second time, so a repository rename cannot leave every internal link
+      # pointing at the old path while the build still passes.
+      - name: Build the site
+        working-directory: website
+        env:
+          JEKYLL_ENV: production
+        run: |
+          bundle exec jekyll build \
+            --destination _site \
+            --baseurl "${{ steps.pages.outputs.base_path }}"
+
+      # A build that produced nothing exits 0 just as happily as one that
+      # worked, so check the pages that have to exist actually do. /privacy/ and
+      # /support/ are App Store requirements; a silently missing one would be
+      # found by a reviewer rather than by this job.
+      - name: Check the required pages were built
+        working-directory: website
+        run: |
+          set -euo pipefail
+          for page in index.html privacy/index.html support/index.html \
+                      docs/index.html assets/css/style.css; do
+            if [ ! -s "_site/$page" ]; then
+              echo "::error::_site/$page is missing or empty"
+              exit 1
+            fi
+            echo "ok: _site/$page"
+          done
+
+      - name: Upload the artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
