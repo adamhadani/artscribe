@@ -26,14 +26,14 @@ the passage you are working on stays where you put it.
 |---|---|
 | 🔁 **Seamless looping** | The stretcher is never reset at a loop boundary, so a repeat is *inaudible* — verified as byte-identical to a continuous render, not just "sounds fine" |
 | 🐢 **Studio-grade slowdown** | Rubber Band R3 "Finer": **~0.00 cents** of pitch error at half speed |
-| ⌨️ **Keyboard-first** | ~90 actions, all rebindable-by-design, with a searchable shortcut window (`⌘/`) |
+| ⌨️ **Keyboard-first** | 71 actions, all rebindable-by-design, with a searchable shortcut window (`⌘/`) |
 | 🎯 **Preroll** | A resume rolls back a couple of seconds, so you land *before* the note you stopped on |
 | 📈 **Practice ramp** | Loop a phrase from slow to tempo automatically |
 | 💿 **CUE track markers** | One-file albums show where each track begins |
 | 📝 **Visible session files** | A plain `.artscribe` sidecar you can read and hand-edit |
 
 **Status: in development, and playable.** Load a file, hear it, select, loop, change speed —
-all from the keyboard. Not yet built: pitch shift, spectrum analysis, MIDI input, and
+all from the keyboard. Not yet built: spectrum analysis, MIDI input, and
 [stem separation](docs/superpowers/research/2026-07-28-stem-separation.md) (researched in
 depth, deliberately not started).
 
