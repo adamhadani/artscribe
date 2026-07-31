@@ -18,7 +18,7 @@ description: >-
   </p>
   <p class="actions">
     <a class="button" href="{{ site.download_url }}">Download for macOS</a>
-    <span class="aside">macOS 26 · Apple Silicon · free and open source</span>
+    <span class="aside">macOS 26 · Apple Silicon · iPadOS coming · free and open source</span>
   </p>
 </section>
 
@@ -43,12 +43,38 @@ description: >-
   <p class="eyebrow">Studio-grade slowdown</p>
   <h2>Slow, and still in tune</h2>
   <p>
-    Artscribe uses Rubber Band 4.0's <strong>R3 “Finer”</strong> engine — a
-    multiresolution, phase-locked spectral stretcher. Measured as an FFT peak
-    against a reference tone, pitch error at half speed is
-    <strong>~0.00 cents</strong>, and a fraction of a cent at double speed. Speed
-    and pitch are independent controls: you can transpose a passage by semitones
-    or by single cents without touching the tempo.
+    Time stretching sits behind a single interface with <strong>two
+    interchangeable backends</strong>, chosen per platform. macOS uses Rubber
+    Band 4.0's <strong>R3 “Finer”</strong> engine; iPadOS uses
+    <strong>Signalsmith Stretch</strong>, compiled from vendored source into the
+    app. Both are measured rather than assumed: as an FFT peak against a
+    reference tone, pitch error at half speed is <strong>~0.00 cents</strong> for
+    R3 and <strong>within 0.05 cents</strong> for Signalsmith — and Signalsmith's
+    figure is identical at both ratios to five decimal places, which means it is
+    reporting the estimator's own bias rather than anything the stretcher did.
+  </p>
+  <p>
+    Speed and pitch are independent controls: you can transpose a passage by
+    semitones or by single cents without touching the tempo.
+  </p>
+</div>
+
+<div class="feature">
+  <p class="eyebrow">One codebase, two platforms</p>
+  <h2>The iPad is not a port</h2>
+  <p>
+    The audio stack below the interface — decoding, the peak pyramid, time
+    stretching, the playback engine — builds for iPadOS as well as macOS, and CI
+    compiles it for iOS on every push <em>and runs the portable suites on an iPad
+    simulator</em>. Compiling is not behaviour, and the difference mattered: the
+    test proving that a loop is indistinguishable from a continuous render now
+    runs against the backend that is the only one on iPad.
+  </p>
+  <p>
+    The two platform differences are narrow and both sit behind a seam rather
+    than being sprayed through the code as conditionals — choosing an output
+    device is a macOS idea, and being interrupted by a phone call is an iPadOS
+    one.
   </p>
 </div>
 
@@ -144,9 +170,12 @@ description: >-
     Signed, notarised builds are on the
     <a href="{{ site.releases_url }}">releases page</a>: unzip and drag
     <code>Artscribe.app</code> to <code>/Applications</code>. It needs
-    <strong>macOS 26 on Apple Silicon</strong>. The full source is on
-    <a href="{{ site.repo_url }}">GitHub</a> under Apache-2.0, and the iPadOS
-    target builds from the same tree.
+    <strong>macOS 26 on Apple Silicon</strong>.
+  </p>
+  <p>
+    <strong>iPadOS is in preparation for the App Store</strong> and is not
+    published yet. It builds and runs from the same tree today — the whole
+    source is on <a href="{{ site.repo_url }}">GitHub</a> under Apache-2.0.
   </p>
   <p class="actions">
     <a class="button" href="{{ site.download_url }}">Download for macOS</a>

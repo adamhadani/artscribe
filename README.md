@@ -2,14 +2,15 @@
 
 # 🎼 Artscribe
 
-**A keyboard-first music transcription tool for macOS.**
+**A keyboard-first music transcription tool for macOS and iPadOS.**
 
 Load a track · select a passage · loop it seamlessly · slow it down without changing pitch.
 
 [![CI](https://github.com/adamhadani/artscribe/actions/workflows/ci.yml/badge.svg)](https://github.com/adamhadani/artscribe/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/adamhadani/artscribe?include_prereleases&sort=semver)](https://github.com/adamhadani/artscribe/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%2026%20·%20Apple%20Silicon-lightgrey)](#-quick-start)
+[![Platform](https://img.shields.io/badge/platform-macOS%2026%20·%20iPadOS%2026-lightgrey)](#-quick-start)
+[![Website](https://img.shields.io/badge/website-artscribe-4FD1C5)](https://adamhadani.github.io/artscribe/)
 [![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 
 </div>
@@ -25,7 +26,7 @@ the passage you are working on stays where you put it.
 | | |
 |---|---|
 | 🔁 **Seamless looping** | The stretcher is never reset at a loop boundary, so a repeat is *inaudible* — verified as byte-identical to a continuous render, not just "sounds fine" |
-| 🐢 **Studio-grade slowdown** | Rubber Band R3 "Finer": **~0.00 cents** of pitch error at half speed |
+| 🐢 **Studio-grade slowdown** | Two interchangeable backends — Rubber Band R3 "Finer" on macOS, Signalsmith (MIT) on iPadOS. **~0.00** and **<0.05 cents** of pitch error at half speed |
 | ⌨️ **Keyboard-first** | 71 actions, all rebindable-by-design, with a searchable shortcut window (`⌘/`) |
 | 🎯 **Preroll** | A resume rolls back a couple of seconds, so you land *before* the note you stopped on |
 | 📈 **Practice ramp** | Loop a phrase from slow to tempo automatically |
@@ -196,10 +197,12 @@ reading the code would have revealed.
 ### Running it on an iPad
 
 There is an iPad target — `ArtscribeiPad` — and it needs no App Store, no TestFlight and no
-review to get onto your own device. What it can do so far: open a track, draw the waveform,
-select, loop and play. What it **cannot** do is change speed, because there is no Rubber Band
-build for iOS yet; the control moves and nothing happens. See [Formats](#formats) and
-`PlatformStretcher`.
+review to get onto your own device: open a track, draw the waveform, select, loop, play and
+**change speed**. Speed works because the stretcher is pluggable and iPadOS gets
+[Signalsmith Stretch](https://github.com/Signalsmith-Audio/signalsmith-stretch), MIT and
+compiled from vendored source — there is no Homebrew on a phone. See `PlatformStretcher`.
+
+The one behavioural difference is decoding: [Ogg Vorbis does not open on iPadOS](#formats).
 
 **Once, on the iPad:** Settings ▸ Privacy & Security ▸ **Developer Mode** ▸ on, then restart.
 (iOS 17 or newer; `devicectl` does not support older devices.)
