@@ -15,6 +15,9 @@ struct EmptyStateView: View {
     /// so `urls` is tracked and a newly opened file shows up without anything
     /// having to invalidate the view by hand.
     let recents: RecentFiles
+    /// The About panel's opener, for the button below it on iPad. Carried rather
+    /// than reached through the model for the same reason `recents` is.
+    let about: AboutWindowController
     @Environment(\.palette) private var palette
 
     /// Five, not the eight the menu holds. This is a resting screen, not a
@@ -70,6 +73,23 @@ struct EmptyStateView: View {
                 // window.
                 .frame(maxWidth: 460)
             }
+
+            // **The iPad's only route to the About panel without a hardware
+            // keyboard**, and therefore the only route to the privacy policy
+            // that App Store guideline 5.1.1(i) requires to be reachable from
+            // inside the app. macOS has the app menu and the Help menu, and a
+            // link here would be a third way to say the same thing on the one
+            // platform that already says it twice.
+            //
+            // Deliberately small and dim: this screen's job is to get a file
+            // opened, and an About link that competed with the drop target for
+            // attention would be answering a question nobody arrived with.
+            #if !os(macOS)
+            Button("About Artscribe") { about.show() }
+                .buttonStyle(.plain)
+                .font(Typography.readoutSmall)
+                .foregroundStyle(palette.dimmed.color())
+            #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(palette.panel.color())

@@ -128,7 +128,7 @@ public struct DocumentView: View {
                 WaveformLanesView(model: model)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                EmptyStateView(model: model, recents: context.recents)
+                EmptyStateView(model: model, recents: context.recents, about: context.about)
             }
 
             // Directly above the status bar, and given the keyboard back after
@@ -185,6 +185,17 @@ public struct DocumentView: View {
             PracticeWindow(context: context, theme: context.theme)
             // `.form`, not `.page`: Practice is a narrow column of label/value
             // rows and wants the form sheet's measure — it just wants the height.
+            .presentationSizing(.form)
+            .presentationDetents([.large])
+        }
+        .sheet(isPresented: sheetBinding(for: context.about.windowState)) {
+            AboutWindow(about: context.about, theme: context.theme)
+            // `.form` again, and for a stronger reason than Practice's: this is
+            // a centred column of four short lines, and a `.page` sheet on a
+            // 13-inch iPad would set them adrift in the middle of the screen.
+            // `.fitted` is closer still to what a Mac About panel is, but a
+            // sheet that resizes as the licence disclosure opens is a jump the
+            // reader did not ask for.
             .presentationSizing(.form)
             .presentationDetents([.large])
         }

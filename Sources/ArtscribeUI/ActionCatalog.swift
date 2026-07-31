@@ -115,7 +115,13 @@ public enum ActionCatalog {
     public static let notInOurMenus: Set<ActionID> = [
         // SwiftUI's `Settings` scene puts this in the **app** menu and wires ⌘,
         // to it. Declaring it a second time would give the menu bar two.
-        .appSettings
+        .appSettings,
+        // The About panel, for the same kind of reason: it belongs in menus
+        // macOS already builds — the app menu's About item and the Help menu's
+        // — which `ViewerCommands` reaches with `CommandGroup(replacing:)`
+        // rather than with a `MenuPlan` section. A section of our own would put
+        // a second About beside the system's, which is the actual defect here.
+        .appAbout
     ]
 
     public static let entries: [ActionEntry] = allEntries

@@ -53,11 +53,15 @@ struct AcceptanceMain: App {
     /// practice ramp reconfigured.
     @State private var practice = PracticeWindowController()
     @State private var practiceSettings = PracticeSettings(defaults: Self.defaults)
+    /// The About panel. No persisted state and nothing for a run to disturb —
+    /// present so the menu bar this harness drives is the same menu bar the app
+    /// has, which is the whole point of building the context from the same type.
+    @State private var about = AboutWindowController()
 
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice, theme: theme)
+            practice: practice, about: about, theme: theme)
     }
 
     static let sessionFallbackDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
