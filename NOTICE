@@ -27,6 +27,18 @@ Rubber Band Library — https://breakfastquay.com/rubberband/
   Rubber Band's licence is load-bearing: Apache-2.0 is compatible with GPLv3 and
   is NOT compatible with GPLv2, so the combination must be taken as v3.
 
+libsamplerate — https://github.com/libsndfile/libsamplerate
+  Copyright (c) 2012-2016, Erik de Castro Lopo <erikd@mega-nerd.com>
+  BSD 2-Clause License. Full text: LICENSES/BSD-2-Clause-libsamplerate.txt
+
+  Present in: the macOS build only, and not because this project asked for it —
+  librubberband links it, so App/embed-dependencies.sh copies both dylibs into
+  Contents/Frameworks. It is a transitive dependency that is nonetheless
+  genuinely shipped, and BSD-2-Clause requires the notice above to be reproduced
+  in binary distributions, which is what this entry is for.
+
+  Absent from: every iOS and iPadOS build, for the same reason Rubber Band is.
+
 Signalsmith Stretch — https://github.com/Signalsmith-Audio/signalsmith-stretch
   Copyright (c) 2022 Geraint Luff / Signalsmith Audio Ltd.
   MIT License. Full text: LICENSES/MIT-signalsmith-stretch.txt
