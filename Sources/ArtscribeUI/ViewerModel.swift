@@ -117,6 +117,10 @@ public final class ViewerModel {
     /// saved. `.applicationSupport` is the read-only-volume fallback and is
     /// always surfaced.
     public internal(set) var sessionLocation: SessionLocation?
+
+    /// Why the sidecar could not be written, when the filesystem said. Shown in
+    /// the standing banner, which is the only place the fallback is announced.
+    public internal(set) var sessionFallbackReason: String?
     /// A damaged sidecar, a fallback in effect, a Save As that went somewhere
     /// reopening will not look, or a save that failed. Shown as an inline
     /// banner, never a modal, and only cleared by the user or by the next load.
@@ -300,13 +304,9 @@ public final class ViewerModel {
     /// not once per event, so it costs two body evaluations, not sixty a second.
     var laneDragMode: LaneDragMode?
 
-    /// State for undoing a lane drag that turns out to be the first finger of a
-    /// pinch. All three are snapshots for one gesture's lifetime that nothing
-    /// renders from — see `ViewerModel.cancelLaneDrag`, which explains why each
-    /// is needed and what breaks without it.
-    ///
-    /// The playhead is here because a select-drag *also moves it*; restoring only
-    /// the selection left it parked wherever the pinch began.
+    /// Snapshots for undoing a lane drag that turns out to be the first finger of
+    /// a pinch — see `cancelLaneDrag`. The playhead is included because a
+    /// select-drag *also moves it*.
     @ObservationIgnored var selectionBeforeLaneDrag: Selection?
     @ObservationIgnored var playheadBeforeLaneDrag: FrameIndex?
     @ObservationIgnored var laneDragCancelled = false

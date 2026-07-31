@@ -169,12 +169,23 @@ public struct DocumentView: View {
         .sheet(isPresented: sheetBinding(for: context.shortcuts.windowState)) {
             ShortcutWindow(context: context, theme: context.theme)
             // The reference is a dense two-pane layout: a keyboard that
-            // scales to its space beside a scrolling list. `.large` is the
-            // only detent where either is legible.
+            // scales to its space beside a scrolling list.
+            //
+            // **`presentationSizing`, not just `presentationDetents`.** Detents
+            // govern a sheet's *height* in compact height — an iPhone, or an iPad
+            // in a narrow window. On a regular-width iPad a sheet is a **form
+            // sheet** at a system-chosen size and detents do not apply at all, so
+            // `.large` alone was a no-op: the keyboard stayed at about a third of
+            // the screen after the first attempt at this. Both are given so the
+            // sheet is right in either size class.
+            .presentationSizing(.page)
             .presentationDetents([.large])
         }
         .sheet(isPresented: sheetBinding(for: context.practice.windowState)) {
             PracticeWindow(context: context, theme: context.theme)
+            // `.form`, not `.page`: Practice is a narrow column of label/value
+            // rows and wants the form sheet's measure — it just wants the height.
+            .presentationSizing(.form)
             .presentationDetents([.large])
         }
         #endif
