@@ -19,19 +19,26 @@ public struct MenuContext {
     /// `shortcuts`: `View ▸ Practice` and `⌘P` both arrive through
     /// `ActionInvoker`, which is not a view and so cannot reach `openWindow`.
     public let practice: PracticeWindowController
+    /// The theme, carried here for the same reason the controllers are: on iPad
+    /// the auxiliary windows are sheets presented from `DocumentView`, which
+    /// therefore has to be able to build them — and they take a theme. On macOS
+    /// the scenes still pass it directly.
+    public let theme: ThemeController
 
     public init(
         model: ViewerModel,
         recents: RecentFiles,
         devices: OutputDeviceController,
         shortcuts: ShortcutWindowController,
-        practice: PracticeWindowController
+        practice: PracticeWindowController,
+        theme: ThemeController
     ) {
         self.model = model
         self.recents = recents
         self.devices = devices
         self.shortcuts = shortcuts
         self.practice = practice
+        self.theme = theme
     }
 }
 

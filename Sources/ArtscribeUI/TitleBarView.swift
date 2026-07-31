@@ -143,13 +143,10 @@ struct SessionFallbackBanner: View {
                 Image(systemName: "externaldrive.badge.exclamationmark")
                     .foregroundStyle(palette.emphasis.color())
                     .font(.system(size: 12))
-                Text(
-                    "This track's folder could not be written to, so its session is stored in "
-                        + "Application Support instead of beside the track."
-                )
-                .font(Typography.bannerBody)
-                .foregroundStyle(palette.text.color())
-                .fixedSize(horizontal: false, vertical: true)
+                Text(ViewerModel.fallbackNotice(reason: model.sessionFallbackReason))
+                    .font(Typography.bannerBody)
+                    .foregroundStyle(palette.text.color())
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
             }
             .padding(.horizontal, 14)

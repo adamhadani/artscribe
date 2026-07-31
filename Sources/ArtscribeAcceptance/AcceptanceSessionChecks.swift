@@ -309,10 +309,15 @@ extension AcceptanceRun {
         log.check("… the loop points are not silently lost", !model.isDirty)
         log.check(
             "… and the fallback is surfaced, not swallowed", model.isSessionStoredAwayFromTheTrack)
+        // The **standing banner**, not the dismissible notice. Both used to say
+        // this and the user saw one condition described twice; the notice is for
+        // things that happened, the banner for things that are still true.
+        let banner = ViewerModel.fallbackNotice(reason: model.sessionFallbackReason)
+        log.check("… in words that name where it went", banner.contains("Application Support"))
         log.check(
-            "… in words that name where it went",
-            model.sessionNotice?.contains("Application Support") == true)
-        log.note("fallback notice", model.sessionNotice ?? "none")
+            "… and only once — no second, dismissible notice about the same thing",
+            model.sessionNotice == nil)
+        log.note("fallback banner", banner)
         if let url = model.sessionLocation?.url {
             log.check(
                 "… and the file really is there",

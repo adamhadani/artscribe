@@ -169,3 +169,92 @@ struct ViewerModelZoomTests {
         #expect(model.framesPerPixel == start, "a NaN anchor changed the viewport")
     }
 }
+
+/// Cancelling a lane drag, which is what a pinch has to do to the selection its
+/// own first finger started.
+@MainActor
+@Suite("Lane drag cancellation")
+struct LaneDragCancelTests {
+
+    private static let totalFrames: FrameIndex = 2_000_000
+
+    private func makeModel() -> ViewerModel {
+        let storage = AudioStorage(channels: 1, capacityFrames: Int(Self.totalFrames))
+        let audio = DecodedAudio(
+            channels: 1, sampleRate: 44100, frameCount: Self.totalFrames, storage: storage)
+        let model = ViewerModel()
+        model.loadForTesting(audio: audio, pyramid: PeakPyramid.build(audio), widthPixels: 1000)
+        model.setLaneFrame(CGRect(x: 0, y: 122, width: 1000, height: 500))
+        return model
+    }
+
+    /// The property the whole method exists for: a pinch must leave the
+    /// selection exactly as it found it.
+    @Test("cancelling puts the selection back")
+    func cancellingRestoresSelection() {
+        let model = makeModel()
+        model.laneDragChanged(
+            start: .init(x: 100, y: 10), current: .init(x: 100, y: 10),
+            option: false, shift: false)
+        model.laneDragEnded(start: .init(x: 100, y: 10), end: .init(x: 100, y: 10), now: 0)
+        let before = model.selection.range
+
+        model.laneDragChanged(
+            start: .init(x: 200, y: 10), current: .init(x: 600, y: 10),
+            option: false, shift: false)
+        #expect(model.selection.range != before, "the drag did not select anything to undo")
+
+        model.cancelLaneDrag()
+        #expect(model.selection.range == before, "the selection was not restored")
+    }
+
+    /// **The half that is easy to miss.** The `DragGesture` still delivers its
+    /// `onEnded` after a cancel, and the click path is what that end runs — so
+    /// without suppression a pinch would seek the playhead to wherever it began,
+    /// and two pinches inside the double-click window would start playback.
+    @Test("the end that follows a cancel does not seek the playhead")
+    func cancelledEndDoesNotClick() {
+        let model = makeModel()
+        model.seek(to: 500_000)
+        let playhead = model.playhead
+
+        model.laneDragChanged(
+            start: .init(x: 200, y: 10), current: .init(x: 205, y: 10),
+            option: false, shift: false)
+        model.cancelLaneDrag()
+        model.laneDragEnded(start: .init(x: 200, y: 10), end: .init(x: 205, y: 10), now: 0)
+
+        #expect(model.playhead == playhead, "the cancelled drag's end still moved the playhead")
+    }
+
+    /// Exactly one end is absorbed: a genuine gesture after a cancelled one must
+    /// behave normally, or the first tap after every pinch would be swallowed.
+    @Test("only one end is swallowed")
+    func onlyOneEndIsSwallowed() {
+        let model = makeModel()
+        model.seek(to: 0)
+        model.laneDragChanged(
+            start: .init(x: 200, y: 10), current: .init(x: 205, y: 10),
+            option: false, shift: false)
+        model.cancelLaneDrag()
+        model.laneDragEnded(start: .init(x: 200, y: 10), end: .init(x: 205, y: 10), now: 0)
+
+        // A real click afterwards.
+        model.laneDragChanged(
+            start: .init(x: 700, y: 10), current: .init(x: 700, y: 10),
+            option: false, shift: false)
+        model.laneDragEnded(start: .init(x: 700, y: 10), end: .init(x: 700, y: 10), now: 1)
+        #expect(model.playhead > 0, "the gesture after a cancelled one was swallowed too")
+    }
+
+    /// Cancelling with nothing in flight must be a no-op, since the pinch fires
+    /// `onChanged` repeatedly and only the first one has a drag to undo.
+    @Test("cancelling with no drag in flight changes nothing")
+    func cancellingIdle() {
+        let model = makeModel()
+        model.seek(to: 1000)
+        model.cancelLaneDrag()
+        #expect(model.playhead == 1000)
+        #expect(model.selection.range.isEmpty)
+    }
+}

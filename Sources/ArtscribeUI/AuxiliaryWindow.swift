@@ -19,6 +19,7 @@ import AppKit
 /// layer and divider width have no counterpart here — and holds one of these
 /// for the window itself.
 @MainActor
+@Observable
 public final class AuxiliaryWindow {
 
     /// What a toggle key should do, as a pure function of the two facts it
@@ -45,14 +46,22 @@ public final class AuxiliaryWindow {
     /// Installed by the scene, because `openWindow(id:)` is an
     /// `EnvironmentValues` member reachable only from inside a `View` body while
     /// `ActionInvoker`'s table is deliberately not a view.
-    public var present: (@MainActor () -> Void)?
+    ///
+    /// `@ObservationIgnored`: it is written once at launch, and tracking it
+    /// would make every view that can open the window depend on the act of
+    /// installing the opener.
+    @ObservationIgnored public var present: (@MainActor () -> Void)?
 
     #if os(macOS)
 
     /// The `NSWindow`, reported by the view once it is in one. Held rather than
     /// looked up by title, because a title is not an identity. Weak: the window
     /// is owned by its scene and closing it must not be prevented by this.
-    public weak var window: NSWindow?
+    ///
+    /// `@ObservationIgnored` because AppKit owns the window's visibility and
+    /// nothing re-renders from this — `isOpen` asks the window directly rather
+    /// than mirroring it into observable state that could disagree.
+    @ObservationIgnored public weak var window: NSWindow?
 
     public init() {}
 
@@ -123,11 +132,13 @@ public final class AuxiliaryWindow {
     // use it, put it away if you can — is not platform-specific, only the two
     // facts it reads are.
 
-    /// Whether the sheet is up. The view binds a `.sheet(isPresented:)` to this.
+    /// Whether the sheet is up. `DocumentView` binds a `.sheet(isPresented:)`
+    /// to this, which is why the class is `@Observable`: the actions flip this
+    /// and the presentation has to follow.
     ///
-    /// Not yet observed by anything: the sheets themselves are the next piece of
-    /// work, and until a view binds to it this is state with no reader. Wiring
-    /// that up needs it to be observable — see the note in `#58`.
+    /// It flipped correctly before anything bound to it, which is precisely why
+    /// `⌘/` and `⌘P` on iPad looked like dead keys rather than like a missing
+    /// feature — the state machine was right and had no audience.
     public var isPresented = false
 
     public init() {}

@@ -1,7 +1,8 @@
-#if os(macOS)
-
-import AppKit
 import SwiftUI
+
+#if os(macOS)
+import AppKit
+#endif
 
 /// **The shortcut reference, as its own window**: a keyboard with the bindings
 /// drawn on it, a list beside it, and one filter over both.
@@ -34,7 +35,14 @@ public struct ShortcutWindow: View {
     /// so a `.flagsChanged` for a key this app does not read cannot invalidate
     /// the whole keyboard.
     @State private var held: KeyModifiers = []
+    #if os(macOS)
+    /// Reads held modifiers so the keyboard can switch layers under your thumb.
+    /// macOS only: it is an `NSEvent` monitor, and on iPad a hardware keyboard
+    /// is optional — which is exactly why the pinned-layer picker exists, and
+    /// why it was built as an accessibility requirement rather than a nicety.
+    /// That picker is the whole layer story on iPad.
     @State private var modifiers = ModifierMonitor()
+    #endif
     /// The list width at the instant the divider was grabbed. `nil` when it is
     /// not being dragged — a `DragGesture`'s translation is cumulative, so the
     /// starting width has to be remembered rather than accumulated, or the
@@ -94,10 +102,31 @@ public struct ShortcutWindow: View {
                 }
             }
         }
+        // **A minimum on macOS; the whole sheet on iPad.**
+        //
+        // A `minWidth`/`minHeight` is a floor a resizable window sits above —
+        // right for a window the reader drags to whatever size suits. A sheet is
+        // not resizable, so the same modifier makes it exactly its minimum and
+        // no more: on a 13-inch iPad the keyboard was drawn at about a third of
+        // the available width with empty space around it, and the list beside it
+        // was clipped mid-entry.
+        //
+        // `ShortcutKeyboardView` already scales — one `unit` derived from the
+        // space it is given governs every key — so filling the sheet is the
+        // whole fix. Nothing about the keyboard's own layout changes.
+        #if os(macOS)
         .frame(minWidth: Self.minimumWidth, minHeight: Self.minimumHeight)
+        #else
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #endif
         .background(palette.background.color())
         .environment(\.palette, palette)
         .preferredColorScheme(theme.colorScheme)
+        // Both are macOS window concepts. On iPad this view is a sheet: it has
+        // no `NSWindow` to adopt or autosave, and no `NSEvent` monitor to read
+        // held modifiers from — the pinned-layer picker is the whole layer story
+        // there, which is what it was built for.
+        #if os(macOS)
         .background(WindowReader(onWindow: configure))
         .onAppear {
             modifiers.start { held in
@@ -110,6 +139,7 @@ public struct ShortcutWindow: View {
             modifiers.stop()
             held = []
         }
+        #endif
     }
 
     // MARK: - The divider
@@ -140,7 +170,9 @@ public struct ShortcutWindow: View {
                     // already use — not an `NSCursor.push()`/`pop()` pair, which
                     // has to be balanced by hand and is not if the pointer
                     // leaves while a drag is still running.
-                    .pointerStyle(.columnResize)
+                    #if os(macOS)
+                .pointerStyle(.columnResize)
+                    #endif
                     .gesture(
                         DragGesture(minimumDistance: 1)
                             .onChanged { value in
@@ -258,13 +290,17 @@ public struct ShortcutWindow: View {
     /// is made a two-way state instead, in `ShortcutFocusMonitor`, which the
     /// controller owns because this view's `onAppear` runs once and the window
     /// is reopened all day.
+    #if os(macOS)
     private func configure(_ window: NSWindow?) {
         shortcuts.adopt(window: window)
         guard let window else { return }
         _ = window.setFrameAutosaveName(ShortcutWindowController.windowID)
         window.isRestorable = true
     }
+    #endif
 }
+
+#if os(macOS)
 
 extension View {
     /// Hands the scene's `openWindow` to the controller.
@@ -293,4 +329,4 @@ private struct ShortcutWindowOpener: ViewModifier {
     }
 }
 
-#endif
+#endif  // os(macOS) — the scene opener

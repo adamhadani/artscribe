@@ -217,12 +217,13 @@ extension ViewerModel {
         // than only the first one.
         savedState = sessionState
         preservedSidecar = saved.contents
-        guard saved.fellBack else {
-            // A previous fallback notice is stale once the sidecar works again.
-            if isSessionNoticeAboutStorage { sessionNotice = nil }
-            return
-        }
-        sessionNotice = Self.fallbackNotice(location: saved.location, reason: saved.reason)
+        // The *reason* is worth keeping even though the notice is not: the banner
+        // can say "you do not have permission to write to that folder", which is
+        // the difference between a mystery and an explanation.
+        sessionFallbackReason = saved.fellBack ? saved.reason : nil
+        // A previous fallback notice is stale once the sidecar works again. Kept
+        // for sessions saved by an older build, which could still have raised one.
+        if !saved.fellBack, isSessionNoticeAboutStorage { sessionNotice = nil }
     }
 
     /// Whether the standing notice is the fallback one, so a successful sidecar
@@ -232,7 +233,14 @@ extension ViewerModel {
         sessionNotice?.contains("Application Support") == true
     }
 
-    static func fallbackNotice(location: SessionLocation, reason: String?) -> String {
+    /// What the standing banner says. One sentence for the fact, one for what it
+    /// means to the reader, and the reason in between when the filesystem gave
+    /// one — "could not be written to" invites the question this answers.
+    ///
+    /// This replaced a dismissible notice with the same content. Two banners
+    /// stating one condition is not twice as clear; it is a screen the reader
+    /// stops reading.
+    public static func fallbackNotice(reason: String?) -> String {
         "This track's folder will not accept a session file"
             + (reason.map { " (\($0))" } ?? "")
             + ", so the session is stored in Application Support instead. Your loop points are "
@@ -316,11 +324,11 @@ extension ViewerModel {
                 "Part of this track's session file could not be used: "
                     + "\(list(named)). Everything else was restored.")
         }
-        if !read.location.isBesideTheTrack {
-            parts.append(
-                "This track's session is stored in Application Support rather than beside the "
-                    + "track, because its folder could not be written to.")
-        }
+        // **Deliberately silent about the storage location.** That is a standing
+        // condition, not an event, and `SessionFallbackBanner` states it for as
+        // long as it is true. Saying it here as well put two banners on screen
+        // describing one fact in two orders of words — one dismissible, one not.
+        // This notice is for things that *happened*: a damaged file, a repair.
         return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 

@@ -271,7 +271,21 @@ struct ViewerModelSessionTests {
         #expect(model.isSessionStoredAwayFromTheTrack)
         // Loop points must never be silently lost because a directory was
         // read-only, so the fact that they moved is on screen.
-        let notice = try #require(model.sessionNotice)
-        #expect(notice.contains("Application Support"))
+        //
+        // Asserted through the **standing banner**, not the dismissible notice.
+        // Both used to fire and the user saw one condition described twice, in
+        // two orders of words, one dismissible and one not. The condition does
+        // not go away, so the banner is the honest home for it — and this test
+        // now checks the surface that actually exists rather than the one that
+        // happened to be easiest to reach.
+        #expect(
+            model.isSessionStoredAwayFromTheTrack,
+            "the standing banner is what tells the user, and it is not showing")
+        #expect(
+            ViewerModel.fallbackNotice(reason: model.sessionFallbackReason)
+                .contains("Application Support"))
+        #expect(
+            model.sessionNotice == nil,
+            "a second, dismissible notice about the same condition is back")
     }
 }

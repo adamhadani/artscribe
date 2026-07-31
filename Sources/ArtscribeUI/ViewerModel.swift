@@ -117,6 +117,10 @@ public final class ViewerModel {
     /// saved. `.applicationSupport` is the read-only-volume fallback and is
     /// always surfaced.
     public internal(set) var sessionLocation: SessionLocation?
+
+    /// Why the sidecar could not be written, when the filesystem said. Shown in
+    /// the standing banner, which is the only place the fallback is announced.
+    public internal(set) var sessionFallbackReason: String?
     /// A damaged sidecar, a fallback in effect, a Save As that went somewhere
     /// reopening will not look, or a save that failed. Shown as an inline
     /// banner, never a modal, and only cleared by the user or by the next load.
@@ -299,6 +303,13 @@ public final class ViewerModel {
     /// "zoom". Written exactly twice per gesture — mouse-down and mouse-up —
     /// not once per event, so it costs two body evaluations, not sixty a second.
     var laneDragMode: LaneDragMode?
+
+    /// Snapshots for undoing a lane drag that turns out to be the first finger of
+    /// a pinch — see `cancelLaneDrag`. The playhead is included because a
+    /// select-drag *also moves it*.
+    @ObservationIgnored var selectionBeforeLaneDrag: Selection?
+    @ObservationIgnored var playheadBeforeLaneDrag: FrameIndex?
+    @ObservationIgnored var laneDragCancelled = false
 
     /// Each `E`/`R` press changes zoom by this factor. A half-octave keeps the
     /// key-repeat sweep readable instead of jumping past the detail you want.
