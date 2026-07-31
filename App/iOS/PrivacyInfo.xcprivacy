@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+	Apple's privacy manifest. **Required**: since May 2024 App Store Connect
+	rejects an upload whose bundle uses a "required reason" API without
+	declaring why, and this app uses two of them.
+
+	The two declarations below are not boilerplate — each names a specific call
+	site, and if that call site goes away the declaration should go with it:
+
+	  * UserDefaults — every settings type in `ArtscribeUI` (`Preferences`,
+	    `Theme`, `RecentFiles`, `PracticeSettings`, `PrerollSettings`,
+	    `InteractionSettings`, `SessionStore`). Reason **CA92.1**: read and write
+	    information accessible only to this app. Nothing is shared with an app
+	    group, and there is no group entitlement to share through.
+
+	  * System boot time — `ProcessInfo.processInfo.systemUptime`, in
+	    `ViewerModel+Playback` (the transport clock and the playback tick) and
+	    `WaveformLanesView`. Reason **35F9.1**: measuring elapsed time between
+	    events inside the app. It is a monotonic clock for the playhead, and the
+	    value never leaves the process.
+
+	Deliberately *absent*: the file-timestamp category. The app touches
+	`FileManager` only for `fileExists`, `createDirectory`, `contentsOfDirectory`
+	and `urls(for:)` — none of which read timestamps or metadata — so declaring
+	it would claim an access that does not happen.
+
+	Nothing is collected and nothing is tracked, which is the honest answer
+	rather than a convenient one: the app makes no network calls, has no
+	accounts, no analytics and no third-party SDKs. Audio never leaves the
+	device. `NSPrivacyCollectedDataTypes` is empty for the same reason, and the
+	App Store Connect privacy questionnaire must be answered to match.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

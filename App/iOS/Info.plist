@@ -36,12 +36,56 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
-	<!-- So a track can be opened from the Files app and from AirDrop, the same
-	     way CFBundleDocumentTypes does it for the Mac bundle. -->
+	<!-- Files shows this app's own Documents folder, and a track opened from
+	     elsewhere opens in place rather than as a copy — so a sidecar written
+	     beside it lands beside the *original*. Neither key registers the app as
+	     a handler for anything; CFBundleDocumentTypes below does that. -->
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<!-- What makes Artscribe appear in Files ▸ Share ▸ Open With, and in the
+	     "Open in…" sheet from Mail, Dropbox and AirDrop. Without it the app can
+	     only ever reach a file through its own picker.
+
+	     The same list as the Mac bundle **minus `org.xiph.ogg-audio`**: iOS does
+	     not decode Ogg Vorbis (measured 2026-07-30 on an iPad simulator — see
+	     `decodesEveryNativeFormat`). Claiming a format we then fail to open
+	     would offer the user a route that dead-ends in an error.
+
+	     `Alternate` rather than `Owner`: these are other people's audio files and
+	     a transcription tool should not take over as their default handler. -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Audio File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.mp3</string>
+				<string>public.aac-audio</string>
+				<string>com.apple.m4a-audio</string>
+				<string>com.apple.protected-mpeg-4-audio-b</string>
+				<string>public.mpeg-4-audio</string>
+				<string>public.mpeg-4</string>
+				<string>org.xiph.flac</string>
+				<string>com.microsoft.waveform-audio</string>
+				<string>public.aiff-audio</string>
+				<string>public.aifc-audio</string>
+				<string>com.apple.coreaudio-format</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Artscribe uses no encryption of its own, and nothing beyond what the OS
+	     does for it. Stating that here means App Store Connect stops asking the
+	     export-compliance questionnaire on every single upload; leaving it out
+	     is not a rejection, just a manual step repeated forever. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- Audio keeps playing when the app is backgrounded or the screen locks.
 	     A practice tool that stopped when you looked away from the iPad to your
 	     instrument would be useless; this is what `AVAudioSession`'s `.playback`

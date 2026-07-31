@@ -8,6 +8,18 @@ APP := $(XCODE_DERIVED)/Build/Products/Release/Artscribe.app
 DIST := dist
 VERSION := $(shell awk -F'"' '/MARKETING_VERSION/ {print $$2; exit}' project.yml)
 
+# `CFBundleVersion`. App Store Connect keys uploads on it and refuses one it has
+# already seen, so it must be unique and increasing — and a number nobody has to
+# remember to bump is the only kind that stays that way. The commit count is
+# both, and is derivable from any checkout rather than tracked in a file two
+# branches would then conflict over.
+#
+# `project.yml` reads it as `$(ARTSCRIBE_BUILD_NUMBER:default=1)`, so a bare
+# `xcodebuild` or a build from Xcode's UI still works; only builds that leave
+# this machine need it to be real.
+ARTSCRIBE_BUILD_NUMBER := $(shell git rev-list --count HEAD 2>/dev/null || echo 1)
+export ARTSCRIBE_BUILD_NUMBER
+
 # Signing. Ad-hoc unless you say otherwise, so a clean checkout builds a
 # runnable app with no account, no certificate and no configuration.
 #
