@@ -138,6 +138,23 @@ public struct DocumentView: View {
             StatusBarView(model: model)
         }
         .background(Palette.of(appearance).background.color())
+        #if !os(macOS)
+        // TEMPORARY PROBE (#67). Does iPadOS report Stage Manager's window
+        // controls in the leading safe area? If it does, the header fix is to
+        // stop ignoring the safe area; if it does not, something has to detect
+        // Stage Manager. Measuring beats guessing — remove once answered.
+        .overlay(alignment: .topLeading) {
+            GeometryReader { proxy in
+                Color.clear.onAppear {
+                    let insets = proxy.safeAreaInsets
+                    print(
+                        "PROBE safeArea leading=\(insets.leading) top=\(insets.top) "
+                            + "trailing=\(insets.trailing) size=\(proxy.size)")
+                }
+            }
+            .allowsHitTesting(false)
+        }
+        #endif
         // **The auxiliary windows, as sheets.** On macOS these are real windows —
         // the shortcut reference is a thing you keep open on a second display
         // while you learn the keymap, which a sheet cannot be. iPad has no second
@@ -151,9 +168,14 @@ public struct DocumentView: View {
         #if !os(macOS)
         .sheet(isPresented: sheetBinding(for: context.shortcuts.windowState)) {
             ShortcutWindow(context: context, theme: context.theme)
+            // The reference is a dense two-pane layout: a keyboard that
+            // scales to its space beside a scrolling list. `.large` is the
+            // only detent where either is legible.
+            .presentationDetents([.large])
         }
         .sheet(isPresented: sheetBinding(for: context.practice.windowState)) {
             PracticeWindow(context: context, theme: context.theme)
+            .presentationDetents([.large])
         }
         #endif
         #if !os(macOS)

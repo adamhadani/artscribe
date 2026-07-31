@@ -171,6 +171,12 @@ struct WaveformLanesView: View {
     private var magnifyGesture: some Gesture {
         MagnifyGesture()
             .onChanged { value in
+                // The first finger of a pinch has already started a selection —
+                // SwiftUI cannot tell a `DragGesture` how many fingers are down,
+                // and the pinch is attached `simultaneous` precisely so it is not
+                // blocked by that drag. So the drag is undone here, once, the
+                // moment this turns out to be a pinch.
+                model.cancelLaneDrag()
                 let delta = value.magnification / lastMagnification
                 lastMagnification = value.magnification
                 model.pinchZoom(by: Double(delta), atLaneX: value.startLocation.x)

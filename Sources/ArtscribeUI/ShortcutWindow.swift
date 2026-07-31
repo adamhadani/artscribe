@@ -102,7 +102,23 @@ public struct ShortcutWindow: View {
                 }
             }
         }
+        // **A minimum on macOS; the whole sheet on iPad.**
+        //
+        // A `minWidth`/`minHeight` is a floor a resizable window sits above —
+        // right for a window the reader drags to whatever size suits. A sheet is
+        // not resizable, so the same modifier makes it exactly its minimum and
+        // no more: on a 13-inch iPad the keyboard was drawn at about a third of
+        // the available width with empty space around it, and the list beside it
+        // was clipped mid-entry.
+        //
+        // `ShortcutKeyboardView` already scales — one `unit` derived from the
+        // space it is given governs every key — so filling the sheet is the
+        // whole fix. Nothing about the keyboard's own layout changes.
+        #if os(macOS)
         .frame(minWidth: Self.minimumWidth, minHeight: Self.minimumHeight)
+        #else
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #endif
         .background(palette.background.color())
         .environment(\.palette, palette)
         .preferredColorScheme(theme.colorScheme)

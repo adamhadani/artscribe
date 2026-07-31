@@ -69,7 +69,17 @@ public struct PracticeWindow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        // As above in `ShortcutWindow`: a minimum is a floor for a resizable
+        // window and a fixed size for a sheet. This one fills the height but is
+        // capped in width — it is a narrow column of controls, and stretching it
+        // across a 13-inch iPad would leave each row's label and value at
+        // opposite ends of the screen.
+        #if os(macOS)
         .frame(minWidth: Self.minimumWidth, minHeight: Self.minimumHeight)
+        #else
+        .frame(maxWidth: 620, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        #endif
         .background(palette.background.color())
         .environment(\.palette, palette)
         .preferredColorScheme(theme.colorScheme)

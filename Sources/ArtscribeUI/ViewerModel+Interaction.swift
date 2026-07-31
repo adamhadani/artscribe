@@ -162,6 +162,9 @@ extension ViewerModel {
                 option: option, shift: shift, handle: timelineHandle(at: start))
             laneDragStart = start
             laneDragMode = mode
+            selectionBeforeLaneDrag = selection
+            playheadBeforeLaneDrag = playhead
+            laneDragCancelled = false
             // A new gesture never continues the previous one's zoom or handle
             // drag, even when the two began at the same point.
             zoomDrag = nil
@@ -189,10 +192,47 @@ extension ViewerModel {
     /// With no latched mode this behaves exactly as it did before ⌥-drag
     /// existed, so an end that somehow arrives without a preceding change still
     /// runs the click logic.
+    /// Abandons an in-flight lane drag and puts back what it changed.
+    ///
+    /// **What a pinch needs.** SwiftUI cannot tell a `DragGesture` how many
+    /// fingers are down, so the first finger of a pinch starts a selection and
+    /// the second cannot cancel it. The pinch is attached `simultaneous`
+    /// deliberately — an exclusive one would let the drag win outright — which
+    /// leaves this as the way to undo what it began.
+    ///
+    /// Restoring selection and playhead is only half. The other half is
+    /// `laneDragCancelled`: the gesture still delivers its `onEnded`, and without
+    /// the flag that end runs the click path — seeking to wherever the pinch
+    /// started, and reading two pinches in a second as a double-click, which
+    /// starts playback.
+    public func cancelLaneDrag() {
+        guard laneDragMode != nil else { return }
+        if let previous = selectionBeforeLaneDrag { selection = previous }
+        if let previous = playheadBeforeLaneDrag { seek(to: previous) }
+        selectionBeforeLaneDrag = nil
+        playheadBeforeLaneDrag = nil
+        laneDragMode = nil
+        laneDragStart = nil
+        dragOrigin = nil
+        zoomDrag = nil
+        edgeDrag = nil
+        laneDragCancelled = true
+        refresh()
+    }
+
     public func laneDragEnded(start: CGPoint, end: CGPoint, now: Double) {
+        // A cancelled drag still gets its `onEnded`. Swallow it once — the flag
+        // is cleared here rather than in `cancelLaneDrag` so exactly one end is
+        // absorbed and the next real gesture is unaffected.
+        if laneDragCancelled {
+            laneDragCancelled = false
+            return
+        }
         let mode = laneDragMode
         laneDragStart = nil
         laneDragMode = nil
+        selectionBeforeLaneDrag = nil
+        playheadBeforeLaneDrag = nil
         switch mode {
         case .zoom:
             zoomDragEnded()

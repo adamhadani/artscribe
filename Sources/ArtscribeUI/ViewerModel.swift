@@ -300,6 +300,17 @@ public final class ViewerModel {
     /// not once per event, so it costs two body evaluations, not sixty a second.
     var laneDragMode: LaneDragMode?
 
+    /// State for undoing a lane drag that turns out to be the first finger of a
+    /// pinch. All three are snapshots for one gesture's lifetime that nothing
+    /// renders from — see `ViewerModel.cancelLaneDrag`, which explains why each
+    /// is needed and what breaks without it.
+    ///
+    /// The playhead is here because a select-drag *also moves it*; restoring only
+    /// the selection left it parked wherever the pinch began.
+    @ObservationIgnored var selectionBeforeLaneDrag: Selection?
+    @ObservationIgnored var playheadBeforeLaneDrag: FrameIndex?
+    @ObservationIgnored var laneDragCancelled = false
+
     /// Each `E`/`R` press changes zoom by this factor. A half-octave keeps the
     /// key-repeat sweep readable instead of jumping past the detail you want.
     static let zoomStep = 1.4142135623730951
