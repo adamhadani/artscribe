@@ -171,7 +171,11 @@ extension ActionInvoker {
             .fileSave: { $0.model.saveSession() },
             .editCut: { _ in send(#selector(TextResponder.cut(_:))) },
             .editCopy: { _ in send(#selector(TextResponder.copy(_:))) },
-            .editPaste: { _ in send(#selector(TextResponder.paste(_:))) }
+            .editPaste: { _ in send(#selector(TextResponder.paste(_:))) },
+            // Toggles rather than shows, as `⌘/` and `⌘P` do: chosen from a menu
+            // while the panel is already in front of you, a show-only command
+            // does nothing at all. See `AuxiliaryWindow.action`.
+            .appAbout: { $0.about.toggle() }
         ]
         // Save As needs somewhere to ask — a save panel, or a document picker on
         // iPad — and there is no iPad picker yet. Absent from the table there

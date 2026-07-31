@@ -322,6 +322,19 @@ extension ActionCatalog {
         // `ActionCatalog.notInOurMenus`.
         ActionEntry(
             .appSettings, "Settings…", .application,
-            chords: [.key(",", .command)], menu: nil, note: "Artscribe ▸ Settings…")
+            chords: [.key(",", .command)], menu: nil, note: "Artscribe ▸ Settings…"),
+        // Placed into two menus macOS already builds — the app menu's About item
+        // and the Help menu's — rather than into a `MenuPlan` section of ours.
+        // See `ActionCatalog.notInOurMenus` and `ViewerCommands`.
+        //
+        // Unbound, and listed here anyway: since Task 25 the reference stopped
+        // skipping actions with no chord, because a window headed "Keyboard
+        // Shortcuts" that cannot find an item at all sends you hunting through
+        // the menu bar for it. The privacy policy is the one thing in this app a
+        // reader may be *required* to find (guideline 5.1.1(i)), so it is the
+        // last thing that should be missing from the index of what exists.
+        ActionEntry(
+            .appAbout, "About Artscribe", .application,
+            menu: nil, note: "Artscribe ▸ About Artscribe")
     ]
 }

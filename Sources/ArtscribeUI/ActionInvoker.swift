@@ -19,6 +19,10 @@ public struct MenuContext {
     /// `shortcuts`: `View ▸ Practice` and `⌘P` both arrive through
     /// `ActionInvoker`, which is not a view and so cannot reach `openWindow`.
     public let practice: PracticeWindowController
+    /// The About panel's opener, here for the third time and the same reason:
+    /// **Artscribe ▸ About Artscribe**, **Help ▸ About Artscribe** and the
+    /// resting screen's button on iPad all arrive through `ActionInvoker`.
+    public let about: AboutWindowController
     /// The theme, carried here for the same reason the controllers are: on iPad
     /// the auxiliary windows are sheets presented from `DocumentView`, which
     /// therefore has to be able to build them — and they take a theme. On macOS
@@ -31,6 +35,7 @@ public struct MenuContext {
         devices: OutputDeviceController,
         shortcuts: ShortcutWindowController,
         practice: PracticeWindowController,
+        about: AboutWindowController,
         theme: ThemeController
     ) {
         self.model = model
@@ -38,6 +43,7 @@ public struct MenuContext {
         self.devices = devices
         self.shortcuts = shortcuts
         self.practice = practice
+        self.about = about
         self.theme = theme
     }
 }

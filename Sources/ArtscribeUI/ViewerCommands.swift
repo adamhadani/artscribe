@@ -118,6 +118,46 @@ public struct ViewerCommands: Commands {
         CommandGroup(after: .toolbar) {
             MenuItems(section: .view, context: context)
         }
+
+        // **Artscribe ▸ About Artscribe**, *replacing* the standard item rather
+        // than adding to it. `.appInfo` is AppKit's own About command, which
+        // opens a panel assembled from `Info.plist`; leaving it in place and
+        // adding ours would give the app menu two About items, one of which
+        // knows nothing about the privacy policy or the licences.
+        CommandGroup(replacing: .appInfo) {
+            AboutMenuItem(context: context)
+        }
+
+        // **Help ▸ About Artscribe.** `.help` is the standard "Artscribe Help"
+        // item, and it is replaced rather than joined for a blunter reason than
+        // the one above: this app ships no help book, so the item macOS puts
+        // there opens a sheet saying help is not available. A second route to
+        // the About panel is worth more than that, and the Help menu is the
+        // other place a reader looks for a privacy policy — which guideline
+        // 5.1.1(i) requires them to be able to find from inside the app.
+        CommandGroup(replacing: .help) {
+            AboutMenuItem(context: context)
+        }
+    }
+}
+
+/// **About Artscribe**, in both of the menus macOS builds for it.
+///
+/// A `View` rather than a bare `Button` in the `Commands` body, like every other
+/// item in this app: a `Commands` body is not re-evaluated when an `@Observable`
+/// changes, and while this particular item is never disabled, an item that is
+/// built the other way is the one nobody notices going stale later.
+///
+/// It carries no key equivalent. About is not something you reach for mid-take,
+/// and every free chord in this app is worth more to the transport than to a
+/// panel opened once.
+private struct AboutMenuItem: View {
+    let context: MenuContext
+
+    var body: some View {
+        Button(ActionCatalog.entry(.appAbout).title) {
+            ActionInvoker.perform(.appAbout, context)
+        }
     }
 }
 

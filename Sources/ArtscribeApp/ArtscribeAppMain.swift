@@ -101,6 +101,11 @@ struct ArtscribeAppMain: App {
     /// Task 21's Practice window: the closure that opens it. Application state
     /// like the rest of these.
     @State private var practice = PracticeWindowController()
+    /// The About panel's opener. Application state like the rest of these, and
+    /// held here rather than defaulted inside `MenuContext` because `context`
+    /// below is rebuilt on every access — a default would mint a fresh, unopened
+    /// controller each time and the menu item would open nothing.
+    @State private var about = AboutWindowController()
     /// Where the practice ramp's schedule is persisted. The applied schedule
     /// lives on the model — this is only its backing tape (see
     /// `PracticeSettings`), exactly as `nudge` is for the nudge amounts.
@@ -111,7 +116,7 @@ struct ArtscribeAppMain: App {
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice, theme: theme)
+            practice: practice, about: about, theme: theme)
     }
 
     init() {
@@ -128,6 +133,7 @@ struct ArtscribeAppMain: App {
                 .task { start() }
                 .openShortcutWindow(shortcuts)
                 .openPracticeWindow(practice)
+                .openAboutWindow(about)
         }
         .defaultSize(width: 1280, height: 720)
         .commands {
@@ -148,6 +154,7 @@ struct ArtscribeAppMain: App {
             ShortcutWindow(context: context, theme: theme)
                 .openShortcutWindow(shortcuts)
                 .openPracticeWindow(practice)
+                .openAboutWindow(about)
         }
         // Wider and shorter than the 1100×660 it opened at first. The keyboard
         // is a 2.7:1 object that can only grow taller by growing wider, so a
@@ -164,10 +171,30 @@ struct ArtscribeAppMain: App {
             PracticeWindow(context: context, theme: theme)
                 .openShortcutWindow(shortcuts)
                 .openPracticeWindow(practice)
+                .openAboutWindow(about)
         }
         // A tall, narrow utility window: three fields and a readout, meant to
         // sit beside the document rather than in front of it.
         .defaultSize(width: 340, height: 400)
+        .windowResizability(.contentMinSize)
+
+        // The About panel (App Store guideline 5.1.1(i), and Rubber Band's GPL
+        // attribution). A `Window` rather than AppKit's standard About panel,
+        // which can only show what `Info.plist` gives it — not a privacy link,
+        // and not a licence list that has to differ between the macOS and
+        // iPadOS builds.
+        //
+        // It carries the two openers as well, so a command chosen while the
+        // panel is the frontmost window still reaches the other windows.
+        Window("About Artscribe", id: AboutWindowController.windowID) {
+            AboutWindow(about: about, theme: theme)
+                .openShortcutWindow(shortcuts)
+                .openPracticeWindow(practice)
+                .openAboutWindow(about)
+        }
+        // A panel, not a workspace: it opens at the size of its contents and
+        // grows only when the licence list is disclosed.
+        .defaultSize(width: AboutWindow.minimumWidth, height: AboutWindow.minimumHeight)
         .windowResizability(.contentMinSize)
 
         // The idiomatic route to **Artscribe ▸ Settings…**: this scene is what

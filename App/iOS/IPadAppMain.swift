@@ -48,11 +48,17 @@ struct IPadAppMain: App {
     @State private var shortcuts = ShortcutWindowController()
     @State private var practice = PracticeWindowController()
     @State private var practiceSettings = PracticeSettings()
+    /// The About panel — a sheet here rather than a window. It is the only place
+    /// this build states its privacy policy and its licences, which App Store
+    /// guideline 5.1.1(i) requires to be reachable from inside the app, so on
+    /// iPad it is reached without a hardware keyboard: `EmptyStateView` carries
+    /// a button, and `DocumentView` presents the sheet.
+    @State private var about = AboutWindowController()
 
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice, theme: theme)
+            practice: practice, about: about, theme: theme)
     }
 
     var body: some Scene {

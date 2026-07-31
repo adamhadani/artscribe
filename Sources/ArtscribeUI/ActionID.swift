@@ -97,11 +97,12 @@ public enum ActionID: String, CaseIterable, Hashable, Sendable {
     case fileSave = "file.save"
     case fileSaveAs = "file.saveAs"
 
-    // Application — the three pasteboard chords, and Settings
+    // Application — the three pasteboard chords, Settings, and the About panel
     case editCut = "edit.cut"
     case editCopy = "edit.copy"
     case editPaste = "edit.paste"
     case appSettings = "app.settings"
+    case appAbout = "app.about"
 }
 
 /// How the shortcut reference groups the catalog, and the order it groups it in.
