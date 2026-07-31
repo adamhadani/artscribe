@@ -37,7 +37,16 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
     MARKETING_VERSION: "0.3.0"
-    CURRENT_PROJECT_VERSION: "1"
+    # The build number, and it has to *move*. App Store Connect refuses a second
+    # upload carrying a build number it has already seen, so a tracked literal
+    # works exactly once and then fails at the least convenient moment — after
+    # an archive, an upload and a wait.
+    #
+    # `git rev-list --count HEAD` is the source: unique per commit, monotonic
+    # along a branch, and needing nobody to remember to bump it. `make ipad` and
+    # `make archive` export it; the `:default=1` is for a bare `xcodebuild` or a
+    # build from Xcode's UI, where an ordinary local build does not care.
+    CURRENT_PROJECT_VERSION: "$(ARTSCRIBE_BUILD_NUMBER:default=1)"
     # Signing is taken from the environment so that turning on a real Developer
     # ID needs no edit to a tracked file — `make app` exports these, defaulting
     # to ad-hoc. See README ▸ Signing for the four things to set once you have
