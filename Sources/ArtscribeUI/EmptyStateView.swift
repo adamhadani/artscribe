@@ -36,7 +36,7 @@ struct EmptyStateView: View {
     /// notices, since the app would say nothing.
     private var offeredSample: URL? {
         guard SampleTrack.isOffered(recentCount: recents.urls.count) else { return nil }
-        return SampleTrack.url
+        return SampleTrack.installedURL()
     }
 
     var body: some View {
@@ -47,7 +47,7 @@ struct EmptyStateView: View {
             // from the left-aligned list below it — two different kinds of
             // thing that were previously distinguished only by alignment.
             VStack(spacing: 8) {
-                Text("Drop an audio file here")
+                Text(EmptyStatePrompt.headline(for: EmptyStatePrompt.current))
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(palette.text.color())
                 Text(hint)
@@ -152,15 +152,9 @@ struct EmptyStateView: View {
         .background(palette.panel.color())
     }
 
-    /// ⌘O is only advice if there is a keyboard to press it on. The header's
-    /// Open button is the one thing every platform has.
-    private var hint: String {
-        #if os(macOS)
-        return "or press ⌘O to choose one"
-        #else
-        return "or use Open… above"
-        #endif
-    }
+    /// See `EmptyStatePrompt` — the wording differs by platform because on a
+    /// phone the drop it used to describe is not possible at all.
+    private var hint: String { EmptyStatePrompt.hint(for: EmptyStatePrompt.current) }
 }
 
 /// One row of the resting screen's recent list.

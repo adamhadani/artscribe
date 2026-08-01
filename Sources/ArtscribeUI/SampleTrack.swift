@@ -38,13 +38,72 @@ enum SampleTrack {
 
     static let source = "https://archive.org/details/The_Open_Goldberg_Variations-11823"
 
-    /// A 28-second excerpt, in the app's own resource bundle.
+    /// The 28-second excerpt as it ships, inside the app's resource bundle.
+    ///
+    /// **Not what gets opened.** See `installedURL()`: this path lives under
+    /// `…/Bundle/Application/<UUID>/Artscripture.app/…`, and iOS regenerates
+    /// that UUID on every install and every TestFlight update.
     ///
     /// `nil` would mean the resource did not make it into the bundle. The caller
     /// hides the offer rather than showing a button that cannot work — a missing
     /// file is a build fault, and the user is not the right person to tell.
-    static var url: URL? {
+    static var bundledURL: URL? {
         Bundle.module.url(forResource: "GoldbergVariatio4", withExtension: "m4a")
+    }
+
+    /// Where the sample is opened *from*: a real file in the app's Documents
+    /// folder, copied out of the bundle the first time it is wanted.
+    ///
+    /// ## Why it cannot be opened in place
+    ///
+    /// Opening the bundled copy worked, and then broke in two ways that both
+    /// looked like something else:
+    ///
+    ///  * **Recents stopped working.** The stored path contains the app bundle's
+    ///    UUID, which iOS regenerates on every install and update — so after the
+    ///    next TestFlight build the entry pointed into a bundle that no longer
+    ///    existed and the user got "the file could not be read". Reported.
+    ///  * **Its sidecar could never sit beside it.** An app bundle is read-only,
+    ///    so saving a session for the sample always fell back to Application
+    ///    Support and raised the banner that says so — for a file the user had
+    ///    done nothing unusual with.
+    ///
+    /// Documents rather than Application Support, deliberately: the app sets
+    /// `UIFileSharingEnabled`, so the sample and its `.artscripture` sidecar are
+    /// both visible in Files. That matches what this project says about session
+    /// files being things you can see, read and delete.
+    ///
+    /// Returns the bundled URL as a fallback if the copy fails, which keeps the
+    /// first run working even on a full disk — that path is still readable, it
+    /// simply will not survive an update.
+    static func installedURL(
+        in directory: FileManager.SearchPathDirectory = .documentDirectory
+    ) -> URL? {
+        guard let bundled = bundledURL else { return nil }
+        let manager = FileManager.default
+        guard let root = manager.urls(for: directory, in: .userDomainMask).first else {
+            return bundled
+        }
+        let destination = root.appendingPathComponent(bundled.lastPathComponent)
+        if manager.fileExists(atPath: destination.path) { return destination }
+        do {
+            try manager.copyItem(at: bundled, to: destination)
+            return destination
+        } catch {
+            // Readable, just not durable. Better than refusing to open the one
+            // thing an empty app offers.
+            return bundled
+        }
+    }
+
+    /// A recents entry that can never be opened again.
+    ///
+    /// Anything under `…/Bundle/Application/…` belonged to a previous install of
+    /// this or another app. Entries like that were written by the version that
+    /// opened the sample in place, and they fail with "the file could not be
+    /// read" every time — so they are dropped rather than left to disappoint.
+    static func isStaleBundlePath(_ url: URL) -> Bool {
+        url.path.contains("/Bundle/Application/")
     }
 
     /// Whether to offer the sample, given how many recent files there are.

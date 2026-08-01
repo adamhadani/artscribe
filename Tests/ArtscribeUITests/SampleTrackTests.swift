@@ -42,7 +42,7 @@ struct SampleTrackTests {
     /// checking it means looking inside a built `.app`.
     @Test("the audio is actually in the resource bundle")
     func resourceIsBundled() throws {
-        let url = try #require(SampleTrack.url, "the sample is missing from the bundle")
+        let url = try #require(SampleTrack.bundledURL, "the sample is missing from the bundle")
         #expect(FileManager.default.fileExists(atPath: url.path))
         let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int
         // Big enough to be audio rather than a truncated placeholder, small
@@ -60,7 +60,7 @@ struct SampleTrackTests {
     /// something else; this is what would notice if that changed.
     @Test("the sample decodes, in stereo, at the length it claims")
     func sampleDecodes() async throws {
-        let url = try #require(SampleTrack.url)
+        let url = try #require(SampleTrack.bundledURL)
         let audio = try await AudioFileDecoder.decode(url: url)
         #expect(audio.channels == 2, "the waveform draws one lane per channel")
         #expect(audio.sampleRate == 44_100)
@@ -75,5 +75,48 @@ struct SampleTrackTests {
         #expect(SampleTrack.credit.contains("Ishizaka"))
         #expect(SampleTrack.credit.contains("CC0"))
         #expect(SampleTrack.source.contains("archive.org"))
+    }
+}
+
+/// What the resting screen says, per platform.
+///
+/// The bug: "Drop an audio file here" shipped to iPhone, where dragging a file
+/// in needs two apps on screen and there is no Split View — so a first-time user
+/// was told to do something the device cannot do.
+@Suite("Empty-state prompt")
+struct EmptyStatePromptTests {
+
+    /// The phone must not be told to drop anything, and must not be offered a
+    /// keyboard shortcut it has no keyboard for.
+    @Test("the phone is never told to drop or to press a key")
+    func phoneSaysNeitherDropNorChord() {
+        let headline = EmptyStatePrompt.headline(for: .phone)
+        let hint = EmptyStatePrompt.hint(for: .phone)
+        #expect(!headline.lowercased().contains("drop"))
+        #expect(!hint.lowercased().contains("drop"))
+        #expect(!hint.contains("⌘"))
+    }
+
+    /// iPad keeps the drop, because there it genuinely works.
+    @Test("the tablet still offers the drop")
+    func tabletKeepsTheDrop() {
+        #expect(EmptyStatePrompt.headline(for: .tabletWithDrop).lowercased().contains("drop"))
+        #expect(!EmptyStatePrompt.hint(for: .tabletWithDrop).contains("⌘"))
+    }
+
+    /// Only the desktop names a key equivalent.
+    @Test("only the desktop names a chord")
+    func onlyDesktopNamesAChord() {
+        #expect(EmptyStatePrompt.hint(for: .desktop).contains("⌘O"))
+    }
+
+    /// Every surface says something. An empty string here would leave the
+    /// emptiest screen in the app blank.
+    @Test("no surface is left without words")
+    func nothingIsBlank() {
+        for surface in [EmptyStatePrompt.Surface.desktop, .tabletWithDrop, .phone] {
+            #expect(!EmptyStatePrompt.headline(for: surface).isEmpty)
+            #expect(!EmptyStatePrompt.hint(for: surface).isEmpty)
+        }
     }
 }
