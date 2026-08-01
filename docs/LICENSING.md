@@ -20,6 +20,23 @@ permissive path is no longer a goal to be argued for, it is a shipping artefact.
 was checked on the binary, not inferred from the build files — 640 Signalsmith symbols present,
 zero matching "rubberband".
 
+## The one non-code asset in the binary
+
+Every build now bundles **28 seconds of Bach's Goldberg Variations, Variatio 4**, played by
+Kimiko Ishizaka — offered from the resting screen on a first run so the app can demonstrate
+itself with no file of the user's own, which is what App Store guideline 2.1 asks for.
+
+It is **CC0**, and the reasoning is worth stating because the obvious version of it is wrong.
+Bach's death settles the *composition* and nothing else: a recording carries its own copyright,
+and "the music is old" is exactly the argument that would have licensed this incorrectly. What
+makes it usable is that the *Open Goldberg Variations* were crowd-funded expressly to place the
+**performance** in the public domain — archive.org carries
+`licenseurl = creativecommons.org/publicdomain/zero/1.0/` on the item.
+
+CC0 imposes no attribution requirement, so `NOTICE` and the About panel credit it as courtesy
+rather than compliance. It constrains nothing in the table above: a CC0 asset can ship in a
+GPLv3 binary and in a paid App Store one alike.
+
 **And the quality objection did not survive contact with measurement.** The worry was that
 choosing the free backend meant choosing the worse one, which would make any edition split
 awkward to defend. Measured with the same FFT estimator that bounds Rubber Band

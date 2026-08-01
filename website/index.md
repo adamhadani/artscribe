@@ -133,7 +133,7 @@ description: >-
   <p class="eyebrow">Sessions</p>
   <h2>A sidecar you can read</h2>
   <p>
-    <kbd>⌘S</kbd> writes a plain <code>.artscribe</code> file next to your audio,
+    <kbd>⌘S</kbd> writes a plain <code>.artscripture</code> file next to your audio,
     holding the loop, the speed, the pitch, the playhead and the viewport. It is
     JSON, so you can read it, diff it and hand-edit it — and reopening the track
     picks up exactly where you left off. Every field is optional, so a

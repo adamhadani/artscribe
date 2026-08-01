@@ -92,13 +92,23 @@ xattr -d com.apple.quarantine Artscripture.app
 ### Where are my sessions saved?
 
 Next to the audio file, with `.artscripture` appended to the whole filename:
-`Blackbird.flac` saves to `Blackbird.flac.artscribe`. The extension is appended
+`Blackbird.flac` saves to `Blackbird.flac.artscripture`. The extension is appended
 rather than replaced on purpose, so a lossless master and an MP3 of the same
 song in one folder do not silently overwrite each other's loop points.
 
 If the folder cannot be written to, the session goes to
 `~/Library/Application Support/Artscripture/Sessions/` instead, and the app says so
 rather than failing quietly.
+
+### I have older `.artscribe` files — are they lost?
+
+No. The app was called Artscribe until August 2026 and wrote `.artscribe`
+sidecars; it still **reads** them. Open the track as usual and your loop points,
+speed and playhead come back.
+
+The next save writes the new `.artscripture` name and **leaves the old file
+alone** — nothing is deleted on your behalf. If you would rather not keep both,
+the `.artscribe` one is safe to remove once the new one exists.
 
 Press <kbd>⌘S</kbd> to save, <kbd>⇧⌘S</kbd> to save elsewhere.
 

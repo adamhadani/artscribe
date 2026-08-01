@@ -460,6 +460,80 @@ Developer-ID-signed downloads, a Homebrew cask, or source are the routes.
 
 </details>
 
+### The App Store (iPadOS)
+
+<details>
+<summary><b>Archiving and uploading to App Store Connect</b> — the API key, <code>make archive</code>, <code>make upload</code> (click to expand)</summary>
+
+A **completely separate path** from the Developer ID one above, sharing nothing with it: a
+different certificate (Apple Distribution), a different destination, and no notarisation step,
+because Apple notarises App Store builds itself. It applies only to iPadOS — the Mac App Store
+is out for the licensing reason just given.
+
+#### The credential
+
+One **App Store Connect API key**, with two properties that both matter:
+
+- a **Team** key, not an Individual one. Apple excludes individual keys from the provisioning
+  endpoints, and those are exactly what mints the distribution certificate below.
+- the **App Manager** role, which covers uploading builds *and* editing App Store metadata.
+  The Developer role can notarise but cannot do either.
+
+Generate it at [App Store Connect ▸ Users and Access ▸
+Integrations](https://appstoreconnect.apple.com/access/integrations/api) (Account Holder must
+click **Request Access** once first). **The `.p8` downloads exactly once** — Apple keeps no
+copy.
+
+```sh
+mkdir -p ~/.private_keys && chmod 600 ~/.private_keys/AuthKey_XXXXXXXXXX.p8
+```
+
+`~/.private_keys` is not arbitrary: `altool` searches it automatically for
+`AuthKey_<keyid>.p8`, so uploads need no path flag.
+
+Then in your `.envrc`, alongside the Developer ID variables:
+
+```sh
+export ARTSCRIBE_ASC_ISSUER_ID="…"   # the UUID at the top of the Integrations page
+export ARTSCRIBE_ASC_KEY_ID="…"      # the 10-character key ID
+export ARTSCRIBE_ASC_KEY_PATH="$HOME/.private_keys/AuthKey_XXXXXXXXXX.p8"
+```
+
+#### The commands
+
+```sh
+make asc-check   # are the credentials present? fails by name, not obliquely
+make archive     # → .build/xcode-archive/Artscripture.xcarchive
+make upload      # exports a signed .ipa and sends it to App Store Connect
+```
+
+**No certificate is created by hand, and none should be.** `-allowProvisioningUpdates` with the
+API key mints the Apple Distribution certificate *and* the App Store provisioning profile on
+demand. Cloud-managed signing has been the default since Xcode 13; the portal pages exist only
+if you want to do it the long way.
+
+#### Three details that each cost somebody a release
+
+- `method` in `ExportOptions.plist` is **`app-store-connect`**. The old `app-store` is
+  deprecated as of Xcode 26.
+- `manageAppVersionAndBuildNumber` is **`false`**. It defaults to YES, whereupon Xcode
+  *rewrites* the build number — silently undoing the `git rev-list --count HEAD` scheme that
+  exists so App Store Connect never sees the same one twice.
+- `ExportOptions.plist` is **generated into `.build`**, never tracked, because it carries the
+  team ID and the rule here is that the signing identity does not land in a tracked file or a
+  build log.
+
+`altool` is **not** deprecated for App Store upload — only for notarisation (TN3147), where
+`notarytool` replaced it.
+
+#### Where the build goes
+
+Into **TestFlight**, not the store. Internal testing has no Beta App Review, so a build is
+installable on your own devices within minutes of processing. Builds expire after 90 days, and
+`ITSAppUsesNonExemptEncryption` is already set so nothing is ever marked *Missing Compliance*.
+
+</details>
+
 ## 🎧 Why it sounds better
 
 Slowing audio down without changing pitch is the hard part, and it is the reason this
