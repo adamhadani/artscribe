@@ -57,6 +57,14 @@ public struct PracticeWindow: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     if model.canRamp {
+                        // **A heading, because "Practice" is a bigger word than
+                        // what is under it.** This panel does one thing — repeat
+                        // the loop while the speed climbs — and a tester read
+                        // the empty title as a promise of more. Naming the
+                        // section says what this *is* and leaves room for a
+                        // second one later without the panel having to be
+                        // re-explained.
+                        Eyebrow("RAMP UP REPEAT")
                         scheduleFields
                         stepSummary
                         Rectangle().fill(palette.rule.color()).frame(height: 1)

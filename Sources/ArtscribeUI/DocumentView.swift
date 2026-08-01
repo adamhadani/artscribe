@@ -22,6 +22,10 @@ public struct DocumentView: View {
     @State private var showingImporter = false
     #endif
 
+    /// The first-run welcome. **Not platform-conditional**: it is shown on both,
+    /// which is the point — a Mac user meets the app for the first time too.
+    @State private var showingWelcome = false
+
     #if os(macOS)
     @State private var trackpad = TrackpadMonitor()
     /// The window's modified dot, proxy icon and close prompt. Built once, from
@@ -185,7 +189,7 @@ public struct DocumentView: View {
             .presentationDetents([.large])
         }
         .sheet(isPresented: sheetBinding(for: context.about.windowState)) {
-            AboutWindow(about: context.about, theme: context.theme)
+            AboutWindow(about: context.about, theme: context.theme, welcome: context.welcome)
             // `.form` again, and for a stronger reason than Practice's: this is
             // a centred column of four short lines, and a `.page` sheet on a
             // 13-inch iPad would set them adrift in the middle of the screen.
@@ -267,8 +271,27 @@ public struct DocumentView: View {
             ViewerActions.open(model, url: url)
             return true
         }
+        // **After launching is complete, not part of it** — the HIG is explicit
+        // that onboarding is not a launch step. Raising it from the document
+        // view's appearance also means it cannot delay first paint.
+        .sheet(isPresented: $showingWelcome) {
+            WelcomeSheet(welcome: context.welcome) { showingWelcome = false }
+                #if !os(macOS)
+            .presentationSizing(.form)
+            .presentationDetents([.large])
+                #else
+            .frame(width: 520, height: 380)
+                #endif
+        }
+        .onChange(of: context.welcome.replayRequested) { _, wanted in
+            guard wanted else { return }
+            context.welcome.replayRequested = false
+            showingWelcome = true
+        }
         .onAppear {
             hasKeyboardFocus = true
+            showingWelcome = WelcomeState.shouldPresent(
+                hasBeenSeen: context.welcome.hasBeenSeen)
             #if os(macOS)
             trackpad.start(model: model)
             #endif

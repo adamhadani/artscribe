@@ -19,6 +19,9 @@ import AppKit
 public struct AboutWindow: View {
     private let about: AboutWindowController
     private let theme: ThemeController
+    /// Optional so the panel can be built without one where nothing replays —
+    /// and so adding this did not become a change to every call site.
+    private let welcome: WelcomeState?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
     /// Collapsed on opening. The licences are an obligation to *meet*, not the
@@ -33,19 +36,43 @@ public struct AboutWindow: View {
     public static let minimumWidth: Double = 360
     public static let minimumHeight: Double = 280
 
-    public init(about: AboutWindowController, theme: ThemeController) {
+    public init(
+        about: AboutWindowController, theme: ThemeController,
+        welcome: WelcomeState? = nil
+    ) {
         self.about = about
         self.theme = theme
+        self.welcome = welcome
     }
 
     private var appearance: Appearance { colorScheme == .dark ? .dark : .light }
     private var palette: Palette { Palette.of(appearance) }
+
+    /// **"Easy for people to find if they want to view it later."** The HIG asks
+    /// for exactly this alongside "don't present it again", and About is the one
+    /// surface reachable without a hardware keyboard on both platforms.
+    ///
+    /// It asks rather than presents: two sheets cannot be raised over each other
+    /// on iPad, so this sets a flag `DocumentView` acts on once About is gone.
+    @ViewBuilder
+    private var welcomeAgain: some View {
+        if let welcome {
+            Button("Show the welcome again") {
+                welcome.replayRequested = true
+                about.toggle()
+            }
+            .buttonStyle(.plain)
+            .font(Typography.readoutSmall)
+            .foregroundStyle(palette.accent.color())
+        }
+    }
 
     public var body: some View {
         ScrollView {
             VStack(spacing: 18) {
                 identity
                 Text(AboutInfo.tagline)
+                welcomeAgain
                     .font(Typography.bannerBody)
                     .foregroundStyle(palette.text.color())
                     .multilineTextAlignment(.center)
