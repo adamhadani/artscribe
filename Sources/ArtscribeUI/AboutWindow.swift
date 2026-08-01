@@ -24,17 +24,28 @@ public struct AboutWindow: View {
     private let welcome: WelcomeState?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
-    /// Collapsed on opening. The licences are an obligation to *meet*, not the
-    /// first thing a reader wants; the disclosure keeps the panel the size of
-    /// the mock the user approved and still puts the list one click away.
-    @State private var showingLicences = false
+    /// **Open by default.** It was collapsed, on the reasoning that licences
+    /// are an obligation to meet rather than the first thing a reader wants —
+    /// which is true of the *reader* and beside the point for the obligation:
+    /// GPL attribution that takes a tap to find is attribution somebody has to
+    /// go looking for. The disclosure stays so the panel can be made small
+    /// again, but it starts showing what it owes.
+    @State private var showingLicences = true
 
     /// Wide enough for the tagline on one line and for the longest licence row,
     /// short enough that the panel still reads as a panel. Hoisted out of the
     /// frame modifier so `theAboutPanelIsWiderThanItIsTall` can check them
     /// against each other.
-    public static let minimumWidth: Double = 360
-    public static let minimumHeight: Double = 280
+    ///
+    /// **Both grew when the licences stopped being collapsed.** 360×280 was a
+    /// floor for a panel whose visible content was five short lines; opening the
+    /// list by default and leaving the floor where it was would have meant
+    /// scrolling to reach the thing that had just been un-hidden — the same
+    /// click, moved. Wider as well as taller because width is what keeps a
+    /// licence row on one line, and the extra width is why the height needed is
+    /// not larger still.
+    public static let minimumWidth: Double = 560
+    public static let minimumHeight: Double = 520
 
     public init(
         about: AboutWindowController, theme: ThemeController,
@@ -57,12 +68,32 @@ public struct AboutWindow: View {
     @ViewBuilder
     private var welcomeAgain: some View {
         if let welcome {
-            Button("Show the welcome again") {
+            Button {
                 welcome.replayRequested = true
                 about.toggle()
+            } label: {
+                Label("Take the tour again", systemImage: "sparkles")
+                    .labelStyle(.titleAndIcon)
+                    // A finger-sized target rather than the height of 13pt
+                    // text. `contentShape` because a plain button's hit region
+                    // is its label, and padding alone would not extend it.
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .font(Typography.readoutSmall)
+            #if os(macOS)
+            .pointerStyle(.link)
+            #endif
+            // Body size, not the caption size it had. It is one of two things a
+            // reader can *do* in this panel, and it was drawn smaller than the
+            // prose it sat under.
+            //
+            // "Take the tour again" over "Show the welcome again": Apple's own
+            // apps say *tour* for a replayable introduction, and "welcome"
+            // names the moment rather than the content — you cannot be welcomed
+            // twice, but you can take a tour twice.
+            .font(.system(size: 13, weight: .medium))
             .foregroundStyle(palette.accent.color())
         }
     }
@@ -71,12 +102,17 @@ public struct AboutWindow: View {
         ScrollView {
             VStack(spacing: 18) {
                 identity
+                // The four modifiers below used to be chained onto
+                // `welcomeAgain` rather than onto the tagline — the button was
+                // inserted above them — so the tagline drew at the system
+                // default while the button wore the banner font. Both are one
+                // line long and neither looked broken, which is why it lasted.
                 Text(AboutInfo.tagline(for: EmptyStatePrompt.current))
-                welcomeAgain
                     .font(Typography.bannerBody)
                     .foregroundStyle(palette.text.color())
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
+                welcomeAgain
                 linkRow
                 licences
             }

@@ -142,10 +142,15 @@ struct EmptyStateView: View {
             // opened, and an About link that competed with the drop target for
             // attention would be answering a question nobody arrived with.
             #if !os(macOS)
+            // Accent-coloured, like the recents and the sample offer. Drawn in
+            // `dimmed` it read as a caption rather than a control — reported as
+            // "not clear it's clickable", and the fix is the same one the rest
+            // of this screen already uses: colour is the affordance both a
+            // pointer and a finger can see.
             Button("About Artscripture") { about.show() }
                 .buttonStyle(.plain)
                 .font(Typography.readoutSmall)
-                .foregroundStyle(palette.dimmed.color())
+                .foregroundStyle(palette.accent.color())
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -94,6 +94,7 @@ public enum ActionID: String, CaseIterable, Hashable, Sendable {
 
     // File and session
     case fileOpen = "file.open"
+    case fileClose = "file.close"
     case fileSave = "file.save"
     case fileSaveAs = "file.saveAs"
 

@@ -122,6 +122,17 @@ public enum TransportControl: String, CaseIterable, Sendable, Hashable {
     /// exists to teach the keyboard, not to replace it, so every control has one.
     public var shortcut: String { face.shortcut }
 
+    /// What the button is called with no track loaded and nothing toggled.
+    ///
+    /// `title(in:)` is the one to use in the bar, because a button that says
+    /// "Play" while playing is lying. Somewhere that is *describing* the control
+    /// rather than offering it — the welcome tour — wants the plain noun, and
+    /// `title(in: TransportState())` would give it "Preroll On — Turn Off".
+    public var name: String { face.title }
+
+    /// The resting glyph, independent of any state. Same reasoning as `name`.
+    public var glyph: String { face.symbol }
+
     /// Follows the transport for play/pause, because a button that says "Play"
     /// while playing is lying about what pressing it will do — the same rule the
     /// Playback menu's first item follows.

@@ -297,6 +297,14 @@ extension ActionCatalog {
 
     static let fileEntries: [ActionEntry] = [
         ActionEntry(.fileOpen, "Open…", .file, chords: [.key("o", .command)], menu: .fileOpen),
+        // **⌘W is deliberately not taken.** On macOS that closes the *window*,
+        // and re-pointing it at the track would break the one shortcut every Mac
+        // user already knows. This is a different verb — put the track away and
+        // go back to the resting screen — and gets its own key.
+        ActionEntry(
+            .fileClose, "Close Track", .file,
+            chords: [.key("w", [.shift, .command])], menu: .fileOpen,
+            enablement: .track),
         ActionEntry(.fileSave, "Save", .file, chords: [.key("s", .command)], menu: .fileSave),
         ActionEntry(
             .fileSaveAs, "Save As…", .file,

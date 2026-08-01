@@ -62,6 +62,30 @@ public enum ViewerActions {
         #endif
     }
 
+    /// **File ▸ Close Track** — put the track away and return to the resting
+    /// screen, which is where the recents are.
+    ///
+    /// Through the same session guard `open` uses, and for the same reason:
+    /// walking away from a track is walking away from its session, so it has to
+    /// ask the identical question. Without it, closing would be the one route
+    /// that discarded a loop in silence.
+    ///
+    /// The iPad branch mirrors `open`'s: there is no confirmation sheet on that
+    /// platform yet, so an unsaved session is *saved* rather than dropped. The
+    /// recoverable direction to be wrong in.
+    @MainActor
+    public static func closeTrack(_ model: ViewerModel) {
+        #if os(macOS)
+        SessionPrompt.whenSafeToLeave(model) { proceed in
+            guard proceed else { return }
+            model.closeTrack()
+        }
+        #else
+        if case .ask = model.closeAction { model.performClose() }
+        model.closeTrack()
+        #endif
+    }
+
     /// **File ▸ Save As…** — the panel, then the write. The decision about what
     /// saving somewhere other than the canonical sidecar *means* is
     /// `ViewerModel.saveSession(to:)`'s, and is tested there.

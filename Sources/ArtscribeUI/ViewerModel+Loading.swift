@@ -103,6 +103,47 @@ extension ViewerModel {
         loadPhase = phase
     }
 
+    /// Puts the track away and returns to the resting screen.
+    ///
+    /// **There was no way to do this at all.** `performClose` is about the
+    /// *session* — writing the sidecar — and on macOS `⌘W` closes the window.
+    /// On a phone there is one window and no exit, so opening a second recent
+    /// file meant quitting the app. Reported.
+    ///
+    /// Deliberately the mirror of `adopt`, and written next to it so the two
+    /// stay in step: anything that becomes a property of the open track has to
+    /// be cleared here, and the compiler cannot say so.
+    ///
+    /// The scoped-resource grant goes too. It is per-file and the process is
+    /// allowed a limited number of them, so holding one for a track that is no
+    /// longer open is a leak with a hard ceiling.
+    ///
+    /// Speed, pitch and engine survive, exactly as they survive a *load*: they
+    /// are a working preference rather than a property of the file. The loop and
+    /// the selection do not — their frames mean nothing without a recording.
+    public func closeTrack() {
+        teardownSession()
+        releaseSecurityScope()
+        loadTask?.cancel()
+        loadToken += 1
+        audio = nil
+        pyramid = nil
+        fileName = nil
+        trackURL = nil
+        generation += 1
+        selection.clear()
+        loop = LoopRegion()
+        playhead = 0
+        reachedEnd = false
+        isLoading = false
+        progress = 0
+        loadPhase = nil
+        errorMessage = nil
+        viewport = Viewport(totalFrames: 0, widthPixels: lanePointWidth)
+        markers.adopt(.none)
+        cache.invalidate()
+    }
+
     func adopt(_ loaded: LoadedTrack, url: URL, startedAt: Date, token: Int) {
         guard token == loadToken else { return }
         teardownSession()

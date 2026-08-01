@@ -82,7 +82,8 @@ public struct DocumentView: View {
                     settings: { context.settings.toggle() },
                     shortcuts: { context.shortcuts.toggle() },
                     practice: { context.practice.toggle() },
-                    about: { context.about.toggle() }))
+                    about: { context.about.toggle() }),
+                onClose: { ViewerActions.closeTrack(model) })
             #endif
 
             if let message = model.errorMessage {
@@ -284,7 +285,11 @@ public struct DocumentView: View {
             .presentationSizing(.form)
             .presentationDetents([.large])
                 #else
-            .frame(width: 520, height: 380)
+            // Sized for the tallest page — the loop legend, which is three
+            // icon rows of two lines each under a three-line paragraph. A Mac
+            // sheet does not scroll, so a size that fits the *first* page
+            // clips the one that matters.
+            .frame(width: 540, height: 440)
                 #endif
         }
         .onChange(of: context.welcome.replayRequested) { _, wanted in

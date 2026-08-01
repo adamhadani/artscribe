@@ -176,6 +176,11 @@ extension ActionInvoker {
     static let applicationActions: [ActionID: @MainActor (MenuContext) -> Void] = {
         var actions: [ActionID: @MainActor (MenuContext) -> Void] = [
             .fileSave: { $0.model.saveSession() },
+            // Through the session guard, not straight to `closeTrack`: putting a
+            // track away is walking away from its session, and has to ask the
+            // same question that opening another one does. Without it, closing
+            // would be the one route that silently discarded a loop.
+            .fileClose: { ViewerActions.closeTrack($0.model) },
             .editCut: { _ in send(#selector(TextResponder.cut(_:))) },
             .editCopy: { _ in send(#selector(TextResponder.copy(_:))) },
             .editPaste: { _ in send(#selector(TextResponder.paste(_:))) },
