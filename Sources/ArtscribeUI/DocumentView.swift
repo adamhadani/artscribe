@@ -309,6 +309,28 @@ public struct DocumentView: View {
     /// rename — will want, and it is easier to hand out a free key than to take
     /// back a used one.
     private func handle(_ press: KeyPress) -> KeyPress.Result {
+        #if !os(macOS)
+        // **A presented sheet owns the keyboard.**
+        //
+        // This is the path plain letters actually take. `KeyBindings.windowAction`
+        // answers a chord "whether or not a menu item also declares it", so
+        // `1`–`4`, `A`–`G`, `Q`/`W` and Space arrive *here* rather than through
+        // the menu — and this handler performs no enablement check, so
+        // `ActionMenuItem`'s `.disabled(…)` never sees them.
+        //
+        // That is why the first attempt at this bug did not fix it: it taught
+        // the menu items to stand down, on a platform where the menu is not what
+        // carries these keys. With Settings open, typing `1` into a nudge field
+        // still set the speed to 100%.
+        //
+        // macOS needs none of this: its auxiliary surfaces are real windows, so
+        // `DocumentView` is not focused and `onKeyPress` never fires. iPad has
+        // one window and the sheet sits over the same hierarchy.
+        //
+        // `.ignored` rather than `.handled`: the press must go on to reach the
+        // text field, which is the entire point.
+        guard !context.anyAuxiliarySheetIsPresented else { return .ignored }
+        #endif
         // `press.key.character`, not `press.characters`: with Option held the
         // latter is the dead-key composition ("´" for ⌥E on a US layout), which
         // no binding could match.
