@@ -20,13 +20,6 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<!-- iPad only, per the port's scope. iPhone is deferred until the touch
-	     vocabulary is proven: a waveform with selection edges, a loop region and
-	     a marker lane needs the screen. -->
-	<key>UIDeviceFamily</key>
-	<array>
-		<integer>2</integer>
-	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations~ipad</key>

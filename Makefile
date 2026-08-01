@@ -276,3 +276,94 @@ notarize: dist
 
 clean:
 	rm -rf .build Artscribe.xcodeproj $(DIST) App/Artscribe.icns
+
+# ---------------------------------------------------------------------------
+# App Store submission (iPadOS)
+# ---------------------------------------------------------------------------
+#
+# Separate from `dist`/`notarize`, which are the *macOS direct download* path.
+# These two are the App Store path and share nothing with it: a different
+# certificate (Apple Distribution, not Developer ID), a different destination,
+# and no notarisation step — Apple notarises App Store builds itself.
+#
+# Credentials come from an App Store Connect **Team** API key with the App
+# Manager role, set in your .envrc. See docs and README ▸ Signing:
+#
+#   ARTSCRIBE_ASC_ISSUER_ID   the UUID at the top of the Integrations page
+#   ARTSCRIBE_ASC_KEY_ID      the 10-character key ID
+#   ARTSCRIBE_ASC_KEY_PATH    absolute path to AuthKey_<keyid>.p8
+#
+# An *individual* key cannot do this: Apple excludes them from the provisioning
+# endpoints, which is exactly what `-allowProvisioningUpdates` uses to mint the
+# distribution certificate and profile. That is why no certificate has to be
+# created by hand.
+ARCHIVE := $(XCODE_DERIVED)-archive/$(NAME).xcarchive
+EXPORT := .build/export
+
+# The three flags every App Store xcodebuild invocation needs. Kept in one
+# variable so the two recipes cannot drift, and referenced rather than echoed —
+# `make` prints the recipe otherwise, and these identify the account.
+ASC_AUTH = -authenticationKeyPath "$(ARTSCRIBE_ASC_KEY_PATH)" \
+	   -authenticationKeyID "$(ARTSCRIBE_ASC_KEY_ID)" \
+	   -authenticationKeyIssuerID "$(ARTSCRIBE_ASC_ISSUER_ID)"
+
+.PHONY: archive upload asc-check
+
+# Fails early and by name rather than letting xcodebuild report something
+# oblique forty seconds in.
+asc-check:
+	@for v in ARTSCRIBE_ASC_ISSUER_ID ARTSCRIBE_ASC_KEY_ID ARTSCRIBE_ASC_KEY_PATH; do \
+	  eval "val=\$$$$v"; \
+	  test -n "$$val" || { echo "$$v is not set — see README ▸ Signing"; exit 2; }; \
+	done
+	@test -f "$(ARTSCRIBE_ASC_KEY_PATH)" || { \
+	  echo "no key file at ARTSCRIBE_ASC_KEY_PATH"; exit 2; }
+
+archive: asc-check
+	xcodegen generate
+	@rm -rf "$(ARCHIVE)"
+	@ARTSCRIBE_BUILD_NUMBER=$(ARTSCRIBE_BUILD_NUMBER) xcodebuild archive \
+	    -project Artscribe.xcodeproj -scheme ArtscribeiPad \
+	    -destination 'generic/platform=iOS' \
+	    -archivePath "$(ARCHIVE)" \
+	    -allowProvisioningUpdates $(ASC_AUTH) \
+	    | grep -E '^(error|warning|\*\*)' || true
+	@test -d "$(ARCHIVE)" || { echo "no archive was produced"; exit 1; }
+	@echo "archived $(ARCHIVE) (build $(ARTSCRIBE_BUILD_NUMBER))"
+
+# Exports a signed .ipa and uploads it.
+#
+# `ExportOptions.plist` is *generated* rather than tracked: it has to carry the
+# team ID, and the project's rule is that the signing identity never lands in a
+# tracked file or a build log. It goes under .build, which is gitignored.
+#
+# Two keys in it are not obvious and both have bitten people:
+#
+#   method = app-store-connect   — `app-store` is deprecated as of Xcode 26
+#   manageAppVersionAndBuildNumber = false
+#       defaults to YES, and Xcode then *rewrites* the build number, silently
+#       undoing the `git rev-list --count HEAD` scheme that exists so App Store
+#       Connect never sees the same one twice.
+upload: archive
+	@mkdir -p "$(EXPORT)"
+	@printf '%s\n' \
+	  '<?xml version="1.0" encoding="UTF-8"?>' \
+	  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+	  '<plist version="1.0"><dict>' \
+	  '<key>method</key><string>app-store-connect</string>' \
+	  '<key>destination</key><string>export</string>' \
+	  '<key>teamID</key><string>$(ARTSCRIBE_TEAM_ID)</string>' \
+	  '<key>signingStyle</key><string>automatic</string>' \
+	  '<key>uploadSymbols</key><true/>' \
+	  '<key>manageAppVersionAndBuildNumber</key><false/>' \
+	  '</dict></plist>' > "$(EXPORT)/ExportOptions.plist"
+	@xcodebuild -exportArchive -archivePath "$(ARCHIVE)" \
+	    -exportPath "$(EXPORT)" \
+	    -exportOptionsPlist "$(EXPORT)/ExportOptions.plist" \
+	    -allowProvisioningUpdates $(ASC_AUTH) \
+	    | grep -E '^(error|warning|\*\*)' || true
+	@ls "$(EXPORT)"/*.ipa >/dev/null 2>&1 || { echo "no .ipa was exported"; exit 1; }
+	@echo "exported $$(ls "$(EXPORT)"/*.ipa)"
+	@xcrun altool --upload-app -f "$$(ls "$(EXPORT)"/*.ipa)" -t ios \
+	    --apiKey "$(ARTSCRIBE_ASC_KEY_ID)" --apiIssuer "$(ARTSCRIBE_ASC_ISSUER_ID)"
+	@echo "uploaded. It appears in App Store Connect ▸ TestFlight after processing."
