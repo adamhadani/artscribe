@@ -53,6 +53,29 @@ public struct MenuContext {
         self.settings = settings
         self.theme = theme
     }
+
+    #if !os(macOS)
+    /// Whether any auxiliary sheet is up — and therefore whether the document
+    /// has stopped being what the keyboard is aimed at.
+    ///
+    /// The iPad answer to what `KeyWindowTracker` answers on macOS. It is here,
+    /// on the context, rather than inside the menu item because the *set* of
+    /// auxiliary surfaces is a fact about the app, and a new sheet added to
+    /// `DocumentView` without being added here would silently reintroduce the
+    /// bug this fixes: plain-letter key equivalents firing while a text field
+    /// has focus, so that typing `1` sets the speed instead of entering a digit.
+    ///
+    /// Deliberately **all four**, including About, which has no text fields at
+    /// all. A sheet over the document is the keyboard's target whether or not it
+    /// wants characters, and a uniform rule is one fewer thing to get wrong.
+    public var anyAuxiliarySheetIsPresented: Bool {
+        !SheetFocus.documentHasKeyboard(
+            shortcutsPresented: shortcuts.windowState.isPresented,
+            practicePresented: practice.windowState.isPresented,
+            aboutPresented: about.windowState.isPresented,
+            settingsPresented: settings.windowState.isPresented)
+    }
+    #endif
 }
 
 /// The one implementation of every action, reached by `ActionID`.

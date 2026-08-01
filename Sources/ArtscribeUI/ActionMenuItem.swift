@@ -106,19 +106,21 @@ struct ActionMenuItem: View {
     private let keyWindow = KeyWindowTracker.shared
     private var documentIsKey: Bool { keyWindow.documentIsKey }
     #else
-    /// iPad has one window. What `KeyWindowTracker` exists to answer on macOS —
-    /// *is the document the thing the keyboard is aimed at, or has an auxiliary
-    /// window taken it?* — has no equivalent while the auxiliary UI is a sheet
-    /// over the document.
+    /// iPad has one window, so `KeyWindowTracker`'s question — *is the document
+    /// what the keyboard is aimed at, or has another window taken it?* — is
+    /// asked of the **sheets** instead.
     ///
-    /// **A simplification, and a knowingly incomplete one.** A presented sheet
-    /// does take the keyboard, so this should eventually consult the sheet
-    /// state rather than answer `true` unconditionally; until the sheets exist
-    /// there is nothing to consult. Erring towards *enabled* is the right
-    /// direction to be wrong in — the commands guard themselves, and this
-    /// project has already shipped one bug (⌘9, #8) from an enablement rule
-    /// being stricter than the command behind it.
-    private var documentIsKey: Bool { true }
+    /// This used to answer `true` unconditionally, with a comment saying it
+    /// should consult the sheet state "until the sheets exist". They exist, and
+    /// the predicted bug arrived with them: with Settings open, typing `1` into
+    /// a nudge field set the speed to 100% instead, because the menu's
+    /// plain-letter key equivalents were still live. Every digit and most
+    /// letters are bound, so numeric entry was effectively impossible.
+    ///
+    /// Any presented sheet counts, not only the ones with text fields. A sheet
+    /// over the document *is* the keyboard's target, and a uniform rule is one
+    /// fewer thing to get wrong when the next sheet arrives.
+    private var documentIsKey: Bool { !context.anyAuxiliarySheetIsPresented }
     #endif
 
     var body: some View {
