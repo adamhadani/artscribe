@@ -116,7 +116,20 @@ public enum AboutInfo {
                 component: "Signalsmith Linear",
                 terms: "MIT",
                 detail: "The FFT and STFT it is built on — a second library, not part of the first."
-            )
+            ),
+            // Every build, both platforms. Listed with the code because it is
+            // shipped the same way the code is: inside the binary.
+            //
+            // CC0 by the *recording project's* intent — the Open Goldberg
+            // Variations were crowd-funded expressly to put the performance in
+            // the public domain. Bach being long dead settles the composition
+            // and nothing else; a 2012 recording carries its own copyright, and
+            // "the music is old" is exactly the reasoning that would have got
+            // this wrong.
+            AboutLicence(
+                component: SampleTrack.title,
+                terms: "CC0 / public domain",
+                detail: SampleTrack.credit)
         ]
         // macOS only, and the same statement `Package.swift` makes with
         // `.when(platforms: [.macOS])`: Homebrew builds Rubber Band as a macOS

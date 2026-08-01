@@ -1,0 +1,79 @@
+import AudioDecode
+import Foundation
+import Testing
+
+@testable import ArtscribeUI
+
+/// The bundled sample track: that it is actually in the bundle, and the rule
+/// for when it is offered.
+@Suite("Sample track")
+struct SampleTrackTests {
+
+    /// The offer exists for an app with nothing in it. One recent file is
+    /// enough to mean the user has their own material and the list below is the
+    /// better thing to show.
+    @Test("offered only when there are no recents")
+    func offeredOnlyOnAnEmptyApp() {
+        #expect(SampleTrack.isOffered(recentCount: 0))
+        #expect(!SampleTrack.isOffered(recentCount: 1))
+        #expect(!SampleTrack.isOffered(recentCount: 8))
+    }
+
+    /// The rule is about *state*, not about having been shown once. Clearing
+    /// the recents puts the app back to empty, and an empty app should offer
+    /// the sample again rather than leave the screen with nothing on it.
+    @Test("clearing the recents brings the offer back")
+    func clearingRecentsRestoresTheOffer() {
+        #expect(!SampleTrack.isOffered(recentCount: 3))
+        #expect(SampleTrack.isOffered(recentCount: 0))
+    }
+
+    /// The resource resolves at runtime.
+    ///
+    /// Weaker than it looks, and worth being honest about: SwiftPM catches both
+    /// obvious packaging mistakes at *build* time — omitting `resources:` makes
+    /// `Bundle.module` a compile error, and misspelling the path fails the build
+    /// with "missing inputs". Both were tried. What this adds is the runtime
+    /// half, and a size that would notice a truncated or accidentally swapped
+    /// file.
+    ///
+    /// The case none of it covers is the resource failing to reach the *app*
+    /// bundle rather than the test bundle — that is an Xcode/xcodegen path, and
+    /// checking it means looking inside a built `.app`.
+    @Test("the audio is actually in the resource bundle")
+    func resourceIsBundled() throws {
+        let url = try #require(SampleTrack.url, "the sample is missing from the bundle")
+        #expect(FileManager.default.fileExists(atPath: url.path))
+        let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int
+        // Big enough to be audio rather than a truncated placeholder, small
+        // enough to notice if someone drops an album in here.
+        #expect((100_000...1_000_000).contains(size ?? 0), "unexpected size: \(size ?? -1) bytes")
+    }
+
+    /// **The check the build cannot make**: that the bytes are audio this app
+    /// can actually play.
+    ///
+    /// A demo track that fails to decode is worse than none — it turns the one
+    /// thing offered on an empty screen into an error message, in front of the
+    /// reviewer it exists to satisfy. `.copy` rather than `.process` in
+    /// `Package.swift` is what keeps the toolchain from re-encoding it into
+    /// something else; this is what would notice if that changed.
+    @Test("the sample decodes, in stereo, at the length it claims")
+    func sampleDecodes() async throws {
+        let url = try #require(SampleTrack.url)
+        let audio = try await AudioFileDecoder.decode(url: url)
+        #expect(audio.channels == 2, "the waveform draws one lane per channel")
+        #expect(audio.sampleRate == 44_100)
+        let seconds = audio.duration
+        #expect((27.0...29.0).contains(seconds), "expected ~28 s, got \(seconds)")
+    }
+
+    /// The credit names the performer and the licence, because the entry that
+    /// matters legally is the *recording*, not the composition.
+    @Test("the credit names the performer and CC0")
+    func creditIsSpecific() {
+        #expect(SampleTrack.credit.contains("Ishizaka"))
+        #expect(SampleTrack.credit.contains("CC0"))
+        #expect(SampleTrack.source.contains("archive.org"))
+    }
+}

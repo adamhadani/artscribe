@@ -27,6 +27,23 @@ Rubber Band Library — https://breakfastquay.com/rubberband/
   Rubber Band's licence is load-bearing: Apache-2.0 is compatible with GPLv3 and
   is NOT compatible with GPLv2, so the combination must be taken as v3.
 
+The Open Goldberg Variations — https://opengoldbergvariations.org/
+  Johann Sebastian Bach, Goldberg Variations BWV 988, Variatio 4.
+  Performed by Kimiko Ishizaka, 2012.
+  CC0 1.0 Universal (public domain dedication). Source recording:
+  https://archive.org/details/The_Open_Goldberg_Variations-11823
+
+  Present in: every build, on every platform, as a 28-second excerpt at
+  Sources/ArtscribeUI/Resources/GoldbergVariatio4.m4a. It is offered from the
+  resting screen on a first run so the app can demonstrate itself with no file
+  of the user's own — which is also what App Store guideline 2.1 asks for.
+
+  The dedication is the *recording project's*, not an inference from the age of
+  the music. Bach's death settles the composition; a 2012 performance carries
+  its own copyright, and the Open Goldberg project exists precisely because that
+  is normally the obstacle. CC0 imposes no attribution requirement — this entry
+  and the About panel's credit are courtesy, not compliance.
+
 libsamplerate — https://github.com/libsndfile/libsamplerate
   Copyright (c) 2012-2016, Erik de Castro Lopo <erikd@mega-nerd.com>
   BSD 2-Clause License. Full text: LICENSES/BSD-2-Clause-libsamplerate.txt
