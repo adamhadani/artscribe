@@ -29,6 +29,14 @@ extension WelcomePage {
     ///
     /// A `static var` rather than an `#if`, so the decision is one place and
     /// reads as a judgement about the device rather than about the SDK.
+    ///
+    /// `@MainActor` because `UIDevice.current` is: under strict concurrency it
+    /// cannot be read from a nonisolated context, and this is only ever read
+    /// from a view body, which already is. `make ios-check` did **not** catch
+    /// that — it builds `Playback` alone and never compiles this module — so it
+    /// took CI's `ios-build` job to find. Worth remembering when a change lands
+    /// in `ArtscribeUI`: build the iPad scheme, not just `ios-check`.
+    @MainActor
     static var showsKeys: Bool {
         #if os(macOS)
         return true
