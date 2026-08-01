@@ -71,7 +71,7 @@ public struct AboutWindow: View {
         ScrollView {
             VStack(spacing: 18) {
                 identity
-                Text(AboutInfo.tagline)
+                Text(AboutInfo.tagline(for: EmptyStatePrompt.current))
                 welcomeAgain
                     .font(Typography.bannerBody)
                     .foregroundStyle(palette.text.color())

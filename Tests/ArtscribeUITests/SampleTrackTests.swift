@@ -120,3 +120,76 @@ struct EmptyStatePromptTests {
         }
     }
 }
+
+/// The guidance shown when Practice has nothing to work with.
+///
+/// It used to say *"press A … press S … press G"* and *"File ▸ Open… (⌘O), or
+/// drop an audio file on the window"* — every instruction impossible on a touch
+/// device, shown at exactly the moment somebody is stuck and reading carefully.
+@Suite("No-loop guidance")
+struct LoopGuidanceTests {
+
+    @Test("touch surfaces are never told to press a letter key")
+    func touchIsNotToldToPressKeys() {
+        for surface in [EmptyStatePrompt.Surface.tabletWithDrop, .phone] {
+            let loop = EmptyStatePrompt.loopGuidance(for: surface)
+            #expect(!loop.contains("press "), "\(surface) is told to press a key")
+            #expect(!loop.contains("⌘"))
+        }
+    }
+
+    /// …and are pointed at the control that actually exists there. Naming it is
+    /// the point: the button was added because touch had no route to a loop.
+    @Test("touch surfaces are pointed at the Selection → Loop button")
+    func touchNamesTheButton() {
+        for surface in [EmptyStatePrompt.Surface.tabletWithDrop, .phone] {
+            #expect(EmptyStatePrompt.loopGuidance(for: surface).contains("Selection → Loop"))
+        }
+    }
+
+    /// The phone is never told to drop a file or to use a File menu it has not
+    /// got.
+    @Test("the phone is not sent to a File menu or told to drop")
+    func phoneOpenGuidanceIsPossible() {
+        let open = EmptyStatePrompt.openGuidance(for: .phone)
+        #expect(!open.lowercased().contains("drop"))
+        #expect(!open.contains("▸"))
+        #expect(!open.contains("⌘"))
+    }
+
+    /// The desktop keeps its keys — this is a keyboard-first app there, and
+    /// softening it everywhere would be the opposite mistake.
+    @Test("the desktop still names its keys")
+    func desktopKeepsItsKeys() {
+        #expect(EmptyStatePrompt.loopGuidance(for: .desktop).contains("press A"))
+        #expect(EmptyStatePrompt.openGuidance(for: .desktop).contains("⌘O"))
+    }
+}
+
+/// The About panel's one line of prose.
+@Suite("About tagline")
+struct AboutTaglineTests {
+
+    /// "Keyboard-first" describes an app a phone user cannot use as advertised,
+    /// and About is where the app introduces itself.
+    @Test("the phone is not sold a keyboard-first app")
+    func phoneIsNotPromisedAKeyboard() {
+        #expect(!AboutInfo.tagline(for: .phone).lowercased().contains("keyboard"))
+    }
+
+    /// Where a keyboard is the point, it stays the point. Softening it
+    /// everywhere would be the opposite mistake.
+    @Test("desktop and tablet keep the claim")
+    func desktopAndTabletKeepIt() {
+        #expect(AboutInfo.tagline(for: .desktop).lowercased().contains("keyboard"))
+        #expect(AboutInfo.tagline(for: .tabletWithDrop).lowercased().contains("keyboard"))
+    }
+
+    @Test("every surface says something about transcription or looping")
+    func everySurfaceDescribesTheApp() {
+        for surface in [EmptyStatePrompt.Surface.desktop, .tabletWithDrop, .phone] {
+            let line = AboutInfo.tagline(for: surface).lowercased()
+            #expect(line.contains("transcription") || line.contains("loop"))
+        }
+    }
+}
