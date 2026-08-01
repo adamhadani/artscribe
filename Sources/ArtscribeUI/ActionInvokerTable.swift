@@ -162,8 +162,15 @@ extension ActionInvoker {
     /// do nothing — a smaller lie than a ⌘V that has stopped working in
     /// Settings' numeric fields.
     ///
-    /// `app.settings` is absent on purpose: SwiftUI's `Settings` scene owns both
-    /// the menu item and ⌘,. It is in the catalog so the reference lists it.
+    /// `app.settings` is absent **on macOS** on purpose: SwiftUI's `Settings`
+    /// scene owns both the menu item and ⌘,, so an entry here would be a second
+    /// opener competing with it. It is in the catalog either way so the
+    /// reference lists it.
+    ///
+    /// On iPad there is no such scene — and the `Settings…` the system offers
+    /// goes to the app's page in the Settings app, which is empty because this
+    /// app ships no `Settings.bundle`. So iPad wires it to a sheet, and it is
+    /// added below with the other conditional entry.
     /// Built in a closure rather than written as a literal because one entry is
     /// conditional and `#if` is not allowed between a dictionary's elements.
     static let applicationActions: [ActionID: @MainActor (MenuContext) -> Void] = {
@@ -188,6 +195,12 @@ extension ActionInvoker {
         #if os(macOS)
         actions[.fileOpen] = { ViewerActions.open($0.model) }
         actions[.fileSaveAs] = { ViewerActions.saveAs($0.model) }
+        #else
+        // The mirror image of the macOS omission above: there is no `Settings`
+        // scene on iPadOS, so nothing owns ⌘, and the system's own Settings item
+        // goes to an empty page in the Settings app. Wired to a sheet here, and
+        // toggling for the same reason `.appAbout` is.
+        actions[.appSettings] = { $0.settings.toggle() }
         #endif
         return actions
     }()

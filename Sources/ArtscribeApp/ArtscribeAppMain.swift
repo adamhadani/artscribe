@@ -106,6 +106,7 @@ struct ArtscribeAppMain: App {
     /// below is rebuilt on every access — a default would mint a fresh, unopened
     /// controller each time and the menu item would open nothing.
     @State private var about = AboutWindowController()
+    @State private var settingsSheet = SettingsWindowController()
     /// Where the practice ramp's schedule is persisted. The applied schedule
     /// lives on the model — this is only its backing tape (see
     /// `PracticeSettings`), exactly as `nudge` is for the nudge amounts.
@@ -116,7 +117,7 @@ struct ArtscribeAppMain: App {
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice, about: about, theme: theme)
+            practice: practice, about: about, settings: settingsSheet, theme: theme)
     }
 
     init() {

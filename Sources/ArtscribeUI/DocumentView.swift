@@ -71,7 +71,10 @@ public struct DocumentView: View {
             // returns a URL, so Open belongs to this view rather than to
             // `ViewerActions`. The importer itself is attached below; this only
             // raises it.
-            TitleBarView(model: model) { showingImporter = true }
+            TitleBarView(
+                model: model,
+                onOpen: { showingImporter = true },
+                onSettings: { context.settings.toggle() })
             #endif
 
             if let message = model.errorMessage {
@@ -168,6 +171,16 @@ public struct DocumentView: View {
             PracticeWindow(context: context, theme: context.theme)
             // `.form`, not `.page`: Practice is a narrow column of label/value
             // rows and wants the form sheet's measure — it just wants the height.
+            .presentationSizing(.form)
+            .presentationDetents([.large])
+        }
+        .sheet(isPresented: sheetBinding(for: context.settings.windowState)) {
+            SettingsSheet(
+                model: model, theme: context.theme, settings: context.settings
+            )
+            // `.form`, like Practice: this is a column of label/value rows and
+            // wants the form sheet's measure. `.page` would strand short rows
+            // across a 13-inch iPad.
             .presentationSizing(.form)
             .presentationDetents([.large])
         }
