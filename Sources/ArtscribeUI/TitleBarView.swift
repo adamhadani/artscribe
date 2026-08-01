@@ -28,6 +28,13 @@ struct TitleBarView: View {
     /// destinations that are not the primary action. macOS passes nil; it has
     /// the menu bar.
     var auxiliary: AuxiliaryMenuActions?
+    /// Puts the track away, returning to the resting screen and its recents.
+    ///
+    /// A **leading** control, which is where every Apple document app puts the
+    /// way back to its library — Pages, Numbers and GarageBand all do this. On
+    /// macOS it is nil: the File menu and ⇧⌘W carry it, and a Mac window does
+    /// not have a "back".
+    var onClose: (() -> Void)?
     @Environment(\.palette) private var palette
     #if os(macOS)
     /// Computed, not stored: a stored `private` property would make the
@@ -39,6 +46,19 @@ struct TitleBarView: View {
 
     var body: some View {
         HStack(spacing: 14) {
+            if let onClose, model.hasTrack {
+                Button(action: onClose) {
+                    // Chevron plus a word: the glyph alone reads as "undo" or
+                    // "previous track" on something with a transport bar.
+                    Label("Close", systemImage: "chevron.left")
+                        .labelStyle(.titleAndIcon)
+                        .font(Typography.readoutSmall)
+                        .foregroundStyle(palette.accent.color())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close track")
+            }
+
             Text("ARTSCRIPTURE")
                 .font(Typography.eyebrow)
                 .tracking(2.2)

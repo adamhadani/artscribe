@@ -55,7 +55,11 @@ public enum MenuPlan {
 
     static let fileOpen: [MenuEntry] = [
         .action(.fileOpen),
-        .dynamicSubmenu(.openRecent)
+        .dynamicSubmenu(.openRecent),
+        // After Open Recent, because that is the order they are reached in:
+        // close what you have, then pick the next one from the list that the
+        // resting screen is now showing.
+        .action(.fileClose)
     ]
 
     /// The standard `.saveItem` group, so these land under Open Recent with the
