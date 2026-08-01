@@ -158,6 +158,15 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.artscribe.Artscribe
         INFOPLIST_FILE: App/iOS/Info.plist
         GENERATE_INFOPLIST_FILE: NO
+        # iPad only, per the port's scope. iPhone is deferred until the touch
+        # vocabulary is proven: a waveform with selection edges, a loop region
+        # and a marker lane needs the screen.
+        #
+        # **Here and not in `Info.plist`.** `UIDeviceFamily` used to be declared
+        # in both, and `xcodebuild archive` warns that the build setting
+        # overwrites the plist key — so the plist copy was decorative, and two
+        # places that must agree but only one of which is read is a trap rather
+        # than a belt and braces.
         TARGETED_DEVICE_FAMILY: "2"
         # The icon. iOS wants an asset catalog, not the `.icns` the Mac target
         # builds — same artwork, drawn full-bleed and opaque, because the system
