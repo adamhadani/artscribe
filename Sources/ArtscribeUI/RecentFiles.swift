@@ -54,10 +54,16 @@ public final class RecentFiles {
     ///   writing into the user's real preferences.
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        urls = Self.withoutStalePaths(
-            (defaults.array(forKey: Self.defaultsKey) as? [String] ?? [])
-                .map { URL(fileURLWithPath: $0) })
+        let stored = (defaults.array(forKey: Self.defaultsKey) as? [String] ?? [])
+            .map { URL(fileURLWithPath: $0) }
+        urls = Self.usable(stored)
         bookmarks = defaults.dictionary(forKey: Self.bookmarksKey) as? [String: Data] ?? [:]
+        // Written back when anything was re-anchored, so a list heals once
+        // rather than on every launch — and so the bookmarks, which are keyed by
+        // the persisted path, stay in step with what is now listed.
+        if urls.map(\.path) != stored.map(\.path) {
+            defaults.set(urls.map(\.path), forKey: Self.defaultsKey)
+        }
     }
 
     /// The key the bookmark store uses: **exactly the string `urls` is persisted
@@ -198,6 +204,22 @@ public final class RecentFiles {
     /// migrate to, and the sample is one tap away on the resting screen.
     static func withoutStalePaths(_ urls: [URL]) -> [URL] {
         urls.filter { !SampleTrack.isStaleBundlePath($0) }
+    }
+
+    /// The stored list as it can actually be used now: bundle-path corpses
+    /// dropped, and anything left behind by a **previous data container**
+    /// re-anchored onto the current one.
+    ///
+    /// That second half is the other half of the same bug. Moving the sample out
+    /// of the read-only bundle and into `Documents` fixed the bundle UUID and
+    /// inherited the *data* container's, which iOS changes for the same reasons
+    /// — so the report came back after the next update. See `RecentPathAnchor`.
+    static func usable(
+        _ urls: [URL],
+        home: String = NSHomeDirectory(),
+        exists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
+    ) -> [URL] {
+        withoutStalePaths(urls).map { RecentPathAnchor.healed($0, home: home, exists: exists) }
     }
 
     static func updated(_ existing: [URL], with url: URL, limit: Int) -> [URL] {
