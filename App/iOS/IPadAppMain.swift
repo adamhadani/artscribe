@@ -54,11 +54,12 @@ struct IPadAppMain: App {
     /// iPad it is reached without a hardware keyboard: `EmptyStateView` carries
     /// a button, and `DocumentView` presents the sheet.
     @State private var about = AboutWindowController()
+    @State private var settingsSheet = SettingsWindowController()
 
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice, about: about, theme: theme)
+            practice: practice, about: about, settings: settingsSheet, theme: theme)
     }
 
     var body: some Scene {

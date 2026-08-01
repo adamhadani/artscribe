@@ -4,6 +4,11 @@ import SwiftUI
 struct TitleBarView: View {
     let model: ViewerModel
     let onOpen: () -> Void
+    /// **iPad only, and the only route to Settings there.** The menu bar exists
+    /// on iPadOS but needs a hardware keyboard to reach, so ⌘, alone leaves the
+    /// settings unreachable for most of this platform's users — which is how
+    /// they came to be missing entirely. macOS passes nil: it has the app menu.
+    var onSettings: (() -> Void)?
     @Environment(\.palette) private var palette
     #if os(macOS)
     /// Computed, not stored: a stored `private` property would make the
@@ -53,6 +58,19 @@ struct TitleBarView: View {
                         .foregroundStyle(palette.dimmed.color())
                         .monospacedDigit()
                 }
+            }
+
+            if let onSettings {
+                // A gear, not a word: it sits beside Open… in a header that is
+                // already tight on a narrow window, and this is the one control
+                // here whose icon is unambiguous.
+                Button(action: onSettings) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 14))
+                        .foregroundStyle(palette.dimmed.color())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Settings")
             }
 
             Button("Open…", action: onOpen)

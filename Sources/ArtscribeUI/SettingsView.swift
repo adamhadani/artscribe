@@ -58,11 +58,17 @@ struct NudgeSettingsTab: View {
             }
         }
         .formStyle(.grouped)
-        // Four sections and a button. Without a floor the pane opens at the
+        // Four sections and a button. Without a floor the *window* opens at the
         // height of whichever tab was shown first and scrolls the rest, which
         // hides the zoom switch — the one control here nobody would think to
         // scroll for.
+        //
+        // macOS only: on iPad this is a sheet, which takes its height from the
+        // presentation rather than its content, and a 780 pt floor there would
+        // force a scroll on the smaller iPads instead of preventing one.
+        #if os(macOS)
         .frame(minHeight: 780)
+        #endif
     }
 
     /// How far `Space` rolls back when it resumes.

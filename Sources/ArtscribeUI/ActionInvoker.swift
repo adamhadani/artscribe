@@ -23,6 +23,11 @@ public struct MenuContext {
     /// **Artscripture ▸ About Artscripture**, **Help ▸ About Artscripture** and the
     /// resting screen's button on iPad all arrive through `ActionInvoker`.
     public let about: AboutWindowController
+    /// The Settings sheet's opener. **iPad only in effect** — macOS's `Settings`
+    /// scene owns `⌘,` and the menu item, so nothing calls this there. Carried
+    /// unconditionally so `MenuContext` is one shape on both platforms; see
+    /// `SettingsWindowController` for why it is inert rather than absent.
+    public let settings: SettingsWindowController
     /// The theme, carried here for the same reason the controllers are: on iPad
     /// the auxiliary windows are sheets presented from `DocumentView`, which
     /// therefore has to be able to build them — and they take a theme. On macOS
@@ -36,6 +41,7 @@ public struct MenuContext {
         shortcuts: ShortcutWindowController,
         practice: PracticeWindowController,
         about: AboutWindowController,
+        settings: SettingsWindowController,
         theme: ThemeController
     ) {
         self.model = model
@@ -44,6 +50,7 @@ public struct MenuContext {
         self.shortcuts = shortcuts
         self.practice = practice
         self.about = about
+        self.settings = settings
         self.theme = theme
     }
 }

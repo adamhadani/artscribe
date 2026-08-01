@@ -57,11 +57,12 @@ struct AcceptanceMain: App {
     /// present so the menu bar this harness drives is the same menu bar the app
     /// has, which is the whole point of building the context from the same type.
     @State private var about = AboutWindowController()
+    @State private var settingsSheet = SettingsWindowController()
 
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice, about: about, theme: theme)
+            practice: practice, about: about, settings: settingsSheet, theme: theme)
     }
 
     static let sessionFallbackDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
