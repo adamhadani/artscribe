@@ -28,8 +28,15 @@ repos:
       # Enforces the project rule that test fixtures stay small. Real audio
       # (the reference album) must never be committed — it lives behind
       # $ARTSCRIBE_TEST_MEDIA_DIR instead.
+      # Excludes exactly one path, and no wildcard: the bundled sample track.
+      # A demo track is the App Store's guideline 2.1 answer — a reviewer opens
+      # the app with no audio on the device and must still have something to
+      # play — so it has to ship inside the binary, and 100 KB does not buy a
+      # listenable excerpt of anything. The exclusion names the single file
+      # rather than the directory, so a second one cannot arrive unnoticed.
       - id: check-added-large-files
         args: [--maxkb=100]
+        exclude: ^Sources/ArtscribeUI/Resources/GoldbergVariatio4\.m4a$
       # A key pasted into a source file is not caught by .gitignore, which only
       # knows about filenames. This reads content, and it is the hook that would
       # notice a Developer ID private key or an App Store Connect .p8 inlined

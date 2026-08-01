@@ -29,6 +29,16 @@ struct EmptyStateView: View {
         Array(recents.urls.prefix(Self.shown))
     }
 
+    /// The sample to offer, or `nil` when it should not be offered — either
+    /// because the user has recents, or because the resource is missing from the
+    /// bundle. A missing resource is a build fault, and hiding the button is
+    /// better than showing one that cannot work; `SampleTrackTests` is what
+    /// notices, since the app would say nothing.
+    private var offeredSample: URL? {
+        guard SampleTrack.isOffered(recentCount: recents.urls.count) else { return nil }
+        return SampleTrack.url
+    }
+
     var body: some View {
         VStack(spacing: 26) {
             // The drop target, drawn as one. A dashed outline does two jobs
@@ -56,6 +66,33 @@ struct EmptyStateView: View {
                         palette.rule.color(),
                         style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
             )
+
+            // **First run only.** With no recents there is nothing to show and
+            // nothing to do, and the app cannot demonstrate itself without a
+            // file — which is also how a reviewer meets it (guideline 2.1). One
+            // click puts a real waveform on screen.
+            //
+            // It disappears the moment there is a recent file, because by then
+            // the list below is the better offer and a standing "try the demo"
+            // would imply the app is still one. See `SampleTrack.isOffered`.
+            if let sample = offeredSample {
+                Button {
+                    ViewerActions.open(model, url: sample)
+                } label: {
+                    VStack(spacing: 3) {
+                        Text("Try a sample track")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(palette.accent.color())
+                        Text(SampleTrack.title)
+                            .font(Typography.readoutSmall)
+                            .foregroundStyle(palette.dimmed.color())
+                    }
+                }
+                .buttonStyle(.plain)
+                #if os(macOS)
+                .pointerStyle(.link)
+                #endif
+            }
 
             // Only when there is something to list. An empty "Recent" heading on
             // a first run would be a promise the app cannot keep.

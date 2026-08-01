@@ -129,6 +129,10 @@ let package = Package(
         .target(
             name: "ArtscribeUI",
             dependencies: ["ArtscribeKit", "AudioDecode", "Waveform", "Playback"],
+            // The bundled sample track. `.copy` rather than `.process`: it is
+            // already the exact bytes to ship, and `.process` would let the
+            // toolchain re-encode audio it decided it knew better about.
+            resources: [.copy("Resources/GoldbergVariatio4.m4a")],
             swiftSettings: sharedSwiftSettings
         ),
         .testTarget(

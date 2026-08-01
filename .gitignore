@@ -32,6 +32,8 @@ Package.resolved
 # numbered patterns are belt and braces for an older binary, or for anyone
 # passing `--out .`.
 .artscripture-out/
+# Output from harness runs made before the rename.
+.artscribe-out/
 /[0-9][0-9]-*.png
 /[0-9][0-9][a-z]-*.png
 
@@ -54,6 +56,11 @@ Tests/Media/
 *.caf
 *.ape
 !Tests/Fixtures/**
+# The bundled sample track — the second deliberate exception, and the only file
+# in the repository over 100 KB. It ships inside the app so a first run has
+# something to play (App Store guideline 2.1), so it has to be committed.
+# `.pre-commit-config.yaml` names the same single path.
+!Sources/ArtscribeUI/Resources/GoldbergVariatio4.m4a
 
 # Session sidecars, which get written beside audio while testing by hand
 *.artscripture
