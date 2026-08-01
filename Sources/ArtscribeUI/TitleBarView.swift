@@ -1,14 +1,33 @@
 import SwiftUI
 
+/// What the header's overflow menu can open.
+///
+/// A value rather than four closures on `TitleBarView`, so adding a fifth
+/// surface is one field here and one line in the menu rather than a change to
+/// the view's shape and to every call site.
+struct AuxiliaryMenuActions {
+    let settings: () -> Void
+    let shortcuts: () -> Void
+    let practice: () -> Void
+    let about: () -> Void
+}
+
 /// The header: wordmark, the loaded file, and the decode progress bar.
 struct TitleBarView: View {
     let model: ViewerModel
     let onOpen: () -> Void
-    /// **iPad only, and the only route to Settings there.** The menu bar exists
-    /// on iPadOS but needs a hardware keyboard to reach, so ⌘, alone leaves the
-    /// settings unreachable for most of this platform's users — which is how
-    /// they came to be missing entirely. macOS passes nil: it has the app menu.
-    var onSettings: (() -> Void)?
+    /// **The only route to the auxiliary surfaces on a touch-only device.**
+    ///
+    /// iPadOS has a menu bar, but reaching it needs a hardware keyboard — so on
+    /// a phone, or an iPad without one, `⌘,` `⌘/` and `⌘P` reach nothing at all.
+    /// Settings and About had been given buttons; the shortcut reference and
+    /// Practice never were, and so simply did not exist on those devices.
+    ///
+    /// One menu rather than four buttons: the header is already tight on a
+    /// phone, and this is the shape iOS uses for exactly this — a set of
+    /// destinations that are not the primary action. macOS passes nil; it has
+    /// the menu bar.
+    var auxiliary: AuxiliaryMenuActions?
     @Environment(\.palette) private var palette
     #if os(macOS)
     /// Computed, not stored: a stored `private` property would make the
@@ -60,17 +79,25 @@ struct TitleBarView: View {
                 }
             }
 
-            if let onSettings {
-                // A gear, not a word: it sits beside Open… in a header that is
-                // already tight on a narrow window, and this is the one control
-                // here whose icon is unambiguous.
-                Button(action: onSettings) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 14))
+            if let auxiliary {
+                Menu {
+                    Button("Settings…", systemImage: "gearshape", action: auxiliary.settings)
+                    Button(
+                        "Keyboard Shortcuts", systemImage: "keyboard",
+                        action: auxiliary.shortcuts)
+                    Button("Practice", systemImage: "metronome", action: auxiliary.practice)
+                    Divider()
+                    Button(
+                        "About Artscripture", systemImage: "info.circle", action: auxiliary.about)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 15))
                         .foregroundStyle(palette.dimmed.color())
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Settings")
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .accessibilityLabel("More")
             }
 
             Button("Open…", action: onOpen)

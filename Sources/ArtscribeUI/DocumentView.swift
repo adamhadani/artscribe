@@ -78,7 +78,11 @@ public struct DocumentView: View {
             TitleBarView(
                 model: model,
                 onOpen: { showingImporter = true },
-                onSettings: { context.settings.toggle() })
+                auxiliary: AuxiliaryMenuActions(
+                    settings: { context.settings.toggle() },
+                    shortcuts: { context.shortcuts.toggle() },
+                    practice: { context.practice.toggle() },
+                    about: { context.about.toggle() }))
             #endif
 
             if let message = model.errorMessage {
