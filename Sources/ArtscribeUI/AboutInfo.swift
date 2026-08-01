@@ -19,7 +19,25 @@ public enum AboutInfo {
     /// One line of prose under the wordmark. Deliberately the same sentence the
     /// website and `CLAUDE.md` open with, so the three do not drift into three
     /// different descriptions of the same app.
-    public static let tagline = "A keyboard-first music transcription tool."
+    ///
+    /// **Except on a phone**, where "keyboard-first" describes an app the reader
+    /// cannot use as advertised: they have no keyboard, and the About panel is
+    /// the one place the app introduces itself. It is the *same claim* narrowed
+    /// to what is true there — the transport is still the point, it is simply
+    /// reached by tapping.
+    /// Pure, and keyed on the surface rather than reading `UIDevice` here —
+    /// which also keeps it off the main actor and testable for every platform in
+    /// one run. The first version of this read `UIDevice.current` directly and
+    /// failed the iOS build on exactly the isolation rule documented one file
+    /// away, in `EmptyStatePrompt`.
+    public static func tagline(for surface: EmptyStatePrompt.Surface) -> String {
+        switch surface {
+        case .desktop, .tabletWithDrop:
+            return "A keyboard-first music transcription tool."
+        case .phone:
+            return "Loop a passage and slow it down, without changing pitch."
+        }
+    }
 
     // MARK: - Version
 

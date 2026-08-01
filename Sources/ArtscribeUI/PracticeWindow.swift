@@ -298,15 +298,12 @@ struct NoLoopGuidance: View {
             .foregroundStyle(palette.text.color())
 
             if hasTrack {
-                Text(
-                    "Put the playhead where the passage starts and press A, then where it "
-                        + "ends and press S. Or drag a selection and press G to turn it into "
-                        + "a loop.")
+                Text(EmptyStatePrompt.loopGuidance(for: EmptyStatePrompt.current))
                 Text(
                     "Starting a ramp switches looping on for you, so the loop does not have "
                         + "to be enabled first.")
             } else {
-                Text("File ▸ Open… (⌘O), or drop an audio file on the window.")
+                Text(EmptyStatePrompt.openGuidance(for: EmptyStatePrompt.current))
             }
         }
         .font(Typography.readoutSmall)

@@ -16,11 +16,11 @@ import UIKit
 /// are checkable from one test run instead of one per platform build. That
 /// matters here: the wrong string only appears on the platform the author is not
 /// using, which is exactly how this shipped.
-enum EmptyStatePrompt {
+public enum EmptyStatePrompt {
 
     /// Which sentence to use. Named for the *interaction* rather than the OS,
     /// because that is what decides it: whether a file can be dragged in.
-    enum Surface {
+    public enum Surface {
         /// A pointer, a file system in a window, and drag-and-drop.
         case desktop
         /// Touch, with multitasking — a drop is possible and normal.
@@ -29,14 +29,14 @@ enum EmptyStatePrompt {
         case phone
     }
 
-    static func headline(for surface: Surface) -> String {
+    public static func headline(for surface: Surface) -> String {
         switch surface {
         case .desktop, .tabletWithDrop: return "Drop an audio file here"
         case .phone: return "No track open"
         }
     }
 
-    static func hint(for surface: Surface) -> String {
+    public static func hint(for surface: Surface) -> String {
         switch surface {
         // ⌘O is only advice where there is a keyboard to press it on.
         case .desktop: return "or press ⌘O to choose one"
@@ -47,13 +47,41 @@ enum EmptyStatePrompt {
         }
     }
 
+    /// How to make a loop, when the Practice panel finds there is none.
+    ///
+    /// **The worst offender of its class.** It used to read *"press A … press S
+    /// … press G"*, and it is shown precisely when someone is stuck — so on a
+    /// touch device every instruction it gave was impossible, at the one moment
+    /// the user was reading carefully.
+    public static func loopGuidance(for surface: Surface) -> String {
+        switch surface {
+        case .desktop:
+            return "Put the playhead where the passage starts and press A, then where it "
+                + "ends and press S. Or drag a selection and press G to turn it into a loop."
+        case .tabletWithDrop, .phone:
+            // The transport's Selection → Loop button is the touch route, and
+            // naming it is the whole point: it exists because there was none.
+            return "Drag across the waveform to select the passage, then tap "
+                + "Selection → Loop in the transport bar."
+        }
+    }
+
+    /// How to open a track, when there is none.
+    public static func openGuidance(for surface: Surface) -> String {
+        switch surface {
+        case .desktop: return "File ▸ Open… (⌘O), or drop an audio file on the window."
+        case .tabletWithDrop: return "Tap Open… above, or drop an audio file on the window."
+        case .phone: return "Tap Open… above to choose a track."
+        }
+    }
+
     /// The surface this build is running on.
     ///
     /// `@MainActor` because `UIDevice.current` is — the same isolation that
     /// `make ios-check` cannot catch, since it compiles `Playback` alone and
     /// never sees this module. Build the iPad scheme when changing it.
     @MainActor
-    static var current: Surface {
+    public static var current: Surface {
         #if os(macOS)
         return .desktop
         #else
