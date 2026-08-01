@@ -57,7 +57,14 @@ struct NudgeSettingsTab: View {
                 }
             }
         }
+        // **macOS only.** `.grouped` is what gives the Settings *window* its
+        // boxed sections. Inside an iPad form sheet it nests its insets within
+        // the sheet's own, and the rows end up standing off both edges — the
+        // "weird margins" a tester reported. iOS's default `Form` style is
+        // already the inset-grouped list, and is the idiomatic one there.
+        #if os(macOS)
         .formStyle(.grouped)
+        #endif
         // Four sections and a button. Without a floor the *window* opens at the
         // height of whichever tab was shown first and scrolls the rest, which
         // hides the zoom switch — the one control here nobody would think to
@@ -284,6 +291,8 @@ struct AppearanceSettingsTab: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        #if os(macOS)
         .formStyle(.grouped)
+        #endif
     }
 }
