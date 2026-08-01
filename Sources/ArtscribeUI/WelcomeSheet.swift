@@ -1,5 +1,9 @@
 import SwiftUI
 
+#if !os(macOS)
+import UIKit
+#endif
+
 /// One page of the welcome sheet.
 ///
 /// A value rather than a view so the set can be tested — that there are four,
@@ -16,6 +20,23 @@ struct WelcomePage: Identifiable, Equatable {
 }
 
 extension WelcomePage {
+    /// Whether to draw the key chips at all.
+    ///
+    /// False on iPhone. Not because keys are unavailable — iOS pairs with
+    /// Bluetooth keyboards perfectly well — but because almost nobody has one
+    /// attached to a phone, and a welcome that names keys the reader cannot
+    /// press is worse than one that stays quiet about them.
+    ///
+    /// A `static var` rather than an `#if`, so the decision is one place and
+    /// reads as a judgement about the device rather than about the SDK.
+    static var showsKeys: Bool {
+        #if os(macOS)
+        return true
+        #else
+        return UIDevice.current.userInterfaceIdiom != .phone
+        #endif
+    }
+
     /// Four pages, and deliberately not more.
     ///
     /// The HIG asks for a *"brief, enjoyable experience that doesn't require
@@ -161,7 +182,12 @@ private struct WelcomePageView: View {
                 .foregroundStyle(palette.dimmed.color())
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            if !page.keys.isEmpty {
+            // **Not on a phone.** iOS does support Bluetooth keyboards, so the
+            // chips are not wrong there — but almost no iPhone user has one, and
+            // teaching a first-time user by naming keys they cannot press is
+            // worse than teaching them nothing. The prose carries every page on
+            // its own; the keys are a bonus where they can be used.
+            if !page.keys.isEmpty, WelcomePage.showsKeys {
                 HStack(spacing: 6) {
                     ForEach(page.keys, id: \.self) { key in
                         Text(key)
