@@ -1,8 +1,8 @@
-# Artscribe Audio Core Implementation Plan
+# Artscripture Audio Core Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the headless audio core of Artscribe — decode, waveform peaks, time-stretch, and a real-time playback engine with seamless looping — delivered as SwiftPM modules plus a CLI that can play a track at any speed on a loop.
+**Goal:** Build the headless audio core of Artscripture — decode, waveform peaks, time-stretch, and a real-time playback engine with seamless looping — delivered as SwiftPM modules plus a CLI that can play a track at any speed on a loop.
 
 **Architecture:** Six SwiftPM modules with strictly one-way dependencies. `ArtscribeKit` (pure value types, zero platform deps) ← `AudioDecode` / `Waveform` / `TimeStretch` ← `Playback`. All audio processing is expressed as "frames in, frames out" so it is testable with no CoreAudio and no audio hardware; `AVAudioSourceNode` is attached only at the outermost edge in the final task. The `TimeStretcher` protocol exists specifically so `PlaybackEngine` can be tested against a deterministic identity stub.
 
@@ -136,7 +136,7 @@ let sharedSwiftSettings: [SwiftSetting] = [
 ]
 
 let package = Package(
-    name: "Artscribe",
+    name: "Artscripture",
     platforms: [.macOS(.v26)],
     products: [
         .library(name: "ArtscribeKit", targets: ["ArtscribeKit"])
@@ -293,7 +293,7 @@ The riskiest dependency, done first. The test asserts we actually get the R3 eng
 import PackageDescription
 
 let package = Package(
-    name: "Artscribe",
+    name: "Artscripture",
     platforms: [.macOS(.v26)],
     products: [
         .library(name: "ArtscribeKit", targets: ["ArtscribeKit"]),
@@ -411,7 +411,7 @@ Run: `make bootstrap`
 `CLAUDE.md`:
 
 ```markdown
-# Artscribe — working notes
+# Artscripture — working notes
 
 Design spec: `docs/superpowers/specs/2026-07-27-artscribe-design.md`
 
@@ -2880,7 +2880,7 @@ Render it into a cached layer/image and redraw only on viewport or size change; 
 
 **Explicitly OUT of scope** — do not build these, they belong to Tasks 7-9 and Plan 2:
 playback, transport controls, speed control, looping, markers, the inspector panel, the
-generated help sheet, the binding table, `.artscribe` session sidecars, and XcodeGen
+generated help sheet, the binding table, `.artscripture` session sidecars, and XcodeGen
 bundling. A `swift run` executable is sufficient; a double-clickable `.app` comes later.
 
 **Testing:** view rendering is not unit-tested here — that is deliberate, and consistent
@@ -2985,25 +2985,25 @@ and `Sources/ArtscribeApp/`. Add `Tests/ArtscribeUITests/` coverage for the pure
 ### Task 12: Bundle and distribute — make it launchable
 
 `swift run` is fine for development and wrong for daily use. This task produces a real
-double-clickable `Artscribe.app`.
+double-clickable `Artscripture.app`.
 
-**Files:** `project.yml` (XcodeGen), `App/Info.plist`, `App/Artscribe.entitlements`, an app
+**Files:** `project.yml` (XcodeGen), `App/Info.plist`, `App/Artscripture.entitlements`, an app
 icon, `Makefile` targets, README updates.
 
 **Requirements:**
 
-- [ ] **`make app`** produces `Artscribe.app` that launches by double-click from Finder,
+- [ ] **`make app`** produces `Artscripture.app` that launches by double-click from Finder,
       with a correct bundle identifier, version, display name, and icon.
 - [ ] The `.app` **must not be committed**; `project.yml` is the source of truth and the
       generated `.xcodeproj` stays gitignored, per the project's build-system decision.
-- [ ] **Declare supported document types** in `Info.plist` so Artscribe appears in
+- [ ] **Declare supported document types** in `Info.plist` so Artscripture appears in
       Finder's "Open With" for the formats it decodes, and so dropping a file on the dock
       icon works.
 - [ ] **Ad-hoc codesign** so it launches on this machine without Gatekeeper friction.
       Document what a real Developer ID signature and notarisation would additionally
       require, but do not attempt notarisation — it needs an Apple Developer account.
 - [ ] **`make dist`** produces a distributable archive (zip or DMG) of the signed app.
-- [ ] **README** gains a "Running Artscribe" section covering both `make app` for users and
+- [ ] **README** gains a "Running Artscripture" section covering both `make app` for users and
       `swift run` for development.
 - [ ] `make check` still passes, and the SwiftPM path keeps working — bundling must not
       become the only way to build.
@@ -3112,7 +3112,7 @@ preferred defaults rather than the spec's original ones.
 #### Settings window (⌘,)
 
 - [ ] Use SwiftUI's **`Settings` scene**, which wires ⌘, and the standard
-      "Artscribe → Settings…" menu item automatically. That is the idiomatic macOS route —
+      "Artscripture → Settings…" menu item automatically. That is the idiomatic macOS route —
       do not hand-roll a window and a shortcut.
 - [ ] **Playback tab** exposing the three nudge amounts as editable values with sensible
       units and validation. Reject or clamp nonsense (negative, zero, absurdly large) rather
@@ -3280,7 +3280,7 @@ one coherent identity:
 
 ---
 
-### Task 19: Session persistence — the `.artscribe` sidecar, Save, and Save As
+### Task 19: Session persistence — the `.artscripture` sidecar, Save, and Save As
 
 **This is a documented feature that was never built.** Spec §7 has promised it since the
 design was approved and `grep -rn sidecar Sources/` returns nothing. That makes it the second
@@ -3666,7 +3666,7 @@ The keyboard view itself is not snapshot-tested.
 ### Task 27: CUE sheet support — track markers on the waveform
 
 Some albums ship as one big audio file plus a `.cue` indexing where each track begins. Live
-albums, DJ sets and vinyl rips are commonly distributed this way, and Artscribe currently
+albums, DJ sets and vinyl rips are commonly distributed this way, and Artscripture currently
 sees one undifferentiated blob.
 
 **Real test corpus: `~/Downloads/Gonzalo Rubalcaba/`** — nine cue sheets across eight albums.
@@ -3727,7 +3727,7 @@ and [vector label decluttering](https://openlayers.org/en/latest/examples/vector
       — check it against both themes and the existing palette before committing.
 - [ ] **Toggle from the View menu with a shortcut**, added to the `ActionCatalog` (the drift
       guard will fail otherwise, which is the point of it). Persist the toggle in the
-      `.artscribe` sidecar.
+      `.artscripture` sidecar.
 
 #### Out of scope — say no to these
 
@@ -3807,4 +3807,4 @@ seamless loop.
 
 **Plan 2 (app shell and UI)** builds on this: `InputBindings` (Action, BindingTable,
 ActionDispatcher, KeyboardSource), `DocumentModel`, the SwiftUI lane views, the inspector,
-the generated help sheet, the `.artscribe` sidecar, and the XcodeGen app target.
+the generated help sheet, the `.artscripture` sidecar, and the XcodeGen app target.

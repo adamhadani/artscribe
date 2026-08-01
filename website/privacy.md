@@ -4,22 +4,22 @@ permalink: /privacy/
 title: Privacy Policy
 nav: privacy
 standfirst: >-
-  Artscribe collects no data. There are no accounts, no analytics, no telemetry
+  Artscripture collects no data. There are no accounts, no analytics, no telemetry
   and no network requests of any kind. This page explains, in detail, what that
   means and what is stored on your own device.
 description: >-
-  Artscribe collects no personal data, contains no analytics or tracking, and
+  Artscripture collects no personal data, contains no analytics or tracking, and
   makes no network requests. Everything stays on your device.
 ---
 
 <p class="updated">Last updated: 31 July 2026</p>
 
-This policy covers the Artscribe application for macOS and iPadOS, and this
+This policy covers the Artscripture application for macOS and iPadOS, and this
 website.
 
 ## The short version
 
-**Artscribe collects nothing, transmits nothing, and contains no code capable of
+**Artscripture collects nothing, transmits nothing, and contains no code capable of
 doing either.**
 
 - No personal data is collected.
@@ -38,10 +38,10 @@ location you explicitly grant access to through the system file picker — and a
 decoded in memory for playback and waveform display.
 
 **Your audio never leaves your device.** It is not uploaded, copied to any
-server, streamed, analysed remotely or shared with anyone. Artscribe has no
+server, streamed, analysed remotely or shared with anyone. Artscripture has no
 mechanism to do so.
 
-Artscribe does not modify your audio files. It reads them; it never writes to
+Artscripture does not modify your audio files. It reads them; it never writes to
 them.
 
 ## What is stored, and where
@@ -65,7 +65,7 @@ Mac or iPad app keeps its settings:
 
 ### Recently opened files
 
-Artscribe keeps a list of the **eight** most recently opened files so they can
+Artscripture keeps a list of the **eight** most recently opened files so they can
 be reopened from the resting screen or the Open Recent menu. This list is a set
 of file paths, stored in the same local preferences store.
 
@@ -80,26 +80,26 @@ Clearing the recent-file list removes both.
 
 ### Session sidecars
 
-When you save a session (<kbd>⌘S</kbd>), Artscribe writes a small plain-text
+When you save a session (<kbd>⌘S</kbd>), Artscripture writes a small plain-text
 JSON file recording where you were working: the loop region, the speed, the
 pitch, the playhead position, the visible viewport, and whether the track-mark
 lane is showing. It records the track's identity so it can tell it is the right
 file; it does not contain any audio.
 
-It is written **next to your audio file**, named by appending `.artscribe` to
+It is written **next to your audio file**, named by appending `.artscripture` to
 the file's full name — so `Blackbird.flac` gets `Blackbird.flac.artscribe`.
 
 If that folder is not writable — a read-only volume, for instance — the file
 falls back to:
 
 ```
-~/Library/Application Support/Artscribe/Sessions/
+~/Library/Application Support/Artscripture/Sessions/
 ```
 
 and the app tells you plainly that it did. These files are yours: readable,
 editable and deletable with any text editor or file manager.
 
-## What Artscribe does *not* do
+## What Artscripture does *not* do
 
 - It does not read your other files, your music library, your contacts, your
   location, your microphone or your camera.
@@ -111,7 +111,7 @@ editable and deletable with any text editor or file manager.
 
 ## Third-party components
 
-Artscribe links two audio libraries — [Rubber
+Artscripture links two audio libraries — [Rubber
 Band](https://breakfastquay.com/rubberband/) on macOS and [Signalsmith
 Stretch](https://github.com/Signalsmith-Audio/signalsmith-stretch) on iPadOS —
 which perform time-stretching arithmetic on audio in memory. They are
@@ -137,14 +137,14 @@ policy.
 
 ## Children
 
-Artscribe collects no data from anyone, of any age. It is not directed at
+Artscripture collects no data from anyone, of any age. It is not directed at
 children and contains no content or feature that would make it so.
 
 ## Verifying any of this
 
-Artscribe is open source. If you would rather check than take a policy's word
+Artscripture is open source. If you would rather check than take a policy's word
 for it, the entire application is readable at
-[github.com/adamhadani/artscribe]({{ site.repo_url }}). A search of the source
+[github.com/adamhadani/artscripture]({{ site.repo_url }}). A search of the source
 tree for networking APIs returns nothing, which is the fact this page rests on.
 
 ## Changes to this policy
@@ -157,7 +157,7 @@ history.
 
 Questions about privacy, or anything else, are welcome as a GitHub issue:
 
-**[github.com/adamhadani/artscribe/issues]({{ site.issues_url }})**
+**[github.com/adamhadani/artscripture/issues]({{ site.issues_url }})**
 
 See the [support page]({{ '/support/' | relative_url }}) for what is useful to
 include.

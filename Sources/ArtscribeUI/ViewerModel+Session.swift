@@ -6,12 +6,12 @@ import Foundation
 ///
 /// ## The model, in one paragraph
 ///
-/// Artscribe keeps a small, visible `<track>.artscribe` file next to each track
+/// Artscripture keeps a small, visible `<track>.artscribe` file next to each track
 /// and treats it the way modern macOS treats a document that has a location:
 /// **once it exists, it is kept up to date for you** — written a couple of
 /// seconds after you change something and again when you close the window — so
 /// loop points cannot be lost. ⌘S is therefore a checkpoint rather than a
-/// necessity; it writes immediately instead of waiting. What Artscribe will not
+/// necessity; it writes immediately instead of waiting. What Artscripture will not
 /// do is create that file behind your back, because it lands in your music
 /// folder where you can see it. So the *first* time you change the speed or set
 /// a loop on a track that has no session file, closing the window asks: Save,
@@ -64,7 +64,7 @@ extension ViewerModel {
     /// *not* spelled into it — AppKit already draws that as the dot in the close
     /// button, and saying it twice is how a title bar starts shouting.
     public var windowTitle: String {
-        trackURL?.lastPathComponent ?? fileName ?? "Artscribe"
+        trackURL?.lastPathComponent ?? fileName ?? "Artscripture"
     }
 
     /// True when this track's session had to go into Application Support

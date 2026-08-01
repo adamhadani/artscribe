@@ -103,7 +103,7 @@ extension AcceptanceRun {
         let before = model.viewport.widthPixels
         // Held from before the second window exists. Looked up by title it is
         // not: `navigationTitle` renames the document window after the loaded
-        // track, so "the window called Artscribe" stops existing the moment a
+        // track, so "the window called Artscripture" stops existing the moment a
         // file is open — which is how this check first reported the document
         // window missing when it was on screen the whole time.
         let document = NSApp.keyWindow ?? NSApp.windows.first

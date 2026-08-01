@@ -80,10 +80,10 @@ public enum AboutInfo {
     /// that one is guideline 5.1.1(i), and `theLinksIncludeAPrivacyPolicy` is
     /// what stops a tidy-up removing it.
     public static let links: [AboutLink] = [
-        AboutLink(title: "Website", address: "https://adamhadani.github.io/artscribe/"),
-        AboutLink(title: "Support", address: "https://adamhadani.github.io/artscribe/support/"),
+        AboutLink(title: "Website", address: "https://adamhadani.github.io/artscripture/"),
+        AboutLink(title: "Support", address: "https://adamhadani.github.io/artscripture/support/"),
         AboutLink(
-            title: "Privacy Policy", address: "https://adamhadani.github.io/artscribe/privacy/")
+            title: "Privacy Policy", address: "https://adamhadani.github.io/artscripture/privacy/")
     ]
 
     // MARK: - Licences
@@ -105,7 +105,7 @@ public enum AboutInfo {
     public static func licences(on platform: AboutPlatform) -> [AboutLicence] {
         var list: [AboutLicence] = [
             AboutLicence(
-                component: "Artscribe",
+                component: "Artscripture",
                 terms: "Apache-2.0",
                 detail: "This application's own source."),
             AboutLicence(

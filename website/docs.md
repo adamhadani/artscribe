@@ -4,11 +4,11 @@ permalink: /docs/
 title: Documentation
 nav: docs
 standfirst: >-
-  Everything Artscribe does, and the key that does it. The shortcut tables here
+  Everything Artscripture does, and the key that does it. The shortcut tables here
   are the same catalog the application's menus and its ⌘/ window are generated
   from.
 description: >-
-  Artscribe documentation: getting started, keyboard shortcuts, loading files,
+  Artscripture documentation: getting started, keyboard shortcuts, loading files,
   looping and selection, speed and pitch, practice mode, and session files.
 ---
 
@@ -34,7 +34,7 @@ description: >-
 
 ## Getting started
 
-Artscribe is one uninterrupted waveform and a set of keys. There are no palettes
+Artscripture is one uninterrupted waveform and a set of keys. There are no palettes
 to arrange and no modes to be in. The working loop is:
 
 1. Open a track — <kbd>⌘O</kbd>, or drop a file on the window.
@@ -123,7 +123,7 @@ moving the loop.
 
 ## Looping
 
-This is what Artscribe is for, so it is worth knowing what it does. The time
+This is what Artscripture is for, so it is worth knowing what it does. The time
 stretcher is **never reset at a loop boundary** — audio is fed continuously
 across the seam. A reset would flush the stretcher's overlap state and click on
 every repetition; feeding through it means a repeat is inaudible. That is
@@ -181,7 +181,7 @@ row would invite exactly the confusion the separation exists to avoid.
 
 ### How good is the slowdown?
 
-On macOS, Artscribe uses Rubber Band 4.0's **R3 “Finer”** engine — a
+On macOS, Artscripture uses Rubber Band 4.0's **R3 “Finer”** engine — a
 multiresolution, phase-locked spectral stretcher. Pitch error, measured as an FFT
 peak against a reference tone:
 
@@ -236,7 +236,7 @@ moving the view alone is left to the menu, the trackpad and the overview strip.
 ## Track marks
 
 A single FLAC of a whole album is a wall with no landmarks. If a `.cue` sheet is
-sitting beside the audio file, Artscribe parses it and draws a lane showing where
+sitting beside the audio file, Artscripture parses it and draws a lane showing where
 each track begins.
 
 | Key | Action |
@@ -295,7 +295,7 @@ A session is a small JSON file recording the loop region, the speed, the pitch,
 the playhead, the visible viewport and whether the track-mark lane is showing. It
 identifies the track it belongs to, and it contains no audio.
 
-It is written next to your audio file, with `.artscribe` **appended to the whole
+It is written next to your audio file, with `.artscripture` **appended to the whole
 filename** — `Blackbird.flac` becomes `Blackbird.flac.artscribe`. Replacing the
 extension would read better, but a transcriber routinely keeps a lossless master
 and a smaller copy of the same song in one folder, and a single
@@ -303,7 +303,7 @@ and a smaller copy of the same song in one folder, and a single
 overwrote the other's loop points.
 
 If the folder cannot be written to — a read-only volume, say — the session goes
-to `~/Library/Application Support/Artscribe/Sessions/` instead, and the app tells
+to `~/Library/Application Support/Artscripture/Sessions/` instead, and the app tells
 you so rather than failing quietly.
 
 Every field is optional, so a hand-edited or truncated file is repaired field by
@@ -426,7 +426,7 @@ output device in **Playback**.
 | <kbd>⌘O</kbd> | Open… | File |
 | <kbd>⌘S</kbd> | Save | File |
 | <kbd>⇧⌘S</kbd> | Save As… | File |
-| <kbd>⌘,</kbd> | Settings… | Artscribe |
+| <kbd>⌘,</kbd> | Settings… | Artscripture |
 
 </div>
 

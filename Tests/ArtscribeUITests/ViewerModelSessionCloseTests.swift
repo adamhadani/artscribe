@@ -181,6 +181,6 @@ struct ViewerModelSessionCloseTests {
         #expect(model.windowTitle == "Blackbird.flac")
         model.setSpeedPreset(0.5)
         #expect(model.windowTitle == "Blackbird.flac")
-        #expect(ViewerModel().windowTitle == "Artscribe")
+        #expect(ViewerModel().windowTitle == "Artscripture")
     }
 }

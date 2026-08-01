@@ -4,7 +4,7 @@ import Foundation
 
 /// Where a track's session ended up.
 public enum SessionLocation: Equatable, Sendable, Hashable {
-    /// The `<track>.artscribe` file next to the audio, which is what spec §7
+    /// The `<track>.artscripture` file next to the audio, which is what spec §7
     /// asks for and what §2 chose it for: portable, shareable, and obvious.
     case sidecar(URL)
     /// The consolation prize when the track's folder will not take a file — a
@@ -53,7 +53,7 @@ public struct SessionRead: Equatable, Sendable {
     /// open it or pretending the defaults were the user's choice.
     public var failure: SessionReadFailure?
     /// The bytes exactly as they were on disk, so a later save can lay
-    /// Artscribe's own keys over them instead of replacing the file. See
+    /// Artscripture's own keys over them instead of replacing the file. See
     /// `SessionStore.merged(ours:into:)`.
     public var original: Data?
 }
@@ -71,14 +71,28 @@ public struct SessionSave: Equatable, Sendable {
     public var contents: Data
 }
 
-/// Reads and writes the `.artscribe` sidecar (spec §7).
+/// Reads and writes the `.artscripture` sidecar (spec §7).
 ///
 /// A plain value with no state of its own beyond where the fallback lives,
 /// following `RecentFiles` and `NudgeSettings`: the store is the tape, and the
 /// live session is on `ViewerModel`.
 public struct SessionStore: Sendable {
 
-    public static let fileExtension = "artscribe"
+    public static let fileExtension = "artscripture"
+
+    /// The extension written before the app was renamed.
+    ///
+    /// **Read, never written.** Sessions saved by an earlier build sit beside
+    /// their audio as `<track>.artscribe`, and those files are the user's — a
+    /// rename of the *app* is no reason for their loop points to disappear. So
+    /// `existingLocation` looks for one when the canonical name is absent, and a
+    /// subsequent save writes the new name and **leaves the old file alone**.
+    ///
+    /// Not deleted, deliberately. Removing a file the user can see, to tidy up
+    /// after our own rename, is a bigger liberty than leaving one stale file
+    /// behind; and because the save path carries the bytes it read through
+    /// `preserving:`, nothing in it is lost.
+    public static let legacyFileExtension = "artscribe"
 
     /// Where the read-only-volume fallback goes. Injectable so tests and the
     /// acceptance harness get their own directory rather than writing into the
@@ -86,27 +100,35 @@ public struct SessionStore: Sendable {
     /// and `ThemeController` use for `UserDefaults`.
     private let fallbackDirectory: URL
 
-    public init(fallbackDirectory: URL? = nil) {
-        self.fallbackDirectory = fallbackDirectory ?? Self.defaultFallbackDirectory()
+    /// The pre-rename fallback directory, for the same reason as
+    /// `legacyFileExtension`. `nil` when the caller injected a directory, since
+    /// a test or the harness has no history to migrate.
+    private let legacyFallbackDirectory: URL?
+
+    public init(fallbackDirectory: URL? = nil, legacyFallbackDirectory: URL? = nil) {
+        self.fallbackDirectory = fallbackDirectory ?? Self.applicationSupport("Artscripture")
+        self.legacyFallbackDirectory =
+            legacyFallbackDirectory
+            ?? (fallbackDirectory == nil ? Self.applicationSupport("Artscribe") : nil)
     }
 
-    private static func defaultFallbackDirectory() -> URL {
+    private static func applicationSupport(_ folder: String) -> URL {
         let base =
             FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first
             ?? URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent("Library/Application Support")
-        return base.appendingPathComponent("Artscribe/Sessions", isDirectory: true)
+        return base.appendingPathComponent("\(folder)/Sessions", isDirectory: true)
     }
 
     // MARK: - Paths
 
-    /// `Blackbird.flac` → `Blackbird.flac.artscribe`.
+    /// `Blackbird.flac` → `Blackbird.flac.artscripture`.
     ///
     /// The extension is **appended, not replaced**. Replacing it reads better —
-    /// `Blackbird.artscribe` — but a transcriber routinely keeps a lossless
+    /// `Blackbird.artscripture` — but a transcriber routinely keeps a lossless
     /// master and a smaller copy of the same song in one folder, and one
-    /// `Blackbird.artscribe` between `Blackbird.flac` and `Blackbird.mp3` means
+    /// `Blackbird.artscripture` between `Blackbird.flac` and `Blackbird.mp3` means
     /// whichever you opened last silently overwrites the other's loop points.
     /// Silent loss of loop points is the exact failure spec §7 exists to
     /// prevent, so the uglier name wins.
@@ -114,11 +136,24 @@ public struct SessionStore: Sendable {
         track.appendingPathExtension(fileExtension)
     }
 
+    /// The same path under the pre-rename extension. Read-only; see
+    /// `legacyFileExtension`.
+    public static func legacySidecarURL(for track: URL) -> URL {
+        track.appendingPathExtension(legacyFileExtension)
+    }
+
     /// Whether a chosen path *is* the sidecar this track reloads from — the
     /// question **Save As…** turns on.
+    ///
+    /// **Either extension counts.** The question is "will reopening this track
+    /// pick this file up again", and a `.artscribe` file left by an older build
+    /// still will. Answering `false` for one would make Save As… treat the
+    /// user's own session file as a foreign export.
     public static func isCanonicalSidecar(_ url: URL, for track: URL) -> Bool {
-        url.standardizedFileURL.resolvingSymlinksInPath()
-            == sidecarURL(for: track).standardizedFileURL.resolvingSymlinksInPath()
+        let chosen = url.standardizedFileURL.resolvingSymlinksInPath()
+        return [sidecarURL(for: track), legacySidecarURL(for: track)]
+            .map { $0.standardizedFileURL.resolvingSymlinksInPath() }
+            .contains(chosen)
     }
 
     /// Keyed by the track's full path, hashed.
@@ -128,23 +163,38 @@ public struct SessionStore: Sendable {
     /// every launch. The name is not meant to be readable — the readable copy is
     /// the sidecar, and this only exists when the sidecar is impossible.
     public func fallbackURL(for track: URL) -> URL {
+        Self.fallbackURL(for: track, in: fallbackDirectory, extension: Self.fileExtension)
+    }
+
+    private static func fallbackURL(
+        for track: URL, in directory: URL, extension ext: String
+    ) -> URL {
         let key = track.standardizedFileURL.resolvingSymlinksInPath().path
         let digest = SHA256.hash(data: Data(key.utf8))
         let name = digest.map { String(format: "%02x", $0) }.joined()
-        return
-            fallbackDirectory
-            .appendingPathComponent(name)
-            .appendingPathExtension(Self.fileExtension)
+        return directory.appendingPathComponent(name).appendingPathExtension(ext)
     }
 
-    /// Where this track's session already is, if anywhere. The sidecar wins: a
-    /// folder that has become writable again holds the copy the user can see.
+    /// Where this track's session already is, if anywhere.
+    ///
+    /// Four places, in order of preference: the sidecar wins over the fallback
+    /// because a folder that has become writable again holds the copy the user
+    /// can see, and the current extension wins over the pre-rename one because
+    /// if both exist the current one is the more recent save.
     public func existingLocation(for track: URL) -> SessionLocation? {
+        let exists = { (url: URL) in FileManager.default.fileExists(atPath: url.path) }
+
         let sidecar = Self.sidecarURL(for: track)
-        if FileManager.default.fileExists(atPath: sidecar.path) { return .sidecar(sidecar) }
+        if exists(sidecar) { return .sidecar(sidecar) }
+        let legacySidecar = Self.legacySidecarURL(for: track)
+        if exists(legacySidecar) { return .sidecar(legacySidecar) }
+
         let fallback = fallbackURL(for: track)
-        if FileManager.default.fileExists(atPath: fallback.path) {
-            return .applicationSupport(fallback)
+        if exists(fallback) { return .applicationSupport(fallback) }
+        if let legacyDirectory = legacyFallbackDirectory {
+            let legacy = Self.fallbackURL(
+                for: track, in: legacyDirectory, extension: Self.legacyFileExtension)
+            if exists(legacy) { return .applicationSupport(legacy) }
         }
         return nil
     }
@@ -244,7 +294,7 @@ public struct SessionStore: Sendable {
         }
     }
 
-    /// Lays the keys Artscribe owns over the ones that were already in the file.
+    /// Lays the keys Artscripture owns over the ones that were already in the file.
     ///
     /// The sidecar is hand-editable by design (spec §2 chose a visible file over
     /// a hidden one precisely so it could be read, edited and shared), so a save
@@ -253,7 +303,7 @@ public struct SessionStore: Sendable {
     /// `ours` is left exactly as it was found.
     ///
     /// Recurses into objects that appear in both, so an unknown key nested
-    /// inside a `loop` Artscribe does own survives too. On a type clash — the
+    /// inside a `loop` Artscripture does own survives too. On a type clash — the
     /// file says `"loop": "chorus"` and we hold an object — **ours wins**, since
     /// the alternative is an app that cannot save its own state.
     static func merged(ours: [String: Any], into theirs: [String: Any]) -> [String: Any] {
@@ -274,7 +324,7 @@ public struct SessionStore: Sendable {
     /// by **Save As…** for a path the user chose.
     ///
     /// - Parameter previous: the bytes this session was read from, if any.
-    ///   Artscribe's keys are laid over them, so anything in the file that is
+    ///   Artscripture's keys are laid over them, so anything in the file that is
     ///   not ours survives. Bytes that are not a JSON object are ignored — there
     ///   is nothing to merge into — and the file is replaced.
     /// - Returns: exactly what was written, which is the baseline for the next

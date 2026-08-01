@@ -13,7 +13,7 @@ import SwiftUI
 /// resolves `System` against macOS itself. Passing `nil` here is the bug that
 /// `ThemeController`'s documentation records: it clears the window's override
 /// but leaves the `\.colorScheme` environment on the last explicit scheme, so
-/// the chrome goes light while everything Artscribe draws stays dark.
+/// the chrome goes light while everything Artscripture draws stays dark.
 public struct ViewerWindow: View {
     private let context: MenuContext
     private let theme: ThemeController

@@ -1,4 +1,4 @@
-/// Every command Artscribe can be asked to perform, as a stable identifier.
+/// Every command Artscripture can be asked to perform, as a stable identifier.
 ///
 /// Spec §6.1: *"Every action has a stable `ActionID`. Menus, keyboard, and later
 /// MIDI all dispatch the same identifiers, and the help sheet is rendered from

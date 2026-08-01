@@ -82,7 +82,7 @@ public struct AboutWindow: View {
         VStack(spacing: 8) {
             HStack(spacing: 11) {
                 AboutMark()
-                Text("Artscribe")
+                Text("Artscripture")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(palette.text.color())
             }
@@ -265,7 +265,7 @@ private struct AboutMark: View {
 
 extension View {
     /// Hands the scene's `openWindow` to the controller — the whole of the
-    /// plumbing behind **About Artscribe**, and the same arrangement
+    /// plumbing behind **About Artscripture**, and the same arrangement
     /// `openShortcutWindow` describes at length.
     ///
     /// Applied to every scene that can be frontmost when the command is chosen,

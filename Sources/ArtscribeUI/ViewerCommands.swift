@@ -22,7 +22,7 @@ public enum ViewerActions {
 
     /// The one way into `ViewerModel.open(url:)` from the UI.
     ///
-    /// Artscribe is a one-window, one-track app, so loading another file is the
+    /// Artscripture is a one-window, one-track app, so loading another file is the
     /// only other way to walk away from a session — and it has to ask the same
     /// question closing the window does, or a loop you set two minutes ago
     /// disappears because you reached for Open Recent. Every route in goes
@@ -119,7 +119,7 @@ public struct ViewerCommands: Commands {
             MenuItems(section: .view, context: context)
         }
 
-        // **Artscribe ▸ About Artscribe**, *replacing* the standard item rather
+        // **Artscripture ▸ About Artscripture**, *replacing* the standard item rather
         // than adding to it. `.appInfo` is AppKit's own About command, which
         // opens a panel assembled from `Info.plist`; leaving it in place and
         // adding ours would give the app menu two About items, one of which
@@ -128,7 +128,7 @@ public struct ViewerCommands: Commands {
             AboutMenuItem(context: context)
         }
 
-        // **Help ▸ About Artscribe.** `.help` is the standard "Artscribe Help"
+        // **Help ▸ About Artscripture.** `.help` is the standard "Artscripture Help"
         // item, and it is replaced rather than joined for a blunter reason than
         // the one above: this app ships no help book, so the item macOS puts
         // there opens a sheet saying help is not available. A second route to
@@ -141,7 +141,7 @@ public struct ViewerCommands: Commands {
     }
 }
 
-/// **About Artscribe**, in both of the menus macOS builds for it.
+/// **About Artscripture**, in both of the menus macOS builds for it.
 ///
 /// A `View` rather than a bare `Button` in the `Commands` body, like every other
 /// item in this app: a `Commands` body is not re-evaluated when an `@Observable`

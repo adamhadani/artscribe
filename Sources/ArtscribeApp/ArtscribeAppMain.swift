@@ -4,9 +4,9 @@ import Playback
 import SwiftUI
 
 /// Receives the files Launch Services hands the app: "Open With" from Finder,
-/// a double-clicked audio file once Artscribe is the chosen handler, and a file
+/// a double-clicked audio file once Artscripture is the chosen handler, and a file
 /// dropped on the dock icon. `CFBundleDocumentTypes` in `App/Info.plist` is what
-/// makes macOS offer Artscribe in the first place; this is what makes the offer
+/// makes macOS offer Artscripture in the first place; this is what makes the offer
 /// mean something.
 ///
 /// Only reachable from a real bundle — an unbundled `swift run` binary is never
@@ -127,7 +127,7 @@ struct ArtscribeAppMain: App {
     }
 
     var body: some Scene {
-        Window("Artscribe", id: "viewer") {
+        Window("Artscripture", id: "viewer") {
             ViewerWindow(context: context, theme: theme)
                 .frame(minWidth: 720, minHeight: 420)
                 .task { start() }
@@ -186,7 +186,7 @@ struct ArtscribeAppMain: App {
         //
         // It carries the two openers as well, so a command chosen while the
         // panel is the frontmost window still reaches the other windows.
-        Window("About Artscribe", id: AboutWindowController.windowID) {
+        Window("About Artscripture", id: AboutWindowController.windowID) {
             AboutWindow(about: about, theme: theme)
                 .openShortcutWindow(shortcuts)
                 .openPracticeWindow(practice)
@@ -197,7 +197,7 @@ struct ArtscribeAppMain: App {
         .defaultSize(width: AboutWindow.minimumWidth, height: AboutWindow.minimumHeight)
         .windowResizability(.contentMinSize)
 
-        // The idiomatic route to **Artscribe ▸ Settings…**: this scene is what
+        // The idiomatic route to **Artscripture ▸ Settings…**: this scene is what
         // puts the item in the app menu and wires ⌘, to it, so neither is
         // hand-rolled here.
         Settings {

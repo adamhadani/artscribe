@@ -145,7 +145,7 @@ public final class ViewerModel {
     /// the app does not decide it must go and correct the user's file.
     @ObservationIgnored var savedState: SessionState?
     /// The sidecar's bytes as they were read, so the next write can lay
-    /// Artscribe's keys over them rather than replacing them. See
+    /// Artscripture's keys over them rather than replacing them. See
     /// `SessionStore.merged(ours:into:)`.
     @ObservationIgnored var preservedSidecar: Data?
     /// The debounced autosave in flight, if any. Cancelled and replaced on every

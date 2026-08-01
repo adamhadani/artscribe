@@ -166,7 +166,7 @@ struct ViewerModelSessionTests {
     }
 
     /// The other half of the rule, and the reason the close prompt is reachable
-    /// at all: Artscribe does not drop a visible file into somebody's music
+    /// at all: Artscripture does not drop a visible file into somebody's music
     /// folder without being asked.
     @Test("an edit to a track with no sidecar autosaves nothing")
     func autosaveDoesNotCreateTheFirstSidecar() async throws {

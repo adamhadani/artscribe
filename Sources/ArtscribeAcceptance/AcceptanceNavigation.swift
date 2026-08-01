@@ -236,7 +236,7 @@ extension AcceptanceRun {
 
     // MARK: - Settings
 
-    /// **Artscribe ▸ Settings…**, in the app menu with ⌘,, as the `Settings`
+    /// **Artscripture ▸ Settings…**, in the app menu with ⌘,, as the `Settings`
     /// scene puts it — and the Theme control gone from the View menu, because
     /// two preference surfaces is one too many.
     @MainActor

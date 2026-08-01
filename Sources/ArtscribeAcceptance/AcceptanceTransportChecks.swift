@@ -194,12 +194,12 @@ extension AcceptanceRun {
     ///   can be key and AppKit builds no accessibility elements to press.
     /// * **This app is not active.** How an agent reaches it — the run is
     ///   launched from a background shell while someone is using the Mac, so
-    ///   Artscribe never comes to the front, `NSWindow.sendEvent` will not
+    ///   Artscripture never comes to the front, `NSWindow.sendEvent` will not
     ///   deliver a click to a window that is not key, and the accessibility
     ///   tree stays unbuilt. Measured: `button press path: nothing landed`,
     ///   `transport buttons in the accessibility tree: none exposed`.
     ///
-    /// To make these checks run for real, launch the harness so that Artscribe
+    /// To make these checks run for real, launch the harness so that Artscripture
     /// comes to the front and leave it frontmost for the transport group.
     @MainActor
     static func sessionCannotDeliverAPress() -> String? {
@@ -209,7 +209,7 @@ extension AcceptanceRun {
                 + "reach a SwiftUI control — the same limitation the selection drag records"
         }
         if !NSApp.isActive {
-            return "Artscribe is not the active application (NSApp.isActive == false — the run "
+            return "Artscripture is not the active application (NSApp.isActive == false — the run "
                 + "was launched from a background shell), so a synthesised pointer event does "
                 + "not reach a SwiftUI control and AppKit builds no accessibility elements to "
                 + "press instead"

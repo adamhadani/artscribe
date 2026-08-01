@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// **Artscribe ▸ Settings…** (⌘,), the content of SwiftUI's `Settings` scene.
+/// **Artscripture ▸ Settings…** (⌘,), the content of SwiftUI's `Settings` scene.
 ///
 /// In the app menu rather than under File: that is where macOS has put
 /// preferences since Ventura, and it is where the `Settings` scene puts them

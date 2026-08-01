@@ -7,7 +7,7 @@ standfirst: >-
   Every question, bug report and feature request goes to the same place: GitHub
   Issues. It is public, it is searchable, and it is read.
 description: >-
-  How to get help with Artscribe: where to report a bug, what to include, and
+  How to get help with Artscripture: where to report a bug, what to include, and
   answers to the common questions.
 ---
 
@@ -16,7 +16,7 @@ description: >-
 **[Open an issue on GitHub →]({{ site.new_issue_url }})**
 
 That is the support channel — for bug reports, questions about how something
-works, and requests for things Artscribe does not do yet. There is no separate
+works, and requests for things Artscripture does not do yet. There is no separate
 email queue, no forum and no ticket system to sign up for; a public issue tracker
 means the answer to your question is also the answer to the next person's.
 
@@ -32,7 +32,7 @@ mandatory; a short report is much better than no report.
 - **What you did, what you expected, and what happened instead.** In that order,
   and as concretely as you can — "pressing <kbd>D</kbd> with a loop set does
   nothing" is worth more than "looping is broken".
-- **The Artscribe version.** Artscribe ▸ About Artscribe, or the name of the
+- **The Artscripture version.** Artscripture ▸ About Artscripture, or the name of the
   release you downloaded.
 - **Your macOS or iPadOS version, and your Mac or iPad model.**
 - **The audio file's format and roughly its length** — 24-bit FLAC, seventy
@@ -40,7 +40,7 @@ mandatory; a short report is much better than no report.
   album-length files or on one particular container.
 - **Whether it happens every time**, or only sometimes, or only after some
   particular sequence of steps.
-- **Whether a `.cue` sheet or a `.artscribe` session file was sitting next to
+- **Whether a `.cue` sheet or a `.artscripture` session file was sitting next to
   the audio.** Both are read automatically, and both have been the culprit
   before.
 - **A screenshot**, if the problem is something you can see.
@@ -61,7 +61,7 @@ is still useful.
 
 ## Frequently asked
 
-### What audio formats does Artscribe open?
+### What audio formats does Artscripture open?
 
 MP3, AAC, M4A/MP4, ALAC, FLAC (including 24-bit), WAV, AIFF, CAF, Ogg Vorbis and
 Opus. Everything is decoded by the operating system's own frameworks — there is
@@ -73,7 +73,7 @@ a different codec and works on both.
 
 ### What do I need to run it?
 
-**macOS 26 on Apple Silicon.** Homebrew ships arm64-only libraries and Artscribe
+**macOS 26 on Apple Silicon.** Homebrew ships arm64-only libraries and Artscripture
 has never been an Intel product, so the released bundle is `arm64` rather than
 universal. The iPadOS target requires iPadOS 26 and is built from source rather
 than distributed as a download.
@@ -86,18 +86,18 @@ normally. If you hit it — with a build you compiled yourself, for instance —
 right-click the app and choose **Open**, then confirm; or run:
 
 ```sh
-xattr -d com.apple.quarantine Artscribe.app
+xattr -d com.apple.quarantine Artscripture.app
 ```
 
 ### Where are my sessions saved?
 
-Next to the audio file, with `.artscribe` appended to the whole filename:
+Next to the audio file, with `.artscripture` appended to the whole filename:
 `Blackbird.flac` saves to `Blackbird.flac.artscribe`. The extension is appended
 rather than replaced on purpose, so a lossless master and an MP3 of the same
 song in one folder do not silently overwrite each other's loop points.
 
 If the folder cannot be written to, the session goes to
-`~/Library/Application Support/Artscribe/Sessions/` instead, and the app says so
+`~/Library/Application Support/Artscripture/Sessions/` instead, and the app says so
 rather than failing quietly.
 
 Press <kbd>⌘S</kbd> to save, <kbd>⇧⌘S</kbd> to save elsewhere.
@@ -115,14 +115,14 @@ tables.
 Not yet. The bindings all live in one catalog and the app is built so that a
 rebindable table can replace it, but the user-facing editor has not been built.
 
-### Does Artscribe send any of my data anywhere?
+### Does Artscripture send any of my data anywhere?
 
 No. It has no network code at all. See the [privacy
 policy]({{ '/privacy/' | relative_url }}) for the full detail.
 
 ### Is it free?
 
-Yes, and it is open source. Artscribe's own code is Apache-2.0; the distributed
+Yes, and it is open source. Artscripture's own code is Apache-2.0; the distributed
 macOS binary links Rubber Band and is therefore conveyed under the GPLv3. See
 [NOTICE]({{ site.repo_url }}/blob/main/NOTICE).
 
@@ -133,6 +133,6 @@ The short version is `make bootstrap` followed by `make app`.
 
 ## Contributing
 
-The source is at [github.com/adamhadani/artscribe]({{ site.repo_url }}).
+The source is at [github.com/adamhadani/artscripture]({{ site.repo_url }}).
 Pull requests are welcome; opening an issue first to agree the shape of a change
 tends to save everyone time.

@@ -63,7 +63,7 @@ struct SessionStoreTests {
         let scratch = try Scratch()
         let sidecar = SessionStore.sidecarURL(for: scratch.track)
         #expect(sidecar.deletingLastPathComponent() == scratch.track.deletingLastPathComponent())
-        #expect(sidecar.lastPathComponent == "Blackbird.flac.artscribe")
+        #expect(sidecar.lastPathComponent == "Blackbird.flac.artscripture")
     }
 
     /// The reason the extension is appended rather than replaced: a transcriber

@@ -193,7 +193,7 @@ public enum SessionRepair: String, Sendable, Hashable, CaseIterable {
     case playhead
     case trackIdentity
 
-    /// A noun phrase that completes "Artscribe could not use …", so the caller
+    /// A noun phrase that completes "Artscripture could not use …", so the caller
     /// composes one sentence rather than concatenating fragments.
     public var label: String {
         switch self {

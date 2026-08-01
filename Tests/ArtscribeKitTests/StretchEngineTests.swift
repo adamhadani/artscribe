@@ -22,7 +22,7 @@ struct StretchEngineTests {
 
     /// The forward-compatibility promise that makes adding a backend safe: a
     /// sidecar naming an engine this build has never heard of loads on the
-    /// default rather than failing, so a file written by a newer Artscribe still
+    /// default rather than failing, so a file written by a newer Artscripture still
     /// opens in an older one and keeps its loop points.
     @Test("an unknown engine decodes as studio, and the rest of the payload survives")
     func unknownEngineFallsBack() throws {
