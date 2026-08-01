@@ -8,7 +8,7 @@
 /// cannot be linked at all. Engine selection now lives behind
 /// `DeveloperMenu`, for A/B listening.
 ///
-/// The raw values are persisted in `.artscribe` sidecars (spec §7), so **do not
+/// The raw values are persisted in `.artscripture` sidecars (spec §7), so **do not
 /// rename existing cases**. Adding is safe: `SpeedState.init(from:)` answers
 /// `.studio` for any engine name it does not recognise, so a sidecar written by
 /// a newer build stays readable by an older one — it simply plays on the
@@ -84,7 +84,7 @@ public struct SpeedState: Equatable, Sendable, Codable {
         case engine
     }
 
-    /// Custom decoding so a hand-edited or corrupted `.artscribe` file (design
+    /// Custom decoding so a hand-edited or corrupted `.artscripture` file (design
     /// spec §7 persists this type in a visible, user-editable sidecar) cannot
     /// smuggle an out-of-range or non-finite `ratio` past the clamp invariant
     /// that `init(ratio:engine:)` and `setRatio` both enforce.

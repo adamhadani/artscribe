@@ -170,7 +170,7 @@ struct ViewerModelNudgeTests {
 
     @Test("attaching a store adopts what it holds")
     func nudgeSettingsAreAdopted() {
-        let name = "com.artscribe.tests.model.\(UUID().uuidString)"
+        let name = "com.artscripture.tests.model.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: name) else {
             Issue.record("could not create a defaults suite")
             return

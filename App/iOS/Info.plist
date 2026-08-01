@@ -44,7 +44,7 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
-	<!-- What makes Artscribe appear in Files ▸ Share ▸ Open With, and in the
+	<!-- What makes Artscripture appear in Files ▸ Share ▸ Open With, and in the
 	     "Open in…" sheet from Mail, Dropbox and AirDrop. Without it the app can
 	     only ever reach a file through its own picker.
 
@@ -80,7 +80,7 @@
 			</array>
 		</dict>
 	</array>
-	<!-- Artscribe uses no encryption of its own, and nothing beyond what the OS
+	<!-- Artscripture uses no encryption of its own, and nothing beyond what the OS
 	     does for it. Stating that here means App Store Connect stops asking the
 	     export-compliance questionnaire on every single upload; leaving it out
 	     is not a rejection, just a manual step repeated forever. -->

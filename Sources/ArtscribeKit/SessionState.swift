@@ -283,7 +283,7 @@ public struct ViewportState: Equatable, Sendable, Codable {
     }
 }
 
-/// The JSON the `.artscribe` sidecar holds.
+/// The JSON the `.artscripture` sidecar holds.
 ///
 /// Every field is optional on purpose. This is the only type in the project
 /// that reads a file a human is invited to edit, so "the key is missing", "the

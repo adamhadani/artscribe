@@ -69,7 +69,7 @@ struct SessionStoreMigrationTests {
 
     /// The whole point: an evening's loop points do not vanish because the app
     /// changed its name.
-    @Test("a .artscribe sidecar beside the track is still found")
+    @Test("a .artscripture sidecar beside the track is still found")
     func legacySidecarIsFound() throws {
         let scratch = try Scratch()
         let legacy = SessionStore.legacySidecarURL(for: scratch.track)

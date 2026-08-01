@@ -1,5 +1,5 @@
 #!/bin/sh
-# Makes Artscribe.app stand on its own.
+# Makes Artscripture.app stand on its own.
 #
 # The app links two Homebrew libraries — librubberband and, through it,
 # libsamplerate — by absolute path:
@@ -16,7 +16,7 @@
 # Nothing else is vendored: everything remaining in `otool -L` is either a
 # system framework or /usr/lib, and the check at the bottom fails the build if
 # that ever stops being true. Rubber Band is GPL-2.0-or-later and libsamplerate
-# is BSD-2-Clause, both compatible with Artscribe's GPL-3.0-or-later, and their
+# is BSD-2-Clause, both compatible with Artscripture's GPL-3.0-or-later, and their
 # licence texts are copied into Resources alongside ours.
 #
 # Run by the Xcode post-build phase, so it works from `make app` and from a
@@ -70,7 +70,7 @@ for target in "$executable" "$frameworks"/*.dylib; do
     done
 done
 
-# Artscribe is GPL-3.0-or-later; a distributed binary carries its licence.
+# Artscripture is GPL-3.0-or-later; a distributed binary carries its licence.
 cp -f "$repo_root/LICENSE" "$resources/LICENSE.txt"
 
 # Sign the vendored libraries — install_name_tool invalidates any signature they

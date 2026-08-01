@@ -14,7 +14,7 @@ public struct FrameRange: Equatable, Sendable, Codable {
     }
 
     /// Validating, for the same reason `SpeedState` and `VolumeState` are: this
-    /// type is persisted inside the visible, user-editable `.artscribe` sidecar
+    /// type is persisted inside the visible, user-editable `.artscripture` sidecar
     /// (spec §7), and a hand-edited negative `count` would make `end` precede
     /// `start` — a range that `contains` nothing, reports a positive length to
     /// nobody, and is handed to the render thread as a loop.

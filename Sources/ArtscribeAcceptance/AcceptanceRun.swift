@@ -67,9 +67,9 @@ enum AcceptanceRun {
             // screenshots, and defaulting to `.` put every one of them loose in
             // the repository root, untracked and unignored — one `git add -A`
             // away from being committed, which is the accident CLAUDE.md's
-            // "never `git add -A`" rule was written after. `.artscribe-out` is
+            // "never `git add -A`" rule was written after. `.artscripture-out` is
             // gitignored, so the default is safe and `--out` still overrides it.
-            outputDirectory: value(after: "--out", in: args) ?? ".artscribe-out")
+            outputDirectory: value(after: "--out", in: args) ?? ".artscripture-out")
 
         var log = Logger(plan: plan)
         await prelude(model: model, run: run, log: &log)

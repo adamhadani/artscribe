@@ -157,7 +157,7 @@ struct SessionConservationTests {
         try writeHandEditedSidecar(scratch)
         let model = SessionTestModel.make(scratch)
 
-        let chosen = scratch.root.appendingPathComponent("for-the-band.artscribe")
+        let chosen = scratch.root.appendingPathComponent("for-the-band.artscripture")
         model.saveSession(to: chosen)
         let text = try String(contentsOf: chosen, encoding: .utf8)
         #expect(text.contains("chorus starts at 1:12"))

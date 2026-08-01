@@ -2,7 +2,7 @@ import Testing
 
 @testable import ArtscribeKit
 
-/// The pure half of session persistence (spec §7): what a decoded `.artscribe`
+/// The pure half of session persistence (spec §7): what a decoded `.artscripture`
 /// payload is allowed to install, and what it is forced to give up.
 ///
 /// The file is user-editable by design, so *every* value arriving here is

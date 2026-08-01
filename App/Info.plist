@@ -21,7 +21,7 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>CFBundleIconFile</key>
-	<string>Artscribe</string>
+	<string>Artscripture</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSApplicationCategoryType</key>
@@ -37,11 +37,11 @@
 	<key>NSSupportsSuddenTermination</key>
 	<false/>
 
-	<!-- Everything the decoder handles, so Artscribe shows up in Finder's
+	<!-- Everything the decoder handles, so Artscripture shows up in Finder's
 	     "Open With" and accepts a file dropped on its dock icon. Every one of
 	     these UTIs is declared by macOS itself (checked with
 	     UTType(filenameExtension:)), so nothing is imported or exported here —
-	     Artscribe reads these formats, it does not own them. Note that .opus
+	     Artscripture reads these formats, it does not own them. Note that .opus
 	     and .ogg share org.xiph.ogg-audio on macOS.
 
 	     Rank is Alternate on purpose: this is a transcription tool, not a music

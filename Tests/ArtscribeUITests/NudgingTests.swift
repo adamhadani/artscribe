@@ -229,7 +229,7 @@ struct NudgingTests {
     // MARK: - Persistence
 
     private func makeSuite() -> UserDefaults {
-        let name = "com.artscribe.tests.nudge.\(UUID().uuidString)"
+        let name = "com.artscripture.tests.nudge.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: name) else {
             Issue.record("could not create a defaults suite")
             return .standard

@@ -4,7 +4,10 @@
 # Where the Xcode build lands. Inside .build so `make clean` and .gitignore
 # already cover it.
 XCODE_DERIVED := .build/xcode
-APP := $(XCODE_DERIVED)/Build/Products/Release/Artscripture.app
+# The product name, read from project.yml rather than repeated here — the
+# rename to Artscripture found these paths by breaking them.
+NAME := $(shell awk -F': ' '/PRODUCT_NAME:/ {print $$2; exit}' project.yml)
+APP := $(XCODE_DERIVED)/Build/Products/Release/$(NAME).app
 DIST := dist
 VERSION := $(shell awk -F'"' '/MARKETING_VERSION/ {print $$2; exit}' project.yml)
 
@@ -143,7 +146,7 @@ DEV ?=
 IPAD_ID = $(shell xcrun devicectl list devices 2>/dev/null \
 	| grep "$(IPAD_NAME)" | grep -E 'available|connected' \
 	| grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
-IPAD_APP = .build/xcode-device/Build/Products/Debug-iphoneos/Artscripture.app
+IPAD_APP = .build/xcode-device/Build/Products/Debug-iphoneos/$(NAME).app
 
 ipad-build:
 	@test -n "$(IPAD_ID)" || { echo "No device matching '$(IPAD_NAME)' is connected. Plugged in, unlocked, Developer Mode on?"; exit 2; }
@@ -160,7 +163,7 @@ ipad: ipad-install
 	    $(if $(DEV),--environment-variables '{"ARTSCRIBE_DEV_MENU":"1"}',) \
 	    --device $(IPAD_ID) com.artscribe.Artscribe
 
-# Everything the app has written into its container — the `.artscribe` sidecars
+# Everything the app has written into its container — the `.artscripture` sidecars
 # and, most usefully, its UserDefaults. Reading that plist is how the Open Recent
 # bookmark bug was diagnosed: the stored keys disagreed with the stored paths by
 # exactly the `/private` prefix, which no amount of reading the code would have
@@ -179,7 +182,7 @@ ipad-container:
 #
 # Development still goes through SwiftPM — `swift run -c release ArtscribeApp`
 # needs none of this, and `swift test` never touches Xcode. See README ▸
-# Running Artscribe.
+# Running Artscripture.
 app:
 	xcodegen generate
 	xcodebuild -project Artscribe.xcodeproj -scheme Artscribe \
@@ -221,10 +224,10 @@ app:
 dist: app
 	rm -rf "$(DIST)"
 	mkdir -p "$(DIST)"
-	ditto -c -k --sequesterRsrc --keepParent "$(APP)" "$(DIST)/Artscripture-$(VERSION).zip"
+	ditto -c -k --sequesterRsrc --keepParent "$(APP)" "$(DIST)/$(NAME)-$(VERSION).zip"
 	@echo
-	@echo "wrote $(DIST)/Artscripture-$(VERSION).zip"
-	@shasum -a 256 "$(DIST)/Artscripture-$(VERSION).zip"
+	@echo "wrote $(DIST)/$(NAME)-$(VERSION).zip"
+	@shasum -a 256 "$(DIST)/$(NAME)-$(VERSION).zip"
 
 # Submits the zip to Apple, waits for the verdict, and staples the ticket into
 # the bundle so it opens on a Mac that is offline.
@@ -252,7 +255,7 @@ notarize: dist
 	@# found" and error 65 — an error about the wrong thing entirely, three steps
 	@# after the real one.
 	@set -e; \
-	id=$$(xcrun notarytool submit "$(DIST)/Artscripture-$(VERSION).zip" \
+	id=$$(xcrun notarytool submit "$(DIST)/$(NAME)-$(VERSION).zip" \
 		--keychain-profile "$(NOTARY_PROFILE)" --wait --output-format json \
 		| tee /dev/stderr | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])'); \
 	status=$$(xcrun notarytool info "$$id" --keychain-profile "$(NOTARY_PROFILE)" \
@@ -263,13 +266,13 @@ notarize: dist
 		exit 1; \
 	fi
 	xcrun stapler staple "$(APP)"
-	rm -f "$(DIST)/Artscripture-$(VERSION).zip"
-	ditto -c -k --sequesterRsrc --keepParent "$(APP)" "$(DIST)/Artscripture-$(VERSION).zip"
+	rm -f "$(DIST)/$(NAME)-$(VERSION).zip"
+	ditto -c -k --sequesterRsrc --keepParent "$(APP)" "$(DIST)/$(NAME)-$(VERSION).zip"
 	@echo
 	@# The honest end-to-end check: this is what Gatekeeper will say on the
 	@# recipient's Mac, and it is the only one that proves the whole chain.
 	spctl --assess --type execute --verbose=4 "$(APP)"
-	@shasum -a 256 "$(DIST)/Artscripture-$(VERSION).zip"
+	@shasum -a 256 "$(DIST)/$(NAME)-$(VERSION).zip"
 
 clean:
 	rm -rf .build Artscribe.xcodeproj $(DIST) App/Artscribe.icns

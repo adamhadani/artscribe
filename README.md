@@ -10,7 +10,7 @@ Load a track · select a passage · loop it seamlessly · slow it down without c
 [![Release](https://img.shields.io/github/v/release/adamhadani/artscripture?include_prereleases&sort=semver)](https://github.com/adamhadani/artscripture/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%2026%20·%20iPadOS%2026-lightgrey)](#-quick-start)
-[![Website](https://img.shields.io/badge/website-artscribe-4FD1C5)](https://adamhadani.github.io/artscripture/)
+[![Website](https://img.shields.io/badge/website-artscripture-4FD1C5)](https://adamhadani.github.io/artscripture/)
 [![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 
 </div>

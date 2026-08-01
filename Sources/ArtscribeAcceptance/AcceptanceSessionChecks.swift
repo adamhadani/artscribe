@@ -6,7 +6,7 @@ import Foundation
 /// Task 19 — session persistence (spec §7), driven through the real window.
 ///
 /// Everything here happens on a **copy of the track in a temporary folder**,
-/// never on the file the run was pointed at. A `.artscribe` file beside
+/// never on the file the run was pointed at. A `.artscripture` file beside
 /// somebody's music is the product's correct behaviour and a test run's
 /// litter, and one of these checks deliberately makes a directory read-only.
 /// The copy is removed at the end.
@@ -124,7 +124,7 @@ extension AcceptanceRun {
         await settle(seconds: 0.3)
         log.check("⌘S is claimed by the File menu", claimed)
         log.check(
-            "⌘S writes <track>.artscribe beside the track",
+            "⌘S writes <track>.artscripture beside the track",
             FileManager.default.fileExists(atPath: sidecar.path))
         log.check("… and the modified dot goes out", !window.isDocumentEdited && !model.isDirty)
         log.check(
