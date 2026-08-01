@@ -286,8 +286,14 @@ clean:
 # certificate (Apple Distribution, not Developer ID), a different destination,
 # and no notarisation step — Apple notarises App Store builds itself.
 #
-# Credentials come from an App Store Connect **Team** API key with the App
-# Manager role, set in your .envrc. See docs and README ▸ Signing:
+# Credentials come from an App Store Connect **Team** API key with the **Admin**
+# role, set in your .envrc. See README ▸ The App Store (iPadOS).
+#
+# App Manager is not enough, and it fails late: `archive` succeeds, then
+# `-exportArchive` stops with FORBIDDEN_ERROR — "You haven't been given access
+# to cloud-managed distribution certificates". App Manager can upload builds and
+# edit metadata; only Account Holder or Admin may mint a *distribution*
+# certificate, which is what automatic signing needs.
 #
 #   ARTSCRIBE_ASC_ISSUER_ID   the UUID at the top of the Integrations page
 #   ARTSCRIBE_ASC_KEY_ID      the 10-character key ID

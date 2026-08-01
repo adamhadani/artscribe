@@ -39,9 +39,11 @@ swift run -c release artscribe-cli --engine signalsmith <audio> 0.5 10 14
 make acceptance AUDIO=<audio> [ARGS='--only loop']
 
 # The App Store path (iPadOS). Needs an App Store Connect **Team** API key with
-# the App Manager role in .envrc — ARTSCRIBE_ASC_{ISSUER_ID,KEY_ID,KEY_PATH}.
-# No certificate is created by hand: `-allowProvisioningUpdates` mints the
-# distribution certificate and profile. An *individual* key cannot do this.
+# the **Admin** role in .envrc — ARTSCRIBE_ASC_{ISSUER_ID,KEY_ID,KEY_PATH}.
+# App Manager is NOT enough: the archive succeeds and then `-exportArchive`
+# fails with FORBIDDEN_ERROR, "You haven't been given access to cloud-managed
+# distribution certificates" — only Account Holder or Admin may mint one.
+# An *individual* key cannot do any of it (no provisioning endpoints).
 make archive     # → .build/xcode-archive/Artscripture.xcarchive
 make upload      # exports a signed .ipa and sends it to App Store Connect
 make asc-check   # just says whether the credentials are present
