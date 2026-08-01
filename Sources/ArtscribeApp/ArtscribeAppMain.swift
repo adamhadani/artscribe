@@ -107,6 +107,7 @@ struct ArtscribeAppMain: App {
     /// controller each time and the menu item would open nothing.
     @State private var about = AboutWindowController()
     @State private var settingsSheet = SettingsWindowController()
+    @State private var welcome = WelcomeState()
     /// Where the practice ramp's schedule is persisted. The applied schedule
     /// lives on the model — this is only its backing tape (see
     /// `PracticeSettings`), exactly as `nudge` is for the nudge amounts.
@@ -117,7 +118,8 @@ struct ArtscribeAppMain: App {
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice, about: about, settings: settingsSheet, theme: theme)
+            practice: practice, about: about, settings: settingsSheet, welcome: welcome,
+            theme: theme)
     }
 
     init() {
@@ -188,7 +190,7 @@ struct ArtscribeAppMain: App {
         // It carries the two openers as well, so a command chosen while the
         // panel is the frontmost window still reaches the other windows.
         Window("About Artscripture", id: AboutWindowController.windowID) {
-            AboutWindow(about: about, theme: theme)
+            AboutWindow(about: about, theme: theme, welcome: welcome)
                 .openShortcutWindow(shortcuts)
                 .openPracticeWindow(practice)
                 .openAboutWindow(about)

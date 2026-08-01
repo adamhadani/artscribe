@@ -55,11 +55,13 @@ struct IPadAppMain: App {
     /// a button, and `DocumentView` presents the sheet.
     @State private var about = AboutWindowController()
     @State private var settingsSheet = SettingsWindowController()
+    @State private var welcome = WelcomeState()
 
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice, about: about, settings: settingsSheet, theme: theme)
+            practice: practice, about: about, settings: settingsSheet, welcome: welcome,
+            theme: theme)
     }
 
     var body: some Scene {

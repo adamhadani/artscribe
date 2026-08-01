@@ -28,6 +28,10 @@ public struct MenuContext {
     /// unconditionally so `MenuContext` is one shape on both platforms; see
     /// `SettingsWindowController` for why it is inert rather than absent.
     public let settings: SettingsWindowController
+    /// The first-run sheet's state. Carried here so `DocumentView` can present
+    /// it and the About panel can ask for it again — the two ends of the HIG's
+    /// "never twice, but easy to find later".
+    public let welcome: WelcomeState
     /// The theme, carried here for the same reason the controllers are: on iPad
     /// the auxiliary windows are sheets presented from `DocumentView`, which
     /// therefore has to be able to build them — and they take a theme. On macOS
@@ -42,6 +46,7 @@ public struct MenuContext {
         practice: PracticeWindowController,
         about: AboutWindowController,
         settings: SettingsWindowController,
+        welcome: WelcomeState,
         theme: ThemeController
     ) {
         self.model = model
@@ -51,6 +56,7 @@ public struct MenuContext {
         self.practice = practice
         self.about = about
         self.settings = settings
+        self.welcome = welcome
         self.theme = theme
     }
 

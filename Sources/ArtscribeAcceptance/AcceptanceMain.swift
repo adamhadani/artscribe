@@ -58,11 +58,13 @@ struct AcceptanceMain: App {
     /// has, which is the whole point of building the context from the same type.
     @State private var about = AboutWindowController()
     @State private var settingsSheet = SettingsWindowController()
+    @State private var welcome = WelcomeState()
 
     private var context: MenuContext {
         MenuContext(
             model: model, recents: recents, devices: devices, shortcuts: shortcuts,
-            practice: practice, about: about, settings: settingsSheet, theme: theme)
+            practice: practice, about: about, settings: settingsSheet, welcome: welcome,
+            theme: theme)
     }
 
     static let sessionFallbackDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
