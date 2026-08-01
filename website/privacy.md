@@ -87,7 +87,7 @@ lane is showing. It records the track's identity so it can tell it is the right
 file; it does not contain any audio.
 
 It is written **next to your audio file**, named by appending `.artscripture` to
-the file's full name — so `Blackbird.flac` gets `Blackbird.flac.artscribe`.
+the file's full name — so `Blackbird.flac` gets `Blackbird.flac.artscripture`.
 
 If that folder is not writable — a read-only volume, for instance — the file
 falls back to:

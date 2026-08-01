@@ -1,7 +1,19 @@
 # Artscripture — working notes
 
-A keyboard-first music transcription app for macOS. Load a track, select a passage, loop it,
-slow it down without changing pitch.
+A keyboard-first music transcription app for macOS and iPadOS. Load a track, select a passage,
+loop it, slow it down without changing pitch.
+
+**The app is called Artscripture; most identifiers still say `Artscribe`, on purpose.** The
+App Store name was taken, so the rename (2026-08-01) changed only what a user, a reviewer or
+Apple sees: `PRODUCT_NAME`, the bundle display name, the header wordmark, menus, docs, the
+site. The Swift modules (`ArtscribeKit`, `ArtscribeUI`, …), the Xcode targets and schemes,
+`artscribe-cli`, the `ARTSCRIBE_*` environment variables and the bundle identifier
+`com.artscribe.Artscribe` were left alone — none is observable, renaming them churns ~200
+files, and the bundle identifier is permanent once published.
+
+Sidecars are now `.artscripture`. `SessionStore` still **reads** `.artscribe` and the old
+`Application Support/Artscribe/Sessions` folder, writes only the new names, and never deletes
+the old file — those are the user's loop points, not ours.
 
 - Design spec: `docs/superpowers/specs/2026-07-27-artscribe-design.md`
 - Implementation plan: `docs/superpowers/plans/2026-07-27-artscribe-audio-core.md`
@@ -25,6 +37,14 @@ swift run -c release artscribe-cli --engine signalsmith <audio> 0.5 10 14
 # The acceptance harness: a live window driven through ~700 checks.
 # **Use `make acceptance`** — it holds the display awake, which is not optional.
 make acceptance AUDIO=<audio> [ARGS='--only loop']
+
+# The App Store path (iPadOS). Needs an App Store Connect **Team** API key with
+# the App Manager role in .envrc — ARTSCRIBE_ASC_{ISSUER_ID,KEY_ID,KEY_PATH}.
+# No certificate is created by hand: `-allowProvisioningUpdates` mints the
+# distribution certificate and profile. An *individual* key cannot do this.
+make archive     # → .build/xcode-archive/Artscripture.xcarchive
+make upload      # exports a signed .ipa and sends it to App Store Connect
+make asc-check   # just says whether the credentials are present
 
 swift run -c release ArtscribeAcceptance --list
 swift run -c release ArtscribeAcceptance --acceptance <audio> [--bad-file <f>] [--out <dir>] \

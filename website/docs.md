@@ -296,10 +296,10 @@ the playhead, the visible viewport and whether the track-mark lane is showing. I
 identifies the track it belongs to, and it contains no audio.
 
 It is written next to your audio file, with `.artscripture` **appended to the whole
-filename** — `Blackbird.flac` becomes `Blackbird.flac.artscribe`. Replacing the
+filename** — `Blackbird.flac` becomes `Blackbird.flac.artscripture`. Replacing the
 extension would read better, but a transcriber routinely keeps a lossless master
 and a smaller copy of the same song in one folder, and a single
-`Blackbird.artscribe` between them would mean whichever you opened last silently
+`Blackbird.artscripture` between them would mean whichever you opened last silently
 overwrote the other's loop points.
 
 If the folder cannot be written to — a read-only volume, say — the session goes
