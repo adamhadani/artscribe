@@ -54,8 +54,9 @@ public final class RecentFiles {
     ///   writing into the user's real preferences.
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        urls = (defaults.array(forKey: Self.defaultsKey) as? [String] ?? [])
-            .map { URL(fileURLWithPath: $0) }
+        urls = Self.withoutStalePaths(
+            (defaults.array(forKey: Self.defaultsKey) as? [String] ?? [])
+                .map { URL(fileURLWithPath: $0) })
         bookmarks = defaults.dictionary(forKey: Self.bookmarksKey) as? [String: Data] ?? [:]
     }
 
@@ -188,6 +189,17 @@ public final class RecentFiles {
     /// through a symlink, a relative path or a `/private` prefix moves the
     /// existing entry to the top instead of adding a second one that looks
     /// identical in the menu.
+    /// Drops entries that can never be opened again.
+    ///
+    /// An earlier build opened the bundled sample **in place**, so its recents
+    /// entry contained the app bundle's UUID — which iOS regenerates on every
+    /// install and update. Those entries fail with "the file could not be read"
+    /// for ever. Filtering on read rather than migrating: there is nothing to
+    /// migrate to, and the sample is one tap away on the resting screen.
+    static func withoutStalePaths(_ urls: [URL]) -> [URL] {
+        urls.filter { !SampleTrack.isStaleBundlePath($0) }
+    }
+
     static func updated(_ existing: [URL], with url: URL, limit: Int) -> [URL] {
         guard limit > 0 else { return [] }
         let key = url.standardizedFileURL.resolvingSymlinksInPath().path
