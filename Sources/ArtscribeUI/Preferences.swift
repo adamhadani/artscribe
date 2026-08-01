@@ -39,6 +39,17 @@ public final class Preferences {
     public internal(set) var prerollSeconds = Preroll.defaultSeconds
     public internal(set) var prerollEnabled = true
 
+    /// Whether pressing down in the lanes moves the playhead before the gesture
+    /// has said whether it is a click or a selection. True with a pointer, false
+    /// under a finger — the rule and the reasons are `LaneDragPolicy`'s.
+    ///
+    /// Here rather than on `ViewerModel` for the reason the rest of this type
+    /// exists: it is an *applied* interaction value, seeded once at launch. It
+    /// is settable so a test can drive both readings on whichever platform it
+    /// happens to be running on, which is the only way the touch answer is
+    /// checkable from a Mac.
+    public var seeksOnSelectionPress = LaneDragPolicy.seeksOnPress(on: EmptyStatePrompt.current)
+
     /// Whether a vertical drag *up* zooms in. `false` — the shipped default —
     /// means down zooms in, the direction the user asked for after driving Task
     /// 16's. Governs both vertical drags and the wheel zoom, so one window never
