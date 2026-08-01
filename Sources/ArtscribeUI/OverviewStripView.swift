@@ -53,10 +53,6 @@ struct OverviewStripView: View {
         .gesture(
             DragGesture(minimumDistance: 0, coordinateSpace: .local)
                 .onChanged { value in
-                    // TEMPORARY PROBE (#66): does this fire on iPad at all?
-                    #if !os(macOS)
-                    print("PROBE overview drag x=\(value.location.x) width=\(overviewWidth)")
-                    #endif
                     model.centre(
                         on: PixelMapping.overviewFrame(
                             atPixel: value.location.x,
