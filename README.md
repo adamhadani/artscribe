@@ -625,7 +625,7 @@ beside the loop, both of which show the current state.
 | `⌘P` | Show or hide the Practice window — the ramping loop |
 | `⌥P` | Start / stop the speed ramp |
 | `⌘/` | Show or hide the keyboard shortcut window |
-| `⌘,` | Settings — preroll, nudge and move amounts, zoom direction, theme |
+| `⌘,` | Settings — preroll, nudge and move amounts, zoom direction, theme. A window on macOS, a sheet on iPad, where the **gear in the header** is the route without a keyboard |
 
 Drag in the lanes to select, shift-drag to extend, click to place the playhead, double-click
 to place it and play from there (`⌘A` is still Select All). Pinch to zoom, two-finger scroll

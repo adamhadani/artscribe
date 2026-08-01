@@ -486,3 +486,14 @@ turn. Both workflows pass it, and the suite is *faster* serially anyway (14.9 s)
 - Views are not snapshot-tested — extract the pure logic and test that
 - A test that cannot fail is worse than none. Verify a new regression test actually fails
   against the defect it targets before trusting it.
+
+**A test behind `#if !os(macOS)` in `ArtscribeUITests` runs on no platform at all.** `make
+check` is macOS, so it compiles out there; and `ArtscribeUITests` is *not* in the iOS bundle
+(`project.yml` lists only the portable suites), so `make ios-test` never sees it either. The
+suite reports success by not existing — the same shape as the seventeen acceptance checks that
+silently skipped themselves, and as `--filter` matching nothing.
+
+This is not hypothetical: the first version of `SheetFocusTests` was written that way, and the
+count staying at 944 was the only clue. **The tell is a test count that does not move.** The
+remedy is the same as for views — extract the decision from the platform-specific state and
+test the decision. `SheetFocus.documentHasKeyboard(…)` takes four `Bool`s precisely so it runs.
