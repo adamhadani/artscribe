@@ -77,8 +77,22 @@ check: format-check lint test
 #
 # Deliberately not part of `check`: it needs the iOS SDK and takes about a minute
 # against `check`'s three seconds. CI runs it as its own job.
+# **Compiles `ArtscribeUI`, not just `Playback`.**
+#
+# It used to build the `Playback` scheme alone, on the reasoning that `Playback`
+# is the top of the portable stack. That was true of the *audio* stack and false
+# of the app: `ArtscribeUI` builds for iOS too, and nothing here ever compiled
+# it. So an iOS-only error in the UI passed `make ios-check` and failed in CI
+# instead — twice in one afternoon, both times `UIDevice.current` read from a
+# nonisolated context, which macOS never sees because it takes the other branch
+# of the `#if`.
+#
+# The iPad scheme is the honest check: it is the thing that ships. It needs the
+# generated project, so `xcodegen` runs first — a second or two, against a
+# round trip through CI.
 ios-check:
-	xcodebuild build -scheme Playback -destination 'generic/platform=iOS' \
+	xcodegen generate
+	xcodebuild build -scheme ArtscribeiPad -destination 'generic/platform=iOS Simulator' \
 	    -derivedDataPath $(XCODE_DERIVED)-ios -quiet
 
 # The portable suites, actually *run* on an iPad simulator rather than merely

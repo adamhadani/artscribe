@@ -77,9 +77,10 @@ public enum EmptyStatePrompt {
 
     /// The surface this build is running on.
     ///
-    /// `@MainActor` because `UIDevice.current` is — the same isolation that
-    /// `make ios-check` cannot catch, since it compiles `Playback` alone and
-    /// never sees this module. Build the iPad scheme when changing it.
+    /// `@MainActor` because `UIDevice.current` is. `make ios-check` now builds
+    /// the iPad scheme and does catch this — verified by removing the
+    /// annotation, which produces two errors where the old `Playback`-only
+    /// target produced none.
     @MainActor
     public static var current: Surface {
         #if os(macOS)

@@ -335,7 +335,16 @@ Two things about that job worth keeping:
   shape as the seventeen acceptance checks that silently skipped themselves for a whole run
   here. A green run that executed nothing must fail. `ArtscribeUI` and above are AppKit and are macOS-only. When adding
 to `Playback`, that is the line to keep — `swift build --destination` will not tell you, but
-`make ios-check` will.
+`make ios-check` will — it builds the **iPad scheme**, so it compiles
+`ArtscribeUI` and everything below it.
+
+**It used to build `Playback` alone**, which meant an iOS-only error in the UI
+passed the local gate and failed in CI. That happened twice in one afternoon,
+both times `UIDevice.current` read from a nonisolated context — invisible on
+macOS, which takes the other branch of the `#if`. If you find yourself writing a
+platform check that reads a UIKit singleton, put it behind a pure function over
+an explicit case (see `EmptyStatePrompt.Surface`): it removes the isolation trap
+and makes every platform's answer checkable in one `make check` run.
 
 The two platform differences in the audio stack are both narrow, and both are behind a seam
 rather than sprayed through the code as `#if`:

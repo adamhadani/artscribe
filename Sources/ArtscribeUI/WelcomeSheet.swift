@@ -32,10 +32,13 @@ extension WelcomePage {
     ///
     /// `@MainActor` because `UIDevice.current` is: under strict concurrency it
     /// cannot be read from a nonisolated context, and this is only ever read
-    /// from a view body, which already is. `make ios-check` did **not** catch
-    /// that — it builds `Playback` alone and never compiles this module — so it
-    /// took CI's `ios-build` job to find. Worth remembering when a change lands
-    /// in `ArtscribeUI`: build the iPad scheme, not just `ios-check`.
+    /// from a view body, which already is.
+    ///
+    /// `make ios-check` did not catch this when it was written — it built
+    /// `Playback` alone and never compiled this module, so it took a CI round
+    /// trip. That is why `ios-check` now builds the **iPad scheme**: the same
+    /// mistake was made twice in one afternoon, and a gate that cannot see a
+    /// whole module is not a gate.
     @MainActor
     static var showsKeys: Bool {
         #if os(macOS)
