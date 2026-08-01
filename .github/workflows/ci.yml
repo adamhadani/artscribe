@@ -58,9 +58,22 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .build
-          key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Sources/**', 'Tests/**') }}
+          # **The repository name is part of the key, and it is load-bearing.**
+          # Swift's precompiled module cache bakes in *absolute* paths, and the
+          # checkout lives at `/Users/runner/work/<repo>/<repo>`. So when this
+          # repository was renamed artscribe → artscripture, `restore-keys`
+          # happily restored a cache whose `.pcm` files pointed at the old path,
+          # and every target failed with "missing required module 'SwiftShims'"
+          # — a compiler error about the standard library, three steps from the
+          # actual cause, on a commit that built fine locally.
+          #
+          # Keying on the repository makes a rename start from a cold cache
+          # instead, which costs one slow run and cannot mislead.
+          key: >-
+            spm-${{ runner.os }}-${{ github.repository }}-${{
+            hashFiles('Package.swift', 'Sources/**', 'Tests/**') }}
           restore-keys: |
-            spm-${{ runner.os }}-
+            spm-${{ runner.os }}-${{ github.repository }}-
 
       - name: Check formatting
         run: swift format lint --strict --recursive Sources Tests
