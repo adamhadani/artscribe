@@ -476,8 +476,11 @@ One **App Store Connect API key**, with two properties that both matter:
 
 - a **Team** key, not an Individual one. Apple excludes individual keys from the provisioning
   endpoints, and those are exactly what mints the distribution certificate below.
-- the **App Manager** role, which covers uploading builds *and* editing App Store metadata.
-  The Developer role can notarise but cannot do either.
+- the **Admin** role. App Manager is *not* enough, and the failure is late and specific:
+  the archive succeeds, then `-exportArchive` stops with `FORBIDDEN_ERROR` — *"You haven't
+  been given access to cloud-managed distribution certificates."* App Manager can upload
+  builds and edit metadata, but only Account Holder or Admin may mint a **distribution**
+  certificate, which is what automatic signing needs. Measured, not read off a doc.
 
 Generate it at [App Store Connect ▸ Users and Access ▸
 Integrations](https://appstoreconnect.apple.com/access/integrations/api) (Account Holder must
