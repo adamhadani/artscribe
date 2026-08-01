@@ -1,6 +1,6 @@
 # Artscripture — working notes
 
-A keyboard-first music transcription app for macOS and iPadOS. Load a track, select a passage,
+A keyboard-first music transcription app for macOS, iPadOS and iPhone. Load a track, select a passage,
 loop it, slow it down without changing pitch.
 
 **The app is called Artscripture; most identifiers still say `Artscribe`, on purpose.** The
@@ -10,6 +10,13 @@ site. The Swift modules (`ArtscribeKit`, `ArtscribeUI`, …), the Xcode targets 
 `artscribe-cli`, the `ARTSCRIBE_*` environment variables and the bundle identifier
 `com.artscribe.Artscribe` were left alone — none is observable, renaming them churns ~200
 files, and the bundle identifier is permanent once published.
+
+**iPhone is landscape-only**, and that is a product decision rather than an oversight: a
+waveform is a horizontal instrument, and portrait on a phone gives a 390 pt timeline under a
+transport bar built for a thousand. `TARGETED_DEVICE_FAMILY` is `"1,2"`;
+`UISupportedInterfaceOrientations` carries the two landscape entries and
+`UISupportedInterfaceOrientations~ipad` still carries all four, because iPadOS 26 requires an
+iPad app to be resizable in every orientation and iPhone has no such rule.
 
 Sidecars are now `.artscripture`. `SessionStore` still **reads** `.artscribe` and the old
 `Application Support/Artscribe/Sessions` folder, writes only the new names, and never deletes

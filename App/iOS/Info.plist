@@ -22,6 +22,19 @@
 	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<!-- iPhone: landscape only, and deliberately.
+
+	     A waveform is a horizontal instrument. Portrait on a phone gives a
+	     390 pt timeline under a transport bar designed for a thousand, and the
+	     honest choice was landscape-only or no iPhone at all. Locking the
+	     orientation is allowed on iPhone; the iPadOS 26 rule that an app must
+	     be resizable and support every orientation applies to iPad, which the
+	     `~ipad` key below still satisfies. -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
