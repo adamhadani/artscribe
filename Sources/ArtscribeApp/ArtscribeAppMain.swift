@@ -90,7 +90,7 @@ struct ArtscribeAppMain: App {
     /// How far a `Space` resume rolls back, persisted the same way again — its
     /// own store because its floor differs (see `PrerollSettings`).
     @State private var preroll = PrerollSettings()
-    /// Reads and writes the `.artscribe` sidecar (spec §7). Application state
+    /// Reads and writes the `.artscripture` sidecar (spec §7). Application state
     /// like the rest of these: it outlives every loaded track, and it holds
     /// nothing but where the read-only-volume fallback lives.
     @State private var sessions = SessionStore()

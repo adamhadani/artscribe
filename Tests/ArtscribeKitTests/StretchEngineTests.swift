@@ -3,7 +3,7 @@ import Testing
 
 @testable import ArtscribeKit
 
-/// `StretchEngine`'s raw values are written into `.artscribe` sidecars, which
+/// `StretchEngine`'s raw values are written into `.artscripture` sidecars, which
 /// are user-visible files people are invited to hand-edit (spec §7). They are
 /// therefore a compatibility surface, not an implementation detail.
 @Suite("Stretch engine")

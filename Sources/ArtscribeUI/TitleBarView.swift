@@ -15,7 +15,7 @@ struct TitleBarView: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Text("ARTSCRIBE")
+            Text("ARTSCRIPTURE")
                 .font(Typography.eyebrow)
                 .tracking(2.2)
                 .foregroundStyle(palette.accent.color(opacity: 0.85))

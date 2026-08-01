@@ -4,7 +4,7 @@ import Testing
 
 @testable import ArtscribeUI
 
-/// The `.artscribe` sidecar on disk (spec §7): where it goes, what it contains,
+/// The `.artscripture` sidecar on disk (spec §7): where it goes, what it contains,
 /// what happens when the directory refuses it, and — at length — what happens
 /// when somebody has been editing it by hand.
 @Suite("Session sidecar store")
@@ -68,7 +68,7 @@ struct SessionStoreTests {
 
     /// The reason the extension is appended rather than replaced: a transcriber
     /// routinely has the same song as both a lossless master and a phone-sized
-    /// copy in one folder, and `Blackbird.artscribe` would make one silently
+    /// copy in one folder, and `Blackbird.artscripture` would make one silently
     /// overwrite the other's loop points.
     @Test("two encodings of one song get two sidecars")
     func differentEncodingsDoNotCollide() throws {
@@ -330,7 +330,7 @@ struct SessionStoreTests {
     @Test("Save As writes wherever it is pointed")
     func saveAsWritesAnywhere() throws {
         let scratch = try Scratch()
-        let chosen = scratch.root.appendingPathComponent("shared-loops.artscribe")
+        let chosen = scratch.root.appendingPathComponent("shared-loops.artscripture")
         try scratch.store.write(state(), to: chosen)
         #expect(FileManager.default.fileExists(atPath: chosen.path))
     }
@@ -344,7 +344,7 @@ struct SessionStoreTests {
         #expect(SessionStore.isCanonicalSidecar(canonical, for: scratch.track))
         #expect(
             !SessionStore.isCanonicalSidecar(
-                scratch.root.appendingPathComponent("elsewhere.artscribe"), for: scratch.track))
+                scratch.root.appendingPathComponent("elsewhere.artscripture"), for: scratch.track))
         // Compared after standardising, so `/tmp/…` and `/private/tmp/…` are one
         // path rather than two.
         let noisy = canonical.deletingLastPathComponent()

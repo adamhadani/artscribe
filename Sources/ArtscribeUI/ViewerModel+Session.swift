@@ -1,12 +1,12 @@
 import ArtscribeKit
 import Foundation
 
-/// Session persistence: the `.artscribe` sidecar (spec §7), the dirty flag,
+/// Session persistence: the `.artscripture` sidecar (spec §7), the dirty flag,
 /// Save, Save As, and what closing the window has to do about it.
 ///
 /// ## The model, in one paragraph
 ///
-/// Artscripture keeps a small, visible `<track>.artscribe` file next to each track
+/// Artscripture keeps a small, visible `<track>.artscripture` file next to each track
 /// and treats it the way modern macOS treats a document that has a location:
 /// **once it exists, it is kept up to date for you** — written a couple of
 /// seconds after you change something and again when you close the window — so
@@ -142,7 +142,7 @@ extension ViewerModel {
     /// reopening a track finds it — so "save it somewhere else" cannot mean the
     /// same thing here as it does for a normal document. Two outcomes:
     ///
-    /// - The canonical `<track>.artscribe` beside the track: this **is** the
+    /// - The canonical `<track>.artscripture` beside the track: this **is** the
     ///   session file, so it is adopted and everything continues there. That is
     ///   the useful case when the folder was read-only earlier and is not now.
     /// - Anywhere else: a **copy**, for sharing a set of loop points or

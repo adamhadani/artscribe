@@ -43,7 +43,7 @@ public struct Viewport: Equatable, Sendable {
         startFrame = 0
     }
 
-    /// The persisted half of this viewport, for the `.artscribe` sidecar
+    /// The persisted half of this viewport, for the `.artscripture` sidecar
     /// (spec §7). `totalFrames` and `widthPixels` are deliberately left out —
     /// see `ViewportState`.
     public var state: ViewportState {

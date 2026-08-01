@@ -68,7 +68,7 @@ struct AcceptanceMain: App {
         .appendingPathComponent("artscribe-acceptance-sessions", isDirectory: true)
 
     private static let defaults =
-        UserDefaults(suiteName: "com.artscribe.acceptance") ?? .standard
+        UserDefaults(suiteName: "com.artscripture.acceptance") ?? .standard
 
     init() {
         // Before anything else, and before any audio graph can exist: an

@@ -147,12 +147,12 @@ struct ViewerModelSessionCloseTests {
         let scratch = try SessionScratch()
         let model = SessionTestModel.make(scratch)
         model.setSpeedPreset(0.5)
-        let chosen = scratch.root.appendingPathComponent("for-the-band.artscribe")
+        let chosen = scratch.root.appendingPathComponent("for-the-band.artscripture")
         model.saveSession(to: chosen)
 
         #expect(FileManager.default.fileExists(atPath: chosen.path))
         let notice = try #require(model.sessionNotice)
-        #expect(notice.contains("for-the-band.artscribe"))
+        #expect(notice.contains("for-the-band.artscripture"))
         // The canonical sidecar still does not exist, so the document is still
         // unsaved and closing still asks.
         #expect(model.isDirty)

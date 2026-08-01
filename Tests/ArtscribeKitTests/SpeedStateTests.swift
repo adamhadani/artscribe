@@ -56,7 +56,7 @@ import Testing
     #expect(SpeedState.maxRatio == 2.00)
 }
 
-// SpeedState is persisted in a visible, user-editable .artscribe file (design
+// SpeedState is persisted in a visible, user-editable .artscripture file (design
 // spec §7), so hand-edited or corrupted JSON is expected input. Decoding must
 // route through the same clamp as setRatio/init, not bypass it.
 @Test func decodingClampsOutOfRangeRatioAboveMax() throws {

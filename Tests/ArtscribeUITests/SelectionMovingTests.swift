@@ -239,7 +239,7 @@ struct SelectionMovingTests {
 
     @Test("the amounts are stored, validated on the way back in, and adopted")
     func persistence() {
-        let name = "com.artscribe.tests.move.\(UUID().uuidString)"
+        let name = "com.artscripture.tests.move.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: name) else {
             Issue.record("could not create a defaults suite")
             return
@@ -264,7 +264,7 @@ struct SelectionMovingTests {
     /// a half-finished save must not be able to install an amount of zero.
     @Test("a nonsense stored amount is repaired on load, never installed")
     func storedNonsenseIsRepaired() {
-        let name = "com.artscribe.tests.move.bad.\(UUID().uuidString)"
+        let name = "com.artscripture.tests.move.bad.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: name) else {
             Issue.record("could not create a defaults suite")
             return
@@ -278,7 +278,7 @@ struct SelectionMovingTests {
 
     @Test("an amount back at its default is removed rather than pinned")
     func defaultsAreNotPinned() {
-        let name = "com.artscribe.tests.move.clean.\(UUID().uuidString)"
+        let name = "com.artscripture.tests.move.clean.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: name) else {
             Issue.record("could not create a defaults suite")
             return

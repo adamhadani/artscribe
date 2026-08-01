@@ -233,7 +233,7 @@ struct ViewerModelPrerollTests {
     }
 
     private func makeSuite() -> UserDefaults {
-        let name = "com.artscribe.tests.preroll.\(UUID().uuidString)"
+        let name = "com.artscripture.tests.preroll.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: name) else {
             Issue.record("could not create a defaults suite")
             return .standard

@@ -163,7 +163,7 @@ ipad: ipad-install
 	    $(if $(DEV),--environment-variables '{"ARTSCRIBE_DEV_MENU":"1"}',) \
 	    --device $(IPAD_ID) com.artscribe.Artscribe
 
-# Everything the app has written into its container — the `.artscribe` sidecars
+# Everything the app has written into its container — the `.artscripture` sidecars
 # and, most usefully, its UserDefaults. Reading that plist is how the Open Recent
 # bookmark bug was diagnosed: the stored keys disagreed with the stored paths by
 # exactly the `/private` prefix, which no amount of reading the code would have

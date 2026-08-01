@@ -141,7 +141,7 @@ public enum SessionPrompt {
         alert.messageText = "Save the session for “\(model.windowTitle)”?"
         alert.informativeText =
             "The speed and loop points you set are not saved yet. Saving writes "
-            + "“\(model.suggestedSessionSaveURL?.lastPathComponent ?? "a .artscribe file")” "
+            + "“\(model.suggestedSessionSaveURL?.lastPathComponent ?? "a .artscripture file")” "
             + "next to the track, and Artscripture keeps it up to date from then on."
         // Added right-to-left, which is how AppKit lays them out: Save is the
         // default at the right, Cancel beside it, Don't Save off on its own.
@@ -202,7 +202,7 @@ public enum SessionPrompt {
 /// The **Save As…** panel.
 enum SessionPanels {
 
-    /// A dynamic type rather than a declared one: `.artscribe` is not registered
+    /// A dynamic type rather than a declared one: `.artscripture` is not registered
     /// with Launch Services, and declaring it would mean claiming the extension
     /// in `Info.plist` for a file the app never opens directly. Conforming it to
     /// JSON is honest — that is exactly what it is — and gives the panel

@@ -6,7 +6,7 @@ import Testing
 ///
 /// This project's characteristic failure is that documentation and code
 /// disagree, and that the user finds it rather than a review: the nudge tiers,
-/// `⇧←`/`⇧→`, the `.artscribe` sidecar, the inspector and the help sheet all
+/// `⇧←`/`⇧→`, the `.artscripture` sidecar, the inspector and the help sheet all
 /// shipped that way. A shortcut reference that lies would be the worst of them,
 /// because its whole purpose is to be believed.
 ///

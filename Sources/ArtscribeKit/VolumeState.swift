@@ -51,7 +51,7 @@ public struct VolumeState: Equatable, Sendable, Codable {
     }
 
     /// Custom decoding for the same reason `SpeedState` has one: a hand-edited or
-    /// corrupted `.artscribe` sidecar must not be able to smuggle an
+    /// corrupted `.artscripture` sidecar must not be able to smuggle an
     /// out-of-range or non-finite level past the clamp that every other path
     /// enforces — here that would mean handing `outputVolume` a NaN.
     public init(from decoder: Decoder) throws {
