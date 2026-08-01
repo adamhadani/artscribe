@@ -98,9 +98,29 @@ struct EmptyStateView: View {
             // a first run would be a promise the app cannot keep.
             if !shownRecents.isEmpty {
                 VStack(alignment: .leading, spacing: 1) {
-                    Eyebrow("RECENT")
-                        .padding(.leading, 10)
-                        .padding(.bottom, 7)
+                    // **The only way to empty the list on iPad.** macOS has
+                    // File ▸ Open Recent ▸ Clear Menu; iPadOS reaches the menu
+                    // bar only with a hardware keyboard, so without this the
+                    // list was append-only from the user's point of view —
+                    // eight slots that fill and never empty short of deleting
+                    // the app, which takes their preferences with it.
+                    //
+                    // Here on both platforms rather than iPad-only: this is
+                    // where the list is *seen*, and a control that exists on one
+                    // platform is a difference to remember rather than a rule.
+                    HStack(alignment: .firstTextBaseline) {
+                        Eyebrow("RECENT")
+                        Spacer()
+                        Button("Clear") { recents.clear() }
+                            .buttonStyle(.plain)
+                            .font(Typography.readoutSmall)
+                            .foregroundStyle(palette.dimmed.color())
+                            #if os(macOS)
+                        .pointerStyle(.link)
+                            #endif
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 7)
                     ForEach(shownRecents, id: \.self) { url in
                         RecentEntryRow(url: url) { ViewerActions.open(model, url: url) }
                     }
