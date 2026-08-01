@@ -65,6 +65,15 @@ struct IPadAppMain: App {
         WindowGroup {
             ViewerWindow(context: context, theme: theme)
                 .task { start() }
+                // **What makes `CFBundleDocumentTypes` mean anything.** Declaring
+                // the audio UTIs puts Artscripture in Files ▸ Share ▸ Open With
+                // and in the "Open in…" sheet from Mail, Dropbox and AirDrop —
+                // and for one release it did exactly that and nothing else:
+                // iPadOS handed the app a URL, no scene handled it, and the app
+                // launched to its resting screen with the file silently
+                // dropped. Advertising a route that dead-ends is worse than not
+                // appearing in the menu at all.
+                .onOpenURL(perform: openIncoming)
         }
         // iPadOS builds a real menu bar from these when a hardware keyboard is
         // attached, and — the part that matters more — it is what makes the
@@ -77,6 +86,35 @@ struct IPadAppMain: App {
             PlaybackCommands(context: context)
             LoopCommands(context: context)
         }
+    }
+
+    /// A file handed over by the system — Files ▸ Open With, AirDrop, Mail.
+    ///
+    /// The same three steps the document picker takes in `DocumentView`, and for
+    /// the same reasons:
+    ///
+    /// 1. **Start scoped access before anything reads the file.** It lives
+    ///    outside the container, and reading it without the grant fails with a
+    ///    permission error that looks exactly like a corrupt file.
+    /// 2. **Mint the bookmark here.** A bookmark can only be made while the
+    ///    process is allowed to read the file, and this closure is the one
+    ///    moment that is true — `RecentFiles.note` runs when the decode
+    ///    *finishes*, long after a launch-time grant would have gone.
+    /// 3. **Hand the grant to the model**, never release it here. `open` starts
+    ///    an async load and returns immediately, so releasing on the way out
+    ///    drops access before the decode has read a byte. That exact `defer` was
+    ///    the picker's bug once already.
+    ///
+    /// `recents` is used directly rather than through `model.recents`, which
+    /// `start()` attaches: a URL delivered at launch can arrive before `.task`
+    /// has run. Routing through `ViewerActions.open` keeps the outgoing
+    /// session's safety check — on iPad that means an unsaved session is written
+    /// rather than discarded — instead of a second way to open a track.
+    @MainActor
+    private func openIncoming(_ url: URL) {
+        let scoped = url.startAccessingSecurityScopedResource()
+        if scoped { recents.rememberBookmark(for: url) }
+        ViewerActions.open(model, url: url, securityScoped: scoped)
     }
 
     @MainActor
