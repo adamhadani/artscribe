@@ -58,7 +58,25 @@ struct AcceptanceMain: App {
     /// has, which is the whole point of building the context from the same type.
     @State private var about = AboutWindowController()
     @State private var settingsSheet = SettingsWindowController()
-    @State private var welcome = WelcomeState()
+    /// **Already seen, and on the acceptance suite.**
+    ///
+    /// It was neither, and that was not cosmetic: the harness's own defaults
+    /// domain had no `welcomeSeen`, so every run since the welcome landed opened
+    /// with a sheet over the document. A sheet does not stop the menu bar — the
+    /// menu-driven checks all went on passing — but it does stop
+    /// `DocumentView.onKeyPress`, so the bindings that arrive only that way went
+    /// dead. `Esc clears the selection` was the one that noticed, and it read as
+    /// a product bug in Escape.
+    ///
+    /// Marked seen rather than "suppressed for tests": the sheet is real UI, and
+    /// a first-run state is exactly what an automated run must not be in.
+    @State private var welcome = Self.seenWelcome()
+
+    private static func seenWelcome() -> WelcomeState {
+        let state = WelcomeState(defaults: defaults)
+        state.markSeen()
+        return state
+    }
 
     private var context: MenuContext {
         MenuContext(

@@ -9,6 +9,11 @@ struct OverviewStripView: View {
     @Environment(\.palette) private var palette
     @Environment(\.displayScale) private var displayScale
     @State private var overviewWidth: Double = 1
+    /// The scrub in flight, latched at touch-down. `nil` between gestures — see
+    /// `scrubGesture`, and `OverviewScrub` for why the offset has to be held for
+    /// the gesture's life rather than recomputed per event (recomputing it
+    /// against a lens that has just moved is what makes a carry drift).
+    @State private var scrub: OverviewScrub?
 
     /// Everything the lens overlay needs, read once at body level and handed
     /// to the `Canvas` closure as one value.
@@ -50,16 +55,7 @@ struct OverviewStripView: View {
             .allowsHitTesting(false)
         }
         .contentShape(.rect)
-        .gesture(
-            DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                .onChanged { value in
-                    model.centre(
-                        on: PixelMapping.overviewFrame(
-                            atPixel: value.location.x,
-                            totalFrames: model.totalFrames,
-                            width: overviewWidth))
-                }
-        )
+        .gesture(scrubGesture(state: state))
         .onGeometryChange(for: CGRect.self) {
             $0.frame(in: .global)
         } action: { frame in
@@ -67,6 +63,54 @@ struct OverviewStripView: View {
             model.setOverviewFrame(frame)
             model.setOverviewSize(frame.size)
         }
+    }
+
+    /// Scrubbing, as `OverviewScrub` describes it: carry the lens when the
+    /// finger lands on it, jump there first when it does not.
+    ///
+    /// The width comes from the **model**, not from the `@State` copy the
+    /// geometry callback fills in. They agree once layout has happened, and
+    /// before that the `@State` one is 1 — a width of 1 maps every pixel past
+    /// the first to the end of the file, so a first event arriving early would
+    /// throw the view to the end and every later event would ask for the same
+    /// place. Exactly the "jump, then nothing" this gesture was reported for,
+    /// and worth removing whether or not it was the cause.
+    private func scrubGesture(state: OverlayState) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .local)
+            .onChanged { value in
+                let width = max(model.overviewFrame.width, overviewWidth)
+                let scrub =
+                    self.scrub
+                    ?? OverviewScrub(
+                        startPixel: value.startLocation.x,
+                        lensCentre: lensCentre(in: state, width: width),
+                        lensWidth: lensWidth(in: state, width: width))
+                if self.scrub == nil { self.scrub = scrub }
+                model.centre(
+                    on: PixelMapping.overviewFrame(
+                        atPixel: scrub.centrePixel(for: value.location.x),
+                        totalFrames: model.totalFrames,
+                        width: width))
+            }
+            // Cleared on the way out, so the next touch takes hold of wherever
+            // the lens has ended up rather than of where this one grabbed it.
+            .onEnded { _ in scrub = nil }
+    }
+
+    private func lensCentre(in state: OverlayState, width: Double) -> Double {
+        let left = PixelMapping.overviewPixel(
+            forFrame: state.viewport.startFrame, totalFrames: state.totalFrames, width: width)
+        let right = PixelMapping.overviewPixel(
+            forFrame: state.viewport.endFrame, totalFrames: state.totalFrames, width: width)
+        return (left + right) / 2
+    }
+
+    private func lensWidth(in state: OverlayState, width: Double) -> Double {
+        let left = PixelMapping.overviewPixel(
+            forFrame: state.viewport.startFrame, totalFrames: state.totalFrames, width: width)
+        let right = PixelMapping.overviewPixel(
+            forFrame: state.viewport.endFrame, totalFrames: state.totalFrames, width: width)
+        return max(0, right - left)
     }
 
     private func drawWindow(in context: inout GraphicsContext, size: CGSize, state: OverlayState) {

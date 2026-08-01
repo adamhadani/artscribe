@@ -37,6 +37,13 @@ extension AcceptanceRun {
             unless: ProcessInfo.processInfo.environment[audibleEnvironmentKey] == "1"
                 ? "\(audibleEnvironmentKey)=1 was set, so this run is deliberately audible" : nil)
         await settle(seconds: 1.0)
+        // **Nothing may sit over the document.** A sheet leaves the menu bar
+        // working, so every menu-driven check goes on passing while the
+        // bindings that arrive through `DocumentView.onKeyPress` — Escape among
+        // them — quietly do nothing. That is precisely what the first-run
+        // welcome did to every run between its landing and this line: one
+        // failure, reading like a bug in Escape.
+        log.check("no sheet is over the document", NSApp.windows.allSatisfy { $0.sheets.isEmpty })
         // macOS restores a window's saved frame, so pin a known size: otherwise
         // the resize check below shrinks the window a little on every run.
         await normaliseWindow()
