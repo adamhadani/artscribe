@@ -188,6 +188,25 @@ nobody asked first.
 `NSApp.activate()` silently fails from a background shell and no window could become key
 (`activate(ignoringOtherApps: true)` works). Blind fixes address symptoms and leave causes.
 
+**Look at the pixels, on each platform, before calling UI done.** Three defects in the welcome
+sheet were invisible to 967 passing tests and to two code reviews, and all three were obvious
+in the first screenshot. A `TabView` carrying `.tabViewStyle(.page(…))` behind `#if !os(macOS)`
+draws **AppKit's tab bar** on the Mac — a segmented strip of four blank tabs above the content,
+because the pages have titles but no tab labels; `.page` is an iOS-only style and there is no
+Mac equivalent, so the Mac wants its own one-page-at-a-time view. A row of key chips reading
+`1 2 3 4` under a paragraph about pitch named the *speed presets* (pitch is `[` and `]`) and,
+unlabelled and sat above a page counter, read as a page counter. And `Text(tagline)` followed
+by a button followed by four `.font`/`.foregroundStyle` modifiers applies them to the *button*
+— the tagline had been drawing at the system default since the button was inserted.
+
+The two cheap ways to see it: `screencapture -o -x -l <windowID>` (never a full-screen grab,
+and get the ID from `CGWindowListCopyWindowInfo` — a five-line `swift` script), and
+`xcrun simctl boot/install/launch` plus `xcrun simctl io <dev> screenshot` for iOS. The app
+forces landscape, so `sips -r -90` the result or you will be reading sideways. To reach a
+screen that needs interaction, add a temporary env-var override for the state (`WELCOME_PAGE`)
+rather than trying to synthesise clicks — and take the *file* out again, not `git checkout --`
+the whole file, which throws away every uncommitted change in it.
+
 **The harness must come to the front, with `ignoringOtherApps: true`.** The line above was
 written down and then not applied on the acceptance path: `regainKeyWindow` called the plain
 `activate()`, spun its thirty attempts, gave up, and **seventeen** pointer, cursor and
