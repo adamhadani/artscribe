@@ -1,4 +1,4 @@
-// Draws `App/Artscribe.icns` from code.
+// Draws `App/Artscripture.icns` from code.
 //
 // A generator rather than a committed binary: an `.icns` with every required
 // size is a few hundred kilobytes of opaque blob, and the repository's
@@ -10,7 +10,7 @@
 //
 // The mark: nine bars of a waveform, the last three in the app's amber. Slate
 // is the audio, amber is the passage you have picked out and slowed down —
-// which is the one thing Artscribe does that nothing else on the dock does.
+// which is the one thing Artscripture does that nothing else on the dock does.
 //
 // **Drawn for 16 points, not for 512.** An icon is looked at in a dock, a
 // Finder list and a ⌘-Tab strip, and the earlier design — a dense
@@ -136,7 +136,7 @@ func draw(size: Int, style: IconStyle = .macOS) -> CGImage? {
 }
 
 let root = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "App")
-let iconset = root.appendingPathComponent("Artscribe.iconset")
+let iconset = root.appendingPathComponent("Artscripture.iconset")
 try? FileManager.default.removeItem(at: iconset)
 try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 
@@ -213,11 +213,11 @@ if FileManager.default.fileExists(atPath: iosIconSet.path) {
 let iconutil = Process()
 iconutil.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
 iconutil.arguments = [
-    "--convert", "icns", "--output", root.appendingPathComponent("Artscribe.icns").path,
+    "--convert", "icns", "--output", root.appendingPathComponent("Artscripture.icns").path,
     iconset.path
 ]
 try iconutil.run()
 iconutil.waitUntilExit()
 guard iconutil.terminationStatus == 0 else { exit(iconutil.terminationStatus) }
 try? FileManager.default.removeItem(at: iconset)
-print("wrote \(root.appendingPathComponent("Artscribe.icns").path)")
+print("wrote \(root.appendingPathComponent("Artscripture.icns").path)")

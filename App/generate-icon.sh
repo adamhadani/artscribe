@@ -1,10 +1,10 @@
 #!/bin/sh
-# Regenerates App/Artscribe.icns from App/GenerateIcon.swift when it is missing
+# Regenerates App/Artscripture.icns from App/GenerateIcon.swift when it is missing
 # or out of date. The .icns itself is gitignored — the Swift file is the source.
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
-icns="$here/Artscribe.icns"
+icns="$here/Artscripture.icns"
 source_file="$here/GenerateIcon.swift"
 
 # Both outputs must be present and fresh. Checking only the .icns was enough
