@@ -7,7 +7,7 @@ import Foundation
 /// arbitrate between apps: a phone call, a timer, Siri, or another app claiming
 /// the session will stop us mid-bar, and unplugging headphones must not move the
 /// music to the built-in speaker. `AVAudioSession` announces all of it, and this
-/// is that vocabulary reduced to the five things Artscribe has to answer for.
+/// is that vocabulary reduced to the five things Artscripture has to answer for.
 ///
 /// Deliberately platform-free so the policy below can be tested on the machine
 /// this is developed on. The iOS notification payloads are translated into these
@@ -37,7 +37,7 @@ public enum AudioSessionEvent: Sendable, Equatable, Hashable {
     case mediaServicesReset
 }
 
-/// What Artscribe does about an `AudioSessionEvent`.
+/// What Artscripture does about an `AudioSessionEvent`.
 public enum AudioSessionResponse: Sendable, Equatable, Hashable {
     /// Nothing to do.
     case none
@@ -49,7 +49,7 @@ public enum AudioSessionResponse: Sendable, Equatable, Hashable {
     case reconfigure
 }
 
-/// The whole of Artscribe's interruption behaviour, as a pure function.
+/// The whole of Artscripture's interruption behaviour, as a pure function.
 ///
 /// A pure function on purpose: this is the part that is easy to get wrong and
 /// impossible to test on the platform where it runs. Every rule below is
@@ -59,7 +59,7 @@ public enum AudioSessionPolicy {
 
     /// - Parameters:
     ///   - event: what the platform reported.
-    ///   - wasPlaying: whether Artscribe considered itself playing immediately
+    ///   - wasPlaying: whether Artscripture considered itself playing immediately
     ///     before the *cause* of this event. For `interruptionEnded` that means
     ///     "was playing when the interruption began", which the caller has to
     ///     have remembered — the session cannot tell us.

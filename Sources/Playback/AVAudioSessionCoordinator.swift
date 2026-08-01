@@ -51,7 +51,7 @@ public final class AVAudioSessionCoordinator: AudioSessionCoordinator {
         isActive = true
     }
 
-    /// `.notifyOthersOnDeactivation` so whatever was playing before Artscribe
+    /// `.notifyOthersOnDeactivation` so whatever was playing before Artscripture
     /// took the session — a podcast, the Music app — gets to come back.
     ///
     /// Failure is swallowed on purpose, and it is the one place in this

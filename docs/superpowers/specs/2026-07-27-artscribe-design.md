@@ -1,4 +1,4 @@
-# Artscribe — Design Spec
+# Artscripture — Design Spec
 
 **Date:** 2026-07-27
 **Status:** Approved
@@ -13,7 +13,7 @@ passage, loop it, and slow it down without changing pitch — driven almost enti
 the keyboard, because the user's hands are usually on an instrument.
 
 The reference point is [Transcribe!](https://www.seventhstring.com/xscribe/overview.html),
-which is functionally excellent and visually and ergonomically dated. Artscribe targets its
+which is functionally excellent and visually and ergonomically dated. Artscripture targets its
 core loop with a 2026 treatment: native Apple Silicon, better time-stretch quality, a
 keyboard-first interaction model, and an architecture that admits MIDI pedals and spectral
 analysis later without a rewrite.
@@ -45,7 +45,7 @@ In:
 - Full menu-bar coverage plus a **shortcut window** (`⌘/`) generated from the live action
   catalog: the bindings drawn on a picture of a keyboard, tinted by category, changing
   layer as you hold `⇧`/`⌥`/`⌘`, with a searchable list beside it
-- Per-file session persistence via a visible `.artscribe` sidecar
+- Per-file session persistence via a visible `.artscripture` sidecar
 
 Explicitly out (see §11):
 
@@ -78,7 +78,7 @@ Explicitly out (see §11):
 | Waveform rendering | SwiftUI `Canvas`, cached layer + cheap overlay | The waveform only changes on viewport change; the playhead changes every frame. Caching the former and overlaying the latter keeps this trivial. Metal is a documented escape hatch behind `TimelineLane` |
 | Build | SwiftPM modules + XcodeGen app shell | `.pbxproj` is never committed; ~90% of the code builds and tests under plain `swift test` |
 | Keymap default | Left-hand cluster (QWER / ASDF / ZXCV + Space) | The user has an instrument in their hands. Transcribe! needs foot pedals precisely because its keymap assumes two free hands |
-| Session state | Visible `.artscribe` sidecar next to the track | Matches Transcribe!'s `.xsc` model; portable, shareable, survives moves when kept alongside |
+| Session state | Visible `.artscripture` sidecar next to the track | Matches Transcribe!'s `.xsc` model; portable, shareable, survives moves when kept alongside |
 
 ---
 
@@ -287,7 +287,7 @@ is a fresh resume from wherever the playhead now is.
 | `loop.clear` | — | Loop ▸ Clear Loop. Menu only |
 | `view.scrollLeft` / `.scrollRight` | — | View ▸ Scroll. Menu only: `Z`/`X` are the nudge keys and a nudge brings the view with it, so moving the view alone is left to these, the trackpad and the overview strip |
 | `file.save` / `file.saveAs` | `⌘S` / `⇧⌘S` | Write the sidecar; write it somewhere else (§7.1) |
-| `edit.cut` / `.copy` / `.paste` | `⌘X` / `⌘C` / `⌘V` | The standard pasteboard chords, re-declared because Artscribe **replaces** the standard group. They exist for the numeric fields in Settings |
+| `edit.cut` / `.copy` / `.paste` | `⌘X` / `⌘C` / `⌘V` | The standard pasteboard chords, re-declared because Artscripture **replaces** the standard group. They exist for the numeric fields in Settings |
 | `volume.up` / `.down` | `↑` / `↓` | Volume ∓5%, linear in amplitude, default 0.5 |
 | `volume.up.fine` / `.down.fine` | `⇧↑` / `⇧↓` | Volume ∓1% |
 | `volume.mute` | `M` | Mute, restoring the prior level |
@@ -298,7 +298,7 @@ is a fresh resume from wherever the playhead now is.
 | `practice.show` | `⌘P` | Open the **Practice** window — the ramping loop (Task 21). A separate, resizable window whose frame is remembered, closable on its own, for a sharper version of `help.shortcuts`'s reason: it is watched *alongside* the waveform, so it must cost the waveform no width. `⌘P` is free — this app has no Print command |
 | `practice.ramp.toggle` | `⌥P` | Start / stop the speed ramp, in **Loop ▸ Speed Ramp**, without leaving the waveform. Pairs with the window's `⌘P` on the same letter: `⌘` opens the thing, `⌥` runs it |
 | `help.shortcuts` | `⌘/` | Open the **Keyboard Shortcuts** window — a separate, resizable window whose frame is remembered, closable on its own. Not a toggle: it has a close button and answers ⌘W |
-| `app.settings` | `⌘,` | Settings — in the **app menu** (Artscribe ▸ Settings…), the macOS convention since Ventura, wired automatically by SwiftUI's `Settings` scene |
+| `app.settings` | `⌘,` | Settings — in the **app menu** (Artscripture ▸ Settings…), the macOS convention since Ventura, wired automatically by SwiftUI's `Settings` scene |
 
 **A nudge may leave an active loop region.** All three tiers move the playhead freely, loop
 or no loop, matching Transcribe!: the tier you reach for when the phrase starts a beat
@@ -461,7 +461,7 @@ The sidecar behaves the way modern macOS treats a document that has a location: 
 and again on close — so nothing has to be saved by hand. **⌘S** is therefore a checkpoint that
 writes immediately rather than waiting, and **⇧⌘S** is Save As.
 
-What Artscribe will not do is create that file unasked, because it lands in the user's music
+What Artscripture will not do is create that file unasked, because it lands in the user's music
 folder where they can see it. So the first time a track with no session file is edited,
 leaving it — closing the window, quitting, or loading another track — asks **Save / Don't Save
 / Cancel**, and Cancel really cancels. After the file exists it never asks again.
@@ -545,7 +545,7 @@ Not doing: SwiftUI snapshot tests. High maintenance, low signal.
 ```
 artscribe/
 ├── Package.swift          # all modules + tests — `swift test` works standalone
-├── project.yml            # XcodeGen → Artscribe.xcodeproj (gitignored)
+├── project.yml            # XcodeGen → Artscripture.xcodeproj (gitignored)
 ├── Makefile               # bootstrap · generate · build · test · run
 ├── CLAUDE.md              # module boundaries, real-time rules, test commands
 ├── Sources/               # the eight modules of §4

@@ -79,7 +79,7 @@ public enum ThemePreference: String, Equatable, Sendable, CaseIterable, Identifi
 /// [system after dark] env.colorScheme=dark  window.effective=NSAppearanceNameAqua
 /// ```
 ///
-/// Everything Artscribe draws itself goes through `Palette.of(appearance)`,
+/// Everything Artscripture draws itself goes through `Palette.of(appearance)`,
 /// and `DocumentView` derives that `appearance` from `\.colorScheme`. So the
 /// window chrome went light while the entire contents stayed dark — which is
 /// what "System does not restore the system appearance" looks like from the

@@ -6,7 +6,7 @@ Take it to a lawyer before you charge anyone money.
 
 ## The short version
 
-Artscribe's own code is one thing. The time-stretching library it links is another, and **which
+Artscripture's own code is one thing. The time-stretching library it links is another, and **which
 one it links decides what the resulting binary may be distributed under.**
 
 | Build | Stretcher | The binary may be distributed as |
@@ -42,7 +42,7 @@ terms impose usage and DRM restrictions the GPL forbids passing on. This is the 
 hit.
 
 The GPL's reach is over the **combined work at the moment it is distributed**, not over a
-repository. Artscribe's own source is not *derived* from Rubber Band; it calls it. So:
+repository. Artscripture's own source is not *derived* from Rubber Band; it calls it. So:
 
 - ship a binary with Rubber Band inside → that binary is a combined work → GPLv3 terms
 - ship a binary with only Signalsmith inside → no GPL code is present → our terms
@@ -52,7 +52,7 @@ of those two things is being built, and `CRubberBand` is already a `.when(platfo
 dependency behind `#if canImport(CRubberBand)`, so a build genuinely can exclude it rather than
 merely not calling it.
 
-## What Artscribe's own code is licensed as
+## What Artscripture's own code is licensed as
 
 The repository was GPLv3 until v0.2.0, which was the correct and honest choice while Rubber Band
 was the only backend — the combined work had to be GPL, so labelling the whole thing GPL was
@@ -61,7 +61,7 @@ accurate.
 It is **Apache-2.0 as of PR #18**, and a permissively-licensed backend now exists, so the plan
 below is no longer a recommendation but a description of where things stand:
 
-1. ~~Relicense Artscribe's own code permissively — Apache-2.0.~~ **Done.** Preferred over MIT
+1. ~~Relicense Artscripture's own code permissively — Apache-2.0.~~ **Done.** Preferred over MIT
    for its explicit patent grant, which is worth having in audio DSP, a field with a long
    history of patented algorithms.
 2. **Keep Rubber Band's GPL obligations attached to the builds that link it**, stated in the

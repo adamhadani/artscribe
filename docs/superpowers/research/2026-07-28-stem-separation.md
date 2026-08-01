@@ -1,4 +1,4 @@
-# Stem separation for Artscribe — research and design
+# Stem separation for Artscripture — research and design
 
 **Date:** 2026-07-28
 **Status:** research only. No product code was written. Nothing here has been run on this machine.
@@ -9,7 +9,7 @@ and a recommendation.
 Constraints this must satisfy: spec §11.3 (single replaceable source accessor; identical ratios
 and identical frame counts to every stretcher every quantum; CPU scales with stem count;
 separation is offline, cached, background) and `CLAUDE.md` (module boundaries point one way;
-no allocation/locks/`String` on the render thread; Artscribe is GPL-3.0-or-later).
+no allocation/locks/`String` on the render thread; Artscripture is GPL-3.0-or-later).
 
 ---
 
@@ -51,7 +51,7 @@ remaining argument.
 Nothing in 2026 has displaced the RoFormer family for *deterministic* separation. The 2026 papers
 that beat it do so by bolting a **diffusion refinement stage** on top (arXiv:2412.06965, v2 dated
 2026-04-26, reports SOTA by refining BS-RoFormer output with a diffusion model **[P]**). **That
-approach is disqualified for Artscribe on the same grounds §11.3 already gives for generative
+approach is disqualified for Artscripture on the same grounds §11.3 already gives for generative
 stretchers**: a diffusion refiner invents plausible detail, and the user would be transcribing the
 model's invention. Do not use it, however good the SDR looks.
 
@@ -109,7 +109,7 @@ licence chain we can distribute:
 
 ### 2.2 Is a piano-capable model worth a quality trade elsewhere?
 
-**[I]** For Artscribe specifically, mostly yes, with a caveat. `htdemucs_6s` and `htdemucs` share
+**[I]** For Artscripture specifically, mostly yes, with a caveat. `htdemucs_6s` and `htdemucs` share
 an architecture and training set; the 6-stem variant just carves piano and guitar out of `other`.
 When you sum the 6-stem model's piano + guitar + other back together it is directly comparable to
 its 4-stem sibling and lands very close **[S]**. So the "trade" is not a quality cliff on
@@ -133,11 +133,11 @@ quality reason to want to.
 
 ## 3. Licensing — the hard constraint
 
-Artscribe is **GPL-3.0-or-later** and already links GPL-2.0-or-later Rubber Band. Two consequences
+Artscripture is **GPL-3.0-or-later** and already links GPL-2.0-or-later Rubber Band. Two consequences
 that cut in opposite directions:
 
 **In our favour:** a GPL-licensed model is *fine here*. Most commercial audio products cannot touch
-GPL weights; Artscribe can. Copyleft weights widen our field rather than narrowing it.
+GPL weights; Artscripture can. Copyleft weights widen our field rather than narrowing it.
 
 **Against us:** anything **non-commercial** (CC BY-NC-SA, "research only") is not free software and
 is GPL-incompatible. It cannot be bundled, and it cannot be auto-downloaded by the app on first run
@@ -178,10 +178,10 @@ would most want. Its licence chain does not survive contact:
 
 So: an MIT tag applied by someone who states they do not know who trained the model and had no part
 in it. **You cannot license what you do not own.** This is an unlicensed artefact wearing an MIT
-label, and shipping it in a GPL-3.0 binary would put a defect in Artscribe's own licence chain —
+label, and shipping it in a GPL-3.0 binary would put a defect in Artscripture's own licence chain —
 a distributed GPL work must come with a valid grant for every part of it.
 
-**Verdict: do not ship it.** Not bundled, not auto-downloaded. If a user points Artscribe at a
+**Verdict: do not ship it.** Not bundled, not auto-downloaded. If a user points Artscripture at a
 local checkpoint file themselves, that is their act and their risk, and a "load a custom model
 file" affordance is a legitimate escape hatch — but it must not be a curated in-app list.
 
@@ -192,7 +192,7 @@ file" affordance is a legitimate escape hatch — but it must not be a curated i
 ### 4.1 The four runtime options, assessed honestly for a Swift app
 
 **A bundled PyTorch — rejected outright.** It means shipping a Python interpreter and ~2 GB of
-wheels inside a Mac app bundle, and Artscribe's whole distribution story (§README) is a
+wheels inside a Mac app bundle, and Artscripture's whole distribution story (§README) is a
 self-contained arm64 bundle with two Homebrew dylibs re-pointed at `@rpath`. Adding Python would
 be the single largest thing in the product. No.
 
@@ -234,7 +234,7 @@ conversion by hand, direct CoreML is only worth revisiting if the EP measurably 
 | `htdemucs_6s` ONNX fp16 weights | 136 MB **[P]** | lower; unmeasured |
 | `htdemucs` ONNX fp32 / fp16 | 316 / 166 MB **[S]** | — |
 
-**[I]** 136 MB fp16 is small enough to bundle inside `Artscribe.app`, which sidesteps a
+**[I]** 136 MB fp16 is small enough to bundle inside `Artscripture.app`, which sidesteps a
 first-run download and the licence-hygiene questions that come with one. 258 MB is also bundleable
 but starts to feel rude. Decide after measuring whether fp16 costs any audible quality.
 

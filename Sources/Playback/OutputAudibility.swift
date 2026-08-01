@@ -38,7 +38,7 @@ public final class OutputAudibility: Sendable {
     /// automated run — and not about any one graph.
     public static let shared = OutputAudibility()
 
-    /// Set `ARTSCRIBE_SILENT=1` to silence any Artscribe binary, including the
+    /// Set `ARTSCRIBE_SILENT=1` to silence any Artscripture binary, including the
     /// product app. The acceptance harness closes the gate itself and needs no
     /// environment at all.
     public static let silentEnvironmentKey = "ARTSCRIBE_SILENT"

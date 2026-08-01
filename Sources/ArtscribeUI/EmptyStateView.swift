@@ -85,7 +85,7 @@ struct EmptyStateView: View {
             // opened, and an About link that competed with the drop target for
             // attention would be answering a question nobody arrived with.
             #if !os(macOS)
-            Button("About Artscribe") { about.show() }
+            Button("About Artscripture") { about.show() }
                 .buttonStyle(.plain)
                 .font(Typography.readoutSmall)
                 .foregroundStyle(palette.dimmed.color())

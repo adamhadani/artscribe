@@ -21,7 +21,7 @@ import Testing
 struct SessionConservationTests {
 
     /// A hand-edited sidecar: a real value a person would change, an unknown
-    /// top-level key, and an unknown key nested inside one Artscribe owns.
+    /// top-level key, and an unknown key nested inside one Artscripture owns.
     private static let handEdited = """
         {
           "schemaVersion" : 1,
@@ -163,7 +163,7 @@ struct SessionConservationTests {
         #expect(text.contains("chorus starts at 1:12"))
     }
 
-    /// A field a *newer* Artscribe wrote, opened by this build. It is not
+    /// A field a *newer* Artscripture wrote, opened by this build. It is not
     /// understood, so it is not applied — but it is not destroyed either, and
     /// the newer build finds it again.
     @Test("a field from a future version survives a round trip through this one")

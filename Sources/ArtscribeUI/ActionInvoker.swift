@@ -20,7 +20,7 @@ public struct MenuContext {
     /// `ActionInvoker`, which is not a view and so cannot reach `openWindow`.
     public let practice: PracticeWindowController
     /// The About panel's opener, here for the third time and the same reason:
-    /// **Artscribe ▸ About Artscribe**, **Help ▸ About Artscribe** and the
+    /// **Artscripture ▸ About Artscripture**, **Help ▸ About Artscripture** and the
     /// resting screen's button on iPad all arrive through `ActionInvoker`.
     public let about: AboutWindowController
     /// The theme, carried here for the same reason the controllers are: on iPad

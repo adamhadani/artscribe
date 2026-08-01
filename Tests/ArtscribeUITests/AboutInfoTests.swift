@@ -133,19 +133,21 @@ struct AboutInfoTests {
     /// Both Signalsmith libraries, on both platforms. They are two repositories
     /// rather than one — `signalsmith-stretch.h` includes the other's headers —
     /// and MIT attribution is owed to each separately (`VENDOR.md`).
-    @Test("every build attributes Artscribe and both Signalsmith libraries")
+    @Test("every build attributes Artscripture and both Signalsmith libraries")
     func everyBuildAttributesTheVendoredLibraries() {
         for platform in AboutPlatform.allCases {
             let list = AboutInfo.licences(on: platform)
             let named = list.map(\.component)
-            #expect(named.contains("Artscribe"), "\(platform.rawValue) does not name Artscribe")
+            #expect(
+                named.contains("Artscripture"),
+                "\(platform.rawValue) does not name Artscripture")
             #expect(
                 named.contains("Signalsmith Stretch"),
                 "\(platform.rawValue) does not name Signalsmith Stretch")
             #expect(
                 named.contains("Signalsmith Linear"),
                 "\(platform.rawValue) does not name Signalsmith Linear")
-            let artscribe = list.first { $0.component == "Artscribe" }
+            let artscribe = list.first { $0.component == "Artscripture" }
             #expect(artscribe?.terms == "Apache-2.0")
             for licence in list where licence.component.hasPrefix("Signalsmith") {
                 #expect(licence.terms == "MIT", "\(licence.component) is not MIT")

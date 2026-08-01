@@ -306,7 +306,7 @@ extension ActionCatalog {
     // MARK: - Application
 
     /// Cut, Copy and Paste exist for exactly one place — the numeric fields in
-    /// Settings. Artscribe replaces the standard pasteboard group, so without
+    /// Settings. Artscripture replaces the standard pasteboard group, so without
     /// them ⌘C and ⌘V would quietly stop working while typing an amount.
     static let applicationEntries: [ActionEntry] = [
         ActionEntry(
@@ -322,7 +322,7 @@ extension ActionCatalog {
         // `ActionCatalog.notInOurMenus`.
         ActionEntry(
             .appSettings, "Settings…", .application,
-            chords: [.key(",", .command)], menu: nil, note: "Artscribe ▸ Settings…"),
+            chords: [.key(",", .command)], menu: nil, note: "Artscripture ▸ Settings…"),
         // Placed into two menus macOS already builds — the app menu's About item
         // and the Help menu's — rather than into a `MenuPlan` section of ours.
         // See `ActionCatalog.notInOurMenus` and `ViewerCommands`.
@@ -334,7 +334,7 @@ extension ActionCatalog {
         // reader may be *required* to find (guideline 5.1.1(i)), so it is the
         // last thing that should be missing from the index of what exists.
         ActionEntry(
-            .appAbout, "About Artscribe", .application,
-            menu: nil, note: "Artscribe ▸ About Artscribe")
+            .appAbout, "About Artscripture", .application,
+            menu: nil, note: "Artscripture ▸ About Artscripture")
     ]
 }

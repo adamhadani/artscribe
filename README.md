@@ -1,23 +1,23 @@
 <div align="center">
 
-# 🎼 Artscribe
+# 🎼 Artscripture
 
 **A keyboard-first music transcription tool for macOS and iPadOS.**
 
 Load a track · select a passage · loop it seamlessly · slow it down without changing pitch.
 
-[![CI](https://github.com/adamhadani/artscribe/actions/workflows/ci.yml/badge.svg)](https://github.com/adamhadani/artscribe/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/adamhadani/artscribe?include_prereleases&sort=semver)](https://github.com/adamhadani/artscribe/releases)
+[![CI](https://github.com/adamhadani/artscripture/actions/workflows/ci.yml/badge.svg)](https://github.com/adamhadani/artscripture/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/adamhadani/artscripture?include_prereleases&sort=semver)](https://github.com/adamhadani/artscripture/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%2026%20·%20iPadOS%2026-lightgrey)](#-quick-start)
-[![Website](https://img.shields.io/badge/website-artscribe-4FD1C5)](https://adamhadani.github.io/artscribe/)
+[![Website](https://img.shields.io/badge/website-artscribe-4FD1C5)](https://adamhadani.github.io/artscripture/)
 [![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 
 </div>
 
 ---
 
-When you transcribe, your hands are on an instrument — not on a mouse. Artscribe is built
+When you transcribe, your hands are on an instrument — not on a mouse. Artscripture is built
 around that: **every operation has a key**, the window is one uninterrupted waveform, and
 the passage you are working on stays where you put it.
 
@@ -31,7 +31,7 @@ the passage you are working on stays where you put it.
 | 🎯 **Preroll** | A resume rolls back a couple of seconds, so you land *before* the note you stopped on |
 | 📈 **Practice ramp** | Loop a phrase from slow to tempo automatically |
 | 💿 **CUE track markers** | One-file albums show where each track begins |
-| 📝 **Visible session files** | A plain `.artscribe` sidecar you can read and hand-edit |
+| 📝 **Visible session files** | A plain `.artscripture` sidecar you can read and hand-edit |
 
 **Status: in development, and playable.** Load a file, hear it, select, loop, change speed —
 all from the keyboard. Not yet built: spectrum analysis, MIDI input, and
@@ -42,10 +42,10 @@ depth, deliberately not started).
 
 ```sh
 make bootstrap
-make app && open .build/xcode/Build/Products/Release/Artscribe.app
+make app && open .build/xcode/Build/Products/Release/Artscripture.app
 ```
 
-Or grab a signed, notarised build from [**Releases**](https://github.com/adamhadani/artscribe/releases).
+Or grab a signed, notarised build from [**Releases**](https://github.com/adamhadani/artscripture/releases).
 
 ## 🎹 The keys that matter
 
@@ -63,13 +63,13 @@ Or grab a signed, notarised build from [**Releases**](https://github.com/adamhad
 
 ## 🔍 Alternatives
 
-Artscribe is not the only option, and for many people it should not be the first one tried.
+Artscripture is not the only option, and for many people it should not be the first one tried.
 
 - **[Transcribe!](https://www.seventhstring.com/xscribe/overview.html)** (Seventh String) —
   the long-standing standard, and genuinely excellent: deep, fast, thoroughly documented,
   actively maintained, and cross-platform. Its feature set still goes well beyond this
   project's. The interface simply feels of an earlier era, and that — not the engineering —
-  is what Artscribe reacts to. If you want a mature, supported, commercially backed tool
+  is what Artscripture reacts to. If you want a mature, supported, commercially backed tool
   today, buy it; it is inexpensive and very good.
 - **[Amazing Slow Downer](https://www.ronimusic.com/)** — a focused, reliable
   slow-down-and-loop player, on desktop and mobile.
@@ -78,39 +78,39 @@ Artscribe is not the only option, and for many people it should not be the first
   down and loop it perfectly well. It is simply a lot of software to open to learn eight
   bars.
 
-## Running Artscribe
+## Running Artscripture
 
 There are three ways in, and they are for different people.
 
 ### Download a release — to just use it
 
-Grab the newest `Artscribe-<version>.zip` from
-[Releases](https://github.com/adamhadani/artscribe/releases), unzip it, and drag
-`Artscribe.app` to `/Applications`.
+Grab the newest `Artscripture-<version>.zip` from
+[Releases](https://github.com/adamhadani/artscripture/releases), unzip it, and drag
+`Artscripture.app` to `/Applications`.
 
 **macOS 26 on Apple Silicon.** Homebrew ships arm64-only libraries and this has never been
 an Intel product, so the bundle is `arm64` rather than universal.
 
 > **If macOS says the app "cannot be opened"** the build was not notarised. Right-click it ▸
-> **Open** and confirm, or `xattr -d com.apple.quarantine Artscribe.app`. See
+> **Open** and confirm, or `xattr -d com.apple.quarantine Artscripture.app`. See
 > [Signing](#signing) for why, and for what makes it stop happening.
 
 ### `make app` — to build it yourself
 
 ```sh
 make app
-open .build/xcode/Build/Products/Release/Artscribe.app
+open .build/xcode/Build/Products/Release/Artscripture.app
 ```
 
-That produces `Artscribe.app`: a real, double-clickable bundle with an icon, a version, and
+That produces `Artscripture.app`: a real, double-clickable bundle with an icon, a version, and
 a bundle identifier. Drag it to `/Applications` or `~/Applications` and it behaves like any
 other Mac app — it appears in Finder's **Open With** for every format it decodes, and a
 file dropped on its dock icon opens in it.
 
-`make dist` wraps the signed bundle in `dist/Artscribe-<version>.zip` for handing to
+`make dist` wraps the signed bundle in `dist/Artscripture-<version>.zip` for handing to
 somebody else.
 
-`project.yml` is the source of truth for the bundle. The `Artscribe.xcodeproj` that
+`project.yml` is the source of truth for the bundle. The `Artscripture.xcodeproj` that
 XcodeGen generates from it is disposable and gitignored — never edit or commit it. The app
 icon is likewise generated, from `App/GenerateIcon.swift`.
 
@@ -133,7 +133,7 @@ Release, not debug — a debug build decodes roughly four times slower.
 
 #### The developer menu — comparing stretch engines
 
-Artscribe has two time-stretching backends, and which one is running is **not** a user-facing
+Artscripture has two time-stretching backends, and which one is running is **not** a user-facing
 choice. It is one for whoever is working on the audio:
 
 ```sh
@@ -229,9 +229,9 @@ xcodebuild build -scheme ArtscribeiPad -destination 'id=<identifier>' \
     -derivedDataPath .build/xcode-ipad
 
 xcrun devicectl device install app --device <identifier> \
-    .build/xcode-ipad/Build/Products/Debug-iphoneos/Artscribe.app
+    .build/xcode-ipad/Build/Products/Debug-iphoneos/Artscripture.app
 
-xcrun devicectl device process launch --device <identifier> com.artscribe.Artscribe
+xcrun devicectl device process launch --device <identifier> com.artscribe.Artscripture
 ```
 
 To iterate without a device, build for a simulator instead — no signing, no team:
@@ -246,14 +246,14 @@ xcodebuild build -scheme ArtscribeiPad \
 
 ### What it links, and where that runs
 
-Artscribe links [Rubber Band](https://breakfastquay.com/rubberband/) and, through it,
+Artscripture links [Rubber Band](https://breakfastquay.com/rubberband/) and, through it,
 libsamplerate. Both come from Homebrew at build time, and **`make app` copies them into
-`Artscribe.app/Contents/Frameworks`** and repoints the binary's load commands at
+`Artscripture.app/Contents/Frameworks`** and repoints the binary's load commands at
 `@rpath`, so the finished bundle does not need Homebrew on the machine that runs it. The
 build fails rather than shipping a bundle that still references anything outside itself —
 see `App/embed-dependencies.sh`.
 
-Their licences travel with them, in `Contents/Resources` alongside Artscribe's own.
+Their licences travel with them, in `Contents/Resources` alongside Artscripture's own.
 
 Apple Silicon only. Homebrew ships arm64-only libraries and the project has never been an
 Intel product, so the bundle is built `arm64` rather than universal.
@@ -268,8 +268,8 @@ the machine that built it, and enough for anyone who copies it across by hand.
 
 It is *not* enough for a download. A zip fetched from the internet arrives with a quarantine
 flag, and Gatekeeper rejects an ad-hoc signature outright — `spctl --assess` says
-`rejected`, and the recipient sees "Artscribe cannot be opened". They can get past it with
-right-click ▸ **Open**, or `xattr -d com.apple.quarantine Artscribe.app`, but they should
+`rejected`, and the recipient sees "Artscripture cannot be opened". They can get past it with
+right-click ▸ **Open**, or `xattr -d com.apple.quarantine Artscripture.app`, but they should
 not have to.
 
 Doing it properly needs an **Apple Developer account** ($99/yr). The build is already wired
@@ -302,7 +302,7 @@ verifies cleanly and is still rejected on the recipient's Mac:
   off a built bundle:
 
   ```sh
-  codesign -dv --verbose=4 <path>/Artscribe.app 2>&1 | grep TeamIdentifier
+  codesign -dv --verbose=4 <path>/Artscripture.app 2>&1 | grep TeamIdentifier
   ```
 
 `make app` prints the certificate kind it used and says plainly when it is not a
@@ -348,8 +348,8 @@ only notarisation is missing, which is a different problem from a bare `rejected
 To test what a recipient actually experiences, quarantine a copy the way a browser would:
 
 ```sh
-xattr -w com.apple.quarantine "0081;$(printf %x $(date +%s));Safari;" Artscribe.app
-spctl --assess --type execute --verbose=4 Artscribe.app   # must still say: accepted
+xattr -w com.apple.quarantine "0081;$(printf %x $(date +%s));Safari;" Artscripture.app
+spctl --assess --type execute --verbose=4 Artscripture.app   # must still say: accepted
 ```
 
 **Nested code is notarised on its own terms.** The first real submission here was rejected
@@ -403,7 +403,7 @@ certificate into a **throwaway keychain** that dies with the job, never the logi
 Cutting a release is then:
 
 ```sh
-git tag -a v0.1.0 -m "Artscribe 0.1.0" && git push origin v0.1.0
+git tag -a v0.1.0 -m "Artscripture 0.1.0" && git push origin v0.1.0
 ```
 
 The job refuses a tag whose version disagrees with `MARKETING_VERSION`, runs the full gate
@@ -454,7 +454,7 @@ hardened process needs before it will load the embedded Homebrew dylibs, and
 `App/embed-dependencies.sh` already signs those dylibs inside-out before the bundle — the
 order notarisation requires. Neither needs changing.
 
-The one thing an account will never buy: **the Mac App Store is permanently out**. Artscribe
+The one thing an account will never buy: **the Mac App Store is permanently out**. Artscripture
 links Rubber Band under the GPL, and the GPL is incompatible with the App Store's terms.
 Developer-ID-signed downloads, a Homebrew cask, or source are the routes.
 
@@ -463,7 +463,7 @@ Developer-ID-signed downloads, a Homebrew cask, or source are the routes.
 ## 🎧 Why it sounds better
 
 Slowing audio down without changing pitch is the hard part, and it is the reason this
-project exists at all. Artscribe uses [Rubber Band](https://breakfastquay.com/rubberband/) 4.0's
+project exists at all. Artscripture uses [Rubber Band](https://breakfastquay.com/rubberband/) 4.0's
 **R3 "Finer"** engine — a multiresolution, phase-locked spectral stretcher in the same
 class as Ableton's Complex Pro.
 
@@ -633,12 +633,12 @@ Requires macOS 26+, Xcode 26+ (Swift 6.3), and Apple Silicon.
 ```sh
 make bootstrap   # brew: rubberband, swiftlint, xcodegen, pre-commit (+ installs hooks)
 make check       # format check, lint, and the full test suite — the gate for every commit
-make app         # the double-clickable Artscribe.app
+make app         # the double-clickable Artscripture.app
 make dist        # a zip of the signed bundle
 ```
 
 Every module except the app shell builds and tests headlessly under `swift test` — no Xcode
-project, no scheme, no audio hardware. See **Running Artscribe** above for which path to
+project, no scheme, no audio hardware. See **Running Artscripture** above for which path to
 use when.
 
 ### Tests against real media
@@ -700,7 +700,7 @@ Design documents live in `docs/superpowers/specs/` and `docs/superpowers/plans/`
 
 ## Licence
 
-**Artscribe's own source is Apache-2.0.** See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+**Artscripture's own source is Apache-2.0.** See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 **A distributed binary may be a different matter, and which one depends on what it links.**
 The GPL binds the combined work at the moment it is distributed, not the repository:

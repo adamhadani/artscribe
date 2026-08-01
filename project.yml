@@ -1,6 +1,18 @@
-# The source of truth for `Artscribe.app`. The generated `Artscribe.xcodeproj`
+# The source of truth for `Artscripture.app`. The generated `Artscribe.xcodeproj`
 # is disposable and gitignored — regenerate it with `xcodegen generate`, or just
 # run `make app`, which does that and everything after it.
+#
+# **The product is `Artscripture`; the build identifiers below are still
+# `Artscribe`, and that is deliberate.** The App Store name "Artscribe" was
+# already taken, so the app was renamed — but only what a user, a reviewer or
+# Apple ever sees. `PRODUCT_NAME` is what names the bundle; the project name,
+# the target names, the scheme names, the SwiftPM modules and the bundle
+# identifier are invisible, and renaming them would have churned ~200 files
+# across the acceptance harness to change nothing anyone can observe. A scheme
+# whose name differs from its product is ordinary Xcode.
+#
+# The bundle identifier especially: `com.artscribe.Artscribe` is permanent once
+# the app is published, and it was chosen to stay put.
 #
 # Why an Xcode project at all, when every module builds under SwiftPM: a
 # `.app` bundle is an Xcode product. SwiftPM builds bare executables, and an
@@ -9,7 +21,7 @@
 # thing this project builds — the code comes from the SwiftPM package below.
 #
 # `swift build`, `swift test` and `swift run` are untouched by any of this and
-# remain the development path. See README ▸ Running Artscribe.
+# remain the development path. See README ▸ Running Artscripture.
 name: Artscribe
 
 options:
@@ -86,7 +98,7 @@ targets:
     # at them.
     settings:
       base:
-        PRODUCT_NAME: Artscribe
+        PRODUCT_NAME: Artscripture
         PRODUCT_BUNDLE_IDENTIFIER: com.artscribe.Artscribe
         INFOPLIST_FILE: App/Info.plist
         GENERATE_INFOPLIST_FILE: NO
@@ -142,7 +154,7 @@ targets:
         product: ArtscribeUI
     settings:
       base:
-        PRODUCT_NAME: Artscribe
+        PRODUCT_NAME: Artscripture
         PRODUCT_BUNDLE_IDENTIFIER: com.artscribe.Artscribe
         INFOPLIST_FILE: App/iOS/Info.plist
         GENERATE_INFOPLIST_FILE: NO

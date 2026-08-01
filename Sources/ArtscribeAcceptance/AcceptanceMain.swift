@@ -82,7 +82,7 @@ struct AcceptanceMain: App {
     }
 
     var body: some Scene {
-        Window("Artscribe (acceptance)", id: "viewer") {
+        Window("Artscripture (acceptance)", id: "viewer") {
             ViewerWindow(context: context, theme: theme)
                 .frame(minWidth: 720, minHeight: 420)
                 .task { await start() }

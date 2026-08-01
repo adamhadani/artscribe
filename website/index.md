@@ -1,7 +1,7 @@
 ---
 layout: home
 permalink: /
-title: Artscribe
+title: Artscripture
 description: >-
   A keyboard-first music transcription tool for macOS and iPadOS. Load a track,
   select a passage, loop it seamlessly, and slow it down without changing pitch.
@@ -9,7 +9,7 @@ description: >-
 
 <section class="hero">
   {% include mark.svg %}
-  <h1>Artscribe</h1>
+  <h1>Artscripture</h1>
   <p class="tagline">A keyboard-first music transcription tool for macOS and iPadOS.</p>
   <p class="pitch">
     When you transcribe, your hands are on an instrument — not on a mouse. Load a
@@ -123,7 +123,7 @@ description: >-
   <p class="eyebrow">Track marks</p>
   <h2>One-file albums, navigable</h2>
   <p>
-    A single FLAC of a whole record is a wall with no landmarks. Artscribe reads
+    A single FLAC of a whole record is a wall with no landmarks. Artscripture reads
     the <code>.cue</code> sheet sitting beside it and draws a lane showing where
     each track begins. <kbd>T</kbd> shows and hides it.
   </p>
@@ -156,7 +156,7 @@ description: >-
   <p class="eyebrow">Privacy</p>
   <h2>Nothing leaves your machine</h2>
   <p>
-    Artscribe has no accounts, no analytics, no telemetry and no network code of
+    Artscripture has no accounts, no analytics, no telemetry and no network code of
     any kind. Your audio is read from disk and never transmitted anywhere. See
     the <a href="{{ '/privacy/' | relative_url }}">privacy policy</a> — it is
     short, because there is very little to say.
@@ -169,7 +169,7 @@ description: >-
   <p>
     Signed, notarised builds are on the
     <a href="{{ site.releases_url }}">releases page</a>: unzip and drag
-    <code>Artscribe.app</code> to <code>/Applications</code>. It needs
+    <code>Artscripture.app</code> to <code>/Applications</code>. It needs
     <strong>macOS 26 on Apple Silicon</strong>.
   </p>
   <p>

@@ -142,7 +142,7 @@ public enum SessionPrompt {
         alert.informativeText =
             "The speed and loop points you set are not saved yet. Saving writes "
             + "“\(model.suggestedSessionSaveURL?.lastPathComponent ?? "a .artscribe file")” "
-            + "next to the track, and Artscribe keeps it up to date from then on."
+            + "next to the track, and Artscripture keeps it up to date from then on."
         // Added right-to-left, which is how AppKit lays them out: Save is the
         // default at the right, Cancel beside it, Don't Save off on its own.
         alert.addButton(withTitle: "Save")
@@ -225,7 +225,7 @@ enum SessionPanels {
         panel.directoryURL = url.deletingLastPathComponent()
         panel.nameFieldStringValue = url.lastPathComponent
         panel.message =
-            "Artscribe reloads a session from “\(url.lastPathComponent)” beside the track. "
+            "Artscripture reloads a session from “\(url.lastPathComponent)” beside the track. "
             + "Saving anywhere else keeps a copy you can share, but reopening the track will not "
             + "find it."
         panel.prompt = "Save"

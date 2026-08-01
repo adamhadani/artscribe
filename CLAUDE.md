@@ -1,4 +1,4 @@
-# Artscribe — working notes
+# Artscripture — working notes
 
 A keyboard-first music transcription app for macOS. Load a track, select a passage, loop it,
 slow it down without changing pitch.
@@ -111,7 +111,7 @@ is untouched, so the volume checks still read back the value the user's control 
   in `AcceptanceRun.runIfRequested` — and the run asserts `OutputAudibility.shared.isSilenced`
   as its first check. **Do not make this an opt-in flag.**
 - To hear an acceptance run on purpose: `ARTSCRIBE_ACCEPTANCE_AUDIBLE=1`.
-- To silence any other Artscribe binary — `ArtscribeApp`, `artscribe-cli` — export
+- To silence any other Artscripture binary — `ArtscribeApp`, `artscribe-cli` — export
   `ARTSCRIBE_SILENT=1`. **Launch the app this way when verifying a change.** Do *not*
   export it for `swift test`: the gate is process-wide, so it silences the deliberately
   audible control in `aSilencedGraphEmitsExactlyZero` and three tests fail. The suite

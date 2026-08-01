@@ -239,7 +239,7 @@ extension AcceptanceRun {
         await settle(seconds: 0.1)
 
         // Hand-edit it the way a person would: change a value, add a note, and
-        // add a key inside one Artscribe owns.
+        // add a key inside one Artscripture owns.
         guard var text = try? String(contentsOf: sidecar, encoding: .utf8) else {
             log.check("the sidecar can be hand-edited", false)
             return
@@ -271,7 +271,7 @@ extension AcceptanceRun {
         model.saveSession()
         await settle(seconds: 0.1)
         let saved = (try? String(contentsOf: sidecar, encoding: .utf8)) ?? ""
-        log.check("a save keeps a key Artscribe did not write", saved.contains("\"comment\""))
+        log.check("a save keeps a key Artscripture did not write", saved.contains("\"comment\""))
         log.check(
             "… including one nested inside a key it does own", saved.contains("\"label\""))
         log.check("… while still recording the change", !model.isDirty)

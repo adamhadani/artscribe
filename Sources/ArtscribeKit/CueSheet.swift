@@ -1,7 +1,7 @@
 /// Where each track of a one-file album begins, read from its `.cue` sheet.
 ///
 /// A cue sheet indexes a single audio file into tracks. Live albums, DJ sets and
-/// vinyl rips are commonly distributed that way, and without this Artscribe sees
+/// vinyl rips are commonly distributed that way, and without this Artscripture sees
 /// one undifferentiated blob.
 ///
 /// **Pure, and in `ArtscribeKit` because of it.** Parsing is `String` in,

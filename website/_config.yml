@@ -6,17 +6,17 @@ description: >-
   changing pitch.
 
 url: https://adamhadani.github.io
-baseurl: /artscribe
+baseurl: /artscripture
 
 # Every outbound link the site uses, in one place. Nothing here is fetched at
 # build time or at page load — see /privacy/, which the site has to be able to
 # tell the truth about.
-repo_url: https://github.com/adamhadani/artscribe
-download_url: https://github.com/adamhadani/artscribe/releases/latest
-releases_url: https://github.com/adamhadani/artscribe/releases
-issues_url: https://github.com/adamhadani/artscribe/issues
-new_issue_url: https://github.com/adamhadani/artscribe/issues/new
-license_url: https://github.com/adamhadani/artscribe/blob/main/LICENSE
+repo_url: https://github.com/adamhadani/artscripture
+download_url: https://github.com/adamhadani/artscripture/releases/latest
+releases_url: https://github.com/adamhadani/artscripture/releases
+issues_url: https://github.com/adamhadani/artscripture/issues
+new_issue_url: https://github.com/adamhadani/artscripture/issues/new
+license_url: https://github.com/adamhadani/artscripture/blob/main/LICENSE
 
 # No theme gem. `minima` is a blog theme and this is not a blog; the layout in
 # `_layouts/` and the single stylesheet in `assets/css/` are the whole design.

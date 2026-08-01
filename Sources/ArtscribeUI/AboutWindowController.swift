@@ -37,7 +37,7 @@ public final class AboutWindowController {
 
     public func show() { windowState.show() }
 
-    /// **Artscribe ▸ About Artscribe**, and **Help ▸ About Artscribe**.
+    /// **Artscripture ▸ About Artscripture**, and **Help ▸ About Artscripture**.
     ///
     /// A toggle rather than a plain show, matching `⌘/` and `⌘P`: chosen from a
     /// menu while the panel is already in front of you, a non-toggling command
