@@ -2,14 +2,14 @@
 
 # 🎼 Artscripture
 
-**A keyboard-first music transcription tool for macOS and iPadOS.**
+**A keyboard-first music transcription tool for macOS, iPadOS and iPhone.**
 
 Load a track · select a passage · loop it seamlessly · slow it down without changing pitch.
 
 [![CI](https://github.com/adamhadani/artscripture/actions/workflows/ci.yml/badge.svg)](https://github.com/adamhadani/artscripture/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/adamhadani/artscripture?include_prereleases&sort=semver)](https://github.com/adamhadani/artscripture/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%2026%20·%20iPadOS%2026-lightgrey)](#-quick-start)
+[![Platform](https://img.shields.io/badge/platform-macOS%2026%20·%20iPadOS%2026%20·%20iOS%2026-lightgrey)](#-quick-start)
 [![Website](https://img.shields.io/badge/website-artscripture-4FD1C5)](https://adamhadani.github.io/artscripture/)
 [![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 
