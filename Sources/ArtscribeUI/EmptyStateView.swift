@@ -4,6 +4,9 @@ import SwiftUI
 /// What the window says before anything is loaded. An empty screen is an
 /// invitation to act, so it names both ways in.
 struct EmptyStateView: View {
+    @ScaledMetric(relativeTo: .body) private var typeScale: CGFloat = 1
+    private var metrics: ControlMetrics { ControlMetrics.current.scaled(by: typeScale) }
+
     let model: ViewerModel
     /// Taken from `MenuContext`, **not** read off the model.
     ///
@@ -28,9 +31,31 @@ struct EmptyStateView: View {
     /// The dashed drop target's own inset, and the gap between it and the
     /// recents below. Both are deliberately larger than anything on the scale:
     /// this is the emptiest screen in the app and the space is the design.
-    private static let dropZoneInset = EdgeInsets(
-        top: 30, leading: 44, bottom: 30, trailing: 44)
-    private static let blockGap: CGFloat = 26
+    ///
+    /// **Except on a phone, where there is no space to spend.** iPhone is
+    /// landscape-only, so this screen gets about 250 pt of height between the
+    /// header and the transport bar, and at the desktop's generosity the block
+    /// filled it exactly — the About link ended up a point or two off the
+    /// transport bar's rule, reported as "too close to the bottom border".
+    /// Keyed on the surface like every other platform difference here.
+    private static func dropZoneInset(for surface: EmptyStatePrompt.Surface) -> EdgeInsets {
+        switch surface {
+        case .desktop, .tabletWithDrop:
+            return EdgeInsets(top: 30, leading: 44, bottom: 30, trailing: 44)
+        case .phone:
+            return EdgeInsets(top: 18, leading: 28, bottom: 18, trailing: 28)
+        }
+    }
+
+    private static func blockGap(for surface: EmptyStatePrompt.Surface) -> CGFloat {
+        surface == .phone ? Metrics.xxl : 26
+    }
+
+    /// Margin at the top and bottom of the whole screen, so the first and last
+    /// things on it are never flush against a rule.
+    private static let screenInset: CGFloat = Metrics.xxl
+
+    private var surface: EmptyStatePrompt.Surface { EmptyStatePrompt.current }
 
     private var shownRecents: [URL] {
         Array(recents.urls.prefix(Self.shown))
@@ -47,7 +72,7 @@ struct EmptyStateView: View {
     }
 
     var body: some View {
-        VStack(spacing: Self.blockGap) {
+        VStack(spacing: Self.blockGap(for: surface)) {
             // The drop target, drawn as one. A dashed outline does two jobs
             // here: it says *this rectangle is where a file goes*, which the
             // words alone only assert, and it separates the centred invitation
@@ -61,7 +86,7 @@ struct EmptyStateView: View {
                     .font(Typography.readout)
                     .foregroundStyle(palette.dimmed.color())
             }
-            .padding(Self.dropZoneInset)
+            .padding(Self.dropZoneInset(for: surface))
             .frame(maxWidth: Metrics.readingWidth)
             .overlay(
                 RoundedRectangle(cornerRadius: Metrics.Radius.panel)
@@ -157,8 +182,10 @@ struct EmptyStateView: View {
                 .buttonStyle(.plain)
                 .font(Typography.readoutSmall)
                 .foregroundStyle(palette.accent.color())
+                .hitRegion(target: metrics.target, drawn: metrics.chromeHeight)
             #endif
         }
+        .padding(.vertical, Self.screenInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(palette.panel.color())
     }

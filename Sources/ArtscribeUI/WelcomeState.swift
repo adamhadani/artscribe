@@ -64,6 +64,13 @@ public final class WelcomeState {
     /// and re-asking is the behaviour the guidance forbids.
     public func markSeen() { hasBeenSeen = true }
 
+    /// Puts the flag back, so the tour returns **on the next launch, unbidden**
+    /// — which is exactly what `replayRequested` exists to avoid, and is
+    /// correct for the one caller that wants it: `FirstRunReset`, putting a
+    /// TestFlight container back to how a new user meets it. Not reachable from
+    /// anywhere a user could hit it by accident; see that type.
+    public func forget() { hasBeenSeen = false }
+
     /// Set by the About panel to ask for the sheet again; `DocumentView`
     /// observes it and presents, then clears it.
     ///

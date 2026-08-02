@@ -76,7 +76,12 @@ struct ArtscribeAppMain: App {
     @State private var devices = OutputDeviceController(source: PlatformAudio.makeDeviceSource())
     /// The Open Recent list. Application state, like the two above: it outlives
     /// every loaded track.
-    @State private var recents = RecentFiles()
+    /// **Handed `FirstRunReset.readyDefaults` rather than the standard suite**,
+    /// which is what guarantees a pending TestFlight reset has been applied
+    /// before either of these reads a flag. A stored property's default value
+    /// is evaluated before `init()` runs, so a reset performed there would
+    /// always be too late. See `FirstRunReset`.
+    @State private var recents = RecentFiles(defaults: FirstRunReset.readyDefaults)
     /// Light / Dark / System, persisted. Owned here because it is a property of
     /// the application rather than of the loaded track; the Settings window
     /// binds to this object.
@@ -107,7 +112,7 @@ struct ArtscribeAppMain: App {
     /// controller each time and the menu item would open nothing.
     @State private var about = AboutWindowController()
     @State private var settingsSheet = SettingsWindowController()
-    @State private var welcome = WelcomeState()
+    @State private var welcome = WelcomeState(defaults: FirstRunReset.readyDefaults)
     /// Where the practice ramp's schedule is persisted. The applied schedule
     /// lives on the model — this is only its backing tape (see
     /// `PracticeSettings`), exactly as `nudge` is for the nudge amounts.
