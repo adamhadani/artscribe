@@ -35,6 +35,18 @@ struct KeyboardMetrics {
 
     var glyphSize: Double { min(max(unit * 0.30, 7), 16) }
     var labelSize: Double { min(max(unit * 0.175, 5.5), 10) }
+
+    /// The space a key's caption occupies, **whether it needs one line or two**.
+    ///
+    /// Reserved rather than fitted, and that is the whole point: the caption sits
+    /// under the glyph in a centred stack, so a two-line caption used to push its
+    /// glyph up while a one-line caption left its glyph lower. Across a keyboard
+    /// that reads as letters that will not sit still — `Q` a point higher than
+    /// `W` beside it, for no reason a user can see.
+    ///
+    /// 1.25 per line is the line height of a system font at this size, and two
+    /// lines is what `lineLimit(2)` allows.
+    var labelHeight: Double { labelSize * 1.25 * 2 }
     /// Below this the label is unreadable, so it is dropped rather than drawn
     /// as a smear. The colour still says which category the key belongs to.
     var showsLabels: Bool { labelSize >= 6.5 }
@@ -59,6 +71,9 @@ struct ShortcutKeyboardView: View {
     /// Room kept for the legend when sizing the board, so the two are laid out
     /// against one reading of the available space rather than fighting for it.
     private static let legendHeight: Double = 46
+    /// The narrowest a legend column may be before the category names
+    /// start wrapping.
+    private static let legendColumn: Double = 108
 
     /// How much of the pane's leftover height goes **above** the board.
     ///
@@ -88,7 +103,7 @@ struct ShortcutKeyboardView: View {
             let boxHeight = max(0, geometry.size.height - Self.legendHeight - 12)
             let metrics = KeyboardMetrics(
                 size: CGSize(width: geometry.size.width, height: boxHeight))
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Metrics.xl) {
                 VStack(spacing: KeyboardMetrics.gap) {
                     ForEach(Array(KeyboardLayout.rows.enumerated()), id: \.offset) { _, row in
                         HStack(spacing: KeyboardMetrics.gap) {
@@ -127,14 +142,17 @@ struct ShortcutKeyboardView: View {
             bindings.values.contains { $0.category == category }
         }
         return LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 108), spacing: 10, alignment: .leading)],
-            alignment: .leading, spacing: 4
+            columns: [
+                GridItem(
+                    .adaptive(minimum: Self.legendColumn), spacing: Metrics.lg, alignment: .leading)
+            ],
+            alignment: .leading, spacing: Metrics.xs
         ) {
             ForEach(categories) { category in
-                HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 2)
+                HStack(spacing: Metrics.sm) {
+                    RoundedRectangle(cornerRadius: Metrics.Radius.swatch)
                         .fill(category.tint(appearance).color())
-                        .frame(width: 9, height: 9)
+                        .frame(width: Metrics.swatch, height: Metrics.swatch)
                     Text(category.title)
                         .font(Typography.readoutSmall)
                         .foregroundStyle(palette.dimmed.color())
@@ -165,31 +183,53 @@ struct ShortcutKeyCapView: View {
     @Environment(\.palette) private var palette
 
     var body: some View {
-        VStack(spacing: 1) {
+        VStack(spacing: Metrics.hairline) {
             Text(cap.glyph)
                 .font(.system(size: metrics.glyphSize, weight: .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
             if let entry, metrics.showsLabels {
-                Text(entry.title)
-                    .font(.system(size: metrics.labelSize))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.55)
-                    .multilineTextAlignment(.center)
+                Text(
+                    KeyCapCaption.caption(
+                        for: entry.title,
+                        perLine: KeyCapCaption.charactersPerLine(
+                            width: metrics.width(cap), labelSize: metrics.labelSize))
+                )
+                .font(.system(size: metrics.labelSize))
+                .lineLimit(2)
+                // Was 0.55, which put `Loop` at full size beside `Move
+                // Selection Left` at a little over half of it — three or four
+                // type sizes on one board. Shortening the *words* is the first
+                // resort (see `KeyCapCaption`) and gets the base layer to one
+                // size; this floor is the second, for the handful of modifier
+                // -layer titles like `Move Loop In Right (Far)` that no
+                // abbreviation saves. At 0.8 the difference is barely visible
+                // and nothing is ever truncated.
+                .minimumScaleFactor(KeyCapCaption.minimumScale)
+                .multilineTextAlignment(.center)
+                // Two lines' worth, always, and sat at the **bottom** of
+                // it. See `KeyboardMetrics.labelHeight`: the reserved height
+                // is what stops the glyph above riding up and down with the
+                // caption's length, and the bottom alignment is what stops the
+                // caption itself doing the same — a one-line caption sits on
+                // the line a two-line caption's second line sits on, so both
+                // the letters and the words read across the board.
+                .frame(height: metrics.labelHeight, alignment: .bottom)
             }
         }
-        .padding(.horizontal, 2)
+        .padding(.horizontal, Metrics.xxs)
         .foregroundStyle(ink)
         .frame(width: metrics.width(cap), height: metrics.keyHeight)
         .background {
             ZStack {
-                RoundedRectangle(cornerRadius: 5).fill(KeyCapStyle.surface(appearance).color())
+                RoundedRectangle(cornerRadius: Metrics.Radius.control).fill(
+                    KeyCapStyle.surface(appearance).color())
                 if let wash {
-                    RoundedRectangle(cornerRadius: 5).fill(wash)
+                    RoundedRectangle(cornerRadius: Metrics.Radius.control).fill(wash)
                 }
             }
         }
-        .overlay(RoundedRectangle(cornerRadius: 5).stroke(edge, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: Metrics.Radius.control).stroke(edge, lineWidth: 1))
         .opacity(opacity)
         .help(helpText)
         .accessibilityElement(children: .ignore)

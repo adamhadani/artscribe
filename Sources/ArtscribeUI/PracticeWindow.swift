@@ -40,6 +40,14 @@ public struct PracticeWindow: View {
     public static let minimumWidth: Double = 300
     public static let minimumHeight: Double = 330
 
+    /// The cap on an iPad form sheet, so a settings column does not
+    /// stretch across thirteen inches.
+    private static let sheetWidth: CGFloat = 620
+    /// Wide enough for `100` and a stepper, narrow enough that the two
+    /// speed fields and the repetition count line up.
+    private static let numberFieldWidth: CGFloat = 56
+    private static let progressHeight: CGFloat = 6
+
     public init(context: MenuContext, theme: ThemeController) {
         self.context = context
         self.theme = theme
@@ -53,9 +61,9 @@ public struct PracticeWindow: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            Rectangle().fill(palette.rule.color()).frame(height: 1)
+            Rectangle().fill(palette.rule.color()).frame(height: Metrics.hairline)
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: Metrics.xxl) {
                     if model.canRamp {
                         // **A heading, because "Practice" is a bigger word than
                         // what is under it.** This panel does one thing — repeat
@@ -67,13 +75,13 @@ public struct PracticeWindow: View {
                         Eyebrow("RAMP UP REPEAT")
                         scheduleFields
                         stepSummary
-                        Rectangle().fill(palette.rule.color()).frame(height: 1)
+                        Rectangle().fill(palette.rule.color()).frame(height: Metrics.hairline)
                         liveState
                     } else {
                         NoLoopGuidance(hasTrack: model.hasTrack)
                     }
                 }
-                .padding(16)
+                .padding(Metrics.xxl)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -85,7 +93,7 @@ public struct PracticeWindow: View {
         #if os(macOS)
         .frame(minWidth: Self.minimumWidth, minHeight: Self.minimumHeight)
         #else
-        .frame(maxWidth: 620, maxHeight: .infinity)
+        .frame(maxWidth: Self.sheetWidth, maxHeight: .infinity)
         .frame(maxWidth: .infinity)
         #endif
         .background(palette.background.color())
@@ -110,9 +118,9 @@ public struct PracticeWindow: View {
     /// is missing and which keys fix it, so a control that cannot be used adds
     /// only the suggestion that it can.
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Metrics.xl) {
             Eyebrow("RAMPING LOOP")
-            Spacer(minLength: 8)
+            Spacer(minLength: Metrics.md)
             if model.canRamp {
                 Button(startStopTitle) { model.toggleRamp() }
                     // Return runs it, which is what a keyboard-first app owes a
@@ -123,8 +131,8 @@ public struct PracticeWindow: View {
                             + "value to the end value")
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Metrics.xxl)
+        .padding(.vertical, Metrics.lg)
         .background(palette.background.color())
     }
 
@@ -136,7 +144,7 @@ public struct PracticeWindow: View {
     // MARK: - The schedule
 
     private var scheduleFields: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Metrics.md) {
             percentField(
                 "Start speed", value: ramp.schedule.startRatio, set: model.setRampStartRatio)
             percentField("End speed", value: ramp.schedule.endRatio, set: model.setRampEndRatio)
@@ -160,7 +168,7 @@ public struct PracticeWindow: View {
         _ title: String, value: Double, set: @escaping (Double) -> Void
     ) -> some View {
         LabeledContent {
-            HStack(spacing: 5) {
+            HStack(spacing: Metrics.sm) {
                 TextField(
                     title,
                     value: Binding(
@@ -170,7 +178,7 @@ public struct PracticeWindow: View {
                 )
                 .labelsHidden()
                 .multilineTextAlignment(.trailing)
-                .frame(width: 56)
+                .frame(width: Self.numberFieldWidth)
                 Text("%").foregroundStyle(palette.dimmed.color())
             }
         } label: {
@@ -189,7 +197,7 @@ public struct PracticeWindow: View {
             )
             .labelsHidden()
             .multilineTextAlignment(.trailing)
-            .frame(width: 56)
+            .frame(width: Self.numberFieldWidth)
         } label: {
             Text("Repetitions").foregroundStyle(palette.text.color())
         }
@@ -209,13 +217,13 @@ public struct PracticeWindow: View {
     /// **A practice tool whose progress is invisible is a stopwatch you cannot
     /// see.** Which repetition, at what speed, and how many are left.
     private var liveState: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Metrics.md) {
             Text(PracticeReadout.headline(ramp))
                 .font(ramp.isIdle ? Typography.readout : Typography.readoutEmphasis)
                 .foregroundStyle(
                     ramp.isIdle ? palette.dimmed.color() : palette.accent.color())
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.md) {
                 Text(Readout.percent(model.speed.ratio))
                     .font(.system(size: 26, weight: .semibold, design: .monospaced))
                     .foregroundStyle(
@@ -256,7 +264,7 @@ public struct PracticeWindow: View {
                     .frame(width: geometry.size.width * ramp.progress)
             }
         }
-        .frame(height: 6)
+        .frame(height: Self.progressHeight)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: ramp.progress)
         .accessibilityHidden(true)
     }
@@ -289,7 +297,7 @@ struct NoLoopGuidance: View {
     @Environment(\.palette) private var palette
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Metrics.lg) {
             Label(
                 hasTrack ? "A ramp needs a loop." : "Open a track, then set a loop.",
                 systemImage: "repeat"

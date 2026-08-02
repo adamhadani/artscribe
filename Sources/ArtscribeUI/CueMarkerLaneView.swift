@@ -41,7 +41,7 @@ struct CueMarkerLaneView: View {
                 pinnedLabel(placements, palette: palette, width: width)
                 Rectangle()
                     .fill(palette.rule.color())
-                    .frame(height: 1)
+                    .frame(height: Metrics.hairline)
                     .offset(y: Self.height - 1)
             }
             .clipped()
@@ -58,7 +58,7 @@ struct CueMarkerLaneView: View {
     ) -> some View {
         Rectangle()
             .fill(palette.marker.color())
-            .frame(width: 1, height: Self.height)
+            .frame(width: Metrics.hairline, height: Self.height)
             .offset(x: placement.x)
     }
 
@@ -94,10 +94,10 @@ struct CueMarkerLaneView: View {
                     .font(Self.font)
                     .foregroundStyle(palette.marker.color())
                     .lineLimit(1)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
+                    .padding(.horizontal, Metrics.sm)
+                    .padding(.vertical, Metrics.hairline)
                     .background(
-                        RoundedRectangle(cornerRadius: 3)
+                        RoundedRectangle(cornerRadius: Metrics.Radius.chip)
                             .fill(palette.panel.color().opacity(0.92)))
                 Spacer(minLength: 0)
             }

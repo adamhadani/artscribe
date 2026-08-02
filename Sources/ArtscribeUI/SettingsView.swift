@@ -12,6 +12,14 @@ import SwiftUI
 /// surfaces is one too many, and the state did not move with it — the control
 /// still points at the same `ThemeController` the menu did.
 public struct SettingsView: View {
+    /// Tall enough that the longest tab does not scroll. macOS only — on iPad
+    /// this is a sheet and takes its height from the presentation, where a
+    /// floor would *force* the scroll it prevents.
+    static let minimumHeight: CGFloat = 780
+    /// The numeric column every settings row's field sits in, shared by the
+    /// three tabs so their values line up down the pane.
+    static let valueFieldWidth: CGFloat = 70
+
     private let model: ViewerModel
     private let theme: ThemeController
 
@@ -29,7 +37,7 @@ public struct SettingsView: View {
         }
         // A settings window does not resize to fit its tabs on its own, and an
         // unset width gives whichever tab is shown first the final say.
-        .frame(width: 460)
+        .frame(width: Metrics.readingWidth)
     }
 }
 
@@ -74,7 +82,7 @@ struct NudgeSettingsTab: View {
         // presentation rather than its content, and a 780 pt floor there would
         // force a scroll on the smaller iPads instead of preventing one.
         #if os(macOS)
-        .frame(minHeight: 780)
+        .frame(minHeight: SettingsView.minimumHeight)
         #endif
     }
 
@@ -107,7 +115,7 @@ struct NudgeSettingsTab: View {
     }
 
     private var prerollField: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Metrics.sm) {
             TextField(
                 "Preroll",
                 value: Binding(
@@ -117,7 +125,7 @@ struct NudgeSettingsTab: View {
             )
             .labelsHidden()
             .multilineTextAlignment(.trailing)
-            .frame(width: 70)
+            .frame(width: SettingsView.valueFieldWidth)
             Text("s")
                 .foregroundStyle(.secondary)
             // Without this, setting an amount while the mode is off is a field
@@ -222,7 +230,7 @@ struct NudgeSettingsTab: View {
 
     /// One amount row's name with the keys it governs under it.
     private func rowLabel(_ title: String, keys: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Metrics.hairline) {
             Text(title)
             Text(keys)
                 .font(.caption)
@@ -231,14 +239,14 @@ struct NudgeSettingsTab: View {
     }
 
     private func field(for tier: NudgeTier) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Metrics.sm) {
             TextField(
                 tier.label, value: binding(for: tier),
                 format: .number.precision(.fractionLength(0...tier.unit.fractionDigits))
             )
             .labelsHidden()
             .multilineTextAlignment(.trailing)
-            .frame(width: 70)
+            .frame(width: SettingsView.valueFieldWidth)
             Text(tier.unit.suffix)
                 .foregroundStyle(.secondary)
         }
@@ -258,7 +266,7 @@ struct NudgeSettingsTab: View {
     /// Seconds, with three decimals so 20 ms is typable. Same validate-and-snap
     /// behaviour as the nudge fields.
     private func moveField(for tier: SelectionMoveTier) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Metrics.sm) {
             TextField(
                 tier.label,
                 value: Binding(
@@ -268,7 +276,7 @@ struct NudgeSettingsTab: View {
             )
             .labelsHidden()
             .multilineTextAlignment(.trailing)
-            .frame(width: 70)
+            .frame(width: SettingsView.valueFieldWidth)
             Text("s")
                 .foregroundStyle(.secondary)
         }

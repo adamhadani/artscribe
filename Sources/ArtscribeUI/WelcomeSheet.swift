@@ -194,6 +194,15 @@ struct WelcomeSheet: View {
     @Environment(\.palette) private var palette
     @State private var page = 0
 
+    @ScaledMetric(relativeTo: .body) private var typeScale: CGFloat = 1
+    private var metrics: ControlMetrics {
+        ControlMetrics.metrics(for: surface).scaled(by: typeScale)
+    }
+
+    /// The footer's margin. Narrower than a page's, because Skip and Next want
+    /// to sit near the corners they are reached from.
+    private static let footerInset: CGFloat = 22
+
     /// Read once, here, and handed down. The pages are pure functions of it.
     private var surface: EmptyStatePrompt.Surface { EmptyStatePrompt.current }
     private var items: [WelcomePage] { WelcomePage.pages(for: surface) }
@@ -258,6 +267,8 @@ struct WelcomeSheet: View {
             .buttonStyle(.plain)
             .font(Typography.readoutSmall)
             .foregroundStyle(palette.dimmed.color())
+            .frame(minWidth: metrics.target)
+            .hitRegion(target: metrics.target, drawn: metrics.chromeHeight)
 
             Spacer()
 
@@ -277,7 +288,9 @@ struct WelcomeSheet: View {
                     .buttonStyle(.plain)
                     .font(Typography.readoutSmall)
                     .foregroundStyle(palette.dimmed.color())
-                    .padding(.trailing, 6)
+                    .frame(minWidth: metrics.target)
+                    .hitRegion(target: metrics.target, drawn: metrics.chromeHeight)
+                    .padding(.trailing, Metrics.sm)
             }
             #endif
 
@@ -292,109 +305,10 @@ struct WelcomeSheet: View {
             .buttonStyle(.plain)
             .font(.system(size: 13, weight: .medium))
             .foregroundStyle(palette.accent.color())
+            .frame(minWidth: metrics.target)
+            .hitRegion(target: metrics.target, drawn: metrics.chromeHeight)
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 16)
-    }
-}
-
-private struct WelcomePageView: View {
-    let page: WelcomePage
-    let surface: EmptyStatePrompt.Surface
-    @Environment(\.palette) private var palette
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Spacer(minLength: 0)
-            Image(systemName: page.symbol)
-                .font(.system(size: 38, weight: .light))
-                .foregroundStyle(palette.accent.color())
-            Text(page.title)
-                .font(.system(size: 19, weight: .semibold))
-                .foregroundStyle(palette.text.color())
-            Text(page.body)
-                .font(Typography.readout)
-                .foregroundStyle(palette.dimmed.color())
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            if !page.controls.isEmpty { legend }
-            if !page.keys.isEmpty { chips }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 30)
-        .frame(maxWidth: 460)
-    }
-
-    /// The buttons, drawn as the bar draws them, one per row with what they do.
-    ///
-    /// Left-aligned inside a centred block: three icons and three sentences read
-    /// as a key to the transport bar, and centring each row would leave the
-    /// glyphs in a ragged column that no longer looks like the thing it
-    /// describes.
-    private var legend: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            ForEach(page.controls) { note in
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Image(systemName: note.symbol)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(palette.accent.color())
-                        // A fixed column so the sentences line up regardless of
-                        // how wide each glyph happens to be.
-                        .frame(width: 20, alignment: .center)
-                    VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: 6) {
-                            Text(note.name)
-                                .font(Typography.readoutSmall)
-                                .foregroundStyle(palette.text.color())
-                            if WelcomePage.showsKeys(on: surface) {
-                                KeyChip(key: note.shortcut)
-                            }
-                        }
-                        Text(note.meaning)
-                            .font(Typography.readoutSmall)
-                            .foregroundStyle(palette.dimmed.color())
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 0)
-                }
-            }
-        }
-        .padding(.top, 2)
-        .frame(maxWidth: 340)
-    }
-
-    private var chips: some View {
-        HStack(spacing: 14) {
-            ForEach(page.keys) { note in
-                HStack(spacing: 6) {
-                    KeyChip(key: note.key)
-                    Text(note.label)
-                        .font(Typography.readoutSmall)
-                        .foregroundStyle(palette.dimmed.color())
-                }
-            }
-        }
-        .padding(.top, 4)
-    }
-}
-
-/// A key, drawn as a keycap.
-private struct KeyChip: View {
-    let key: String
-    @Environment(\.palette) private var palette
-
-    var body: some View {
-        Text(key)
-            .font(Typography.readoutSmall)
-            .foregroundStyle(palette.dimmed.color())
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(palette.background.color())
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(palette.rule.color(), lineWidth: 1))
+        .padding(.horizontal, Self.footerInset)
+        .padding(.vertical, Metrics.xxl)
     }
 }

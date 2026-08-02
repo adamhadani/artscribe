@@ -79,19 +79,19 @@ struct ShortcutListView: View {
     var body: some View {
         let groups = groups
         return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: Metrics.xxl) {
                 if groups.isEmpty {
                     Text("Nothing matches “\(query)”.")
                         .font(Typography.readout)
                         .foregroundStyle(palette.dimmed.color())
-                        .padding(.top, 6)
+                        .padding(.top, Metrics.sm)
                 }
                 ForEach(groups, id: \.category) { group in
                     section(group.category, group.entries)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
+            .padding(.horizontal, Metrics.gutter)
+            .padding(.vertical, Metrics.gutter)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollContentBackground(.hidden)
@@ -141,15 +141,15 @@ struct ShortcutListView: View {
 
     private func section(_ category: ActionCategory, _ entries: [ActionEntry]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
+            HStack(spacing: Metrics.sm) {
                 // The same swatch the keyboard's legend draws, so a colour seen
                 // on a key can be followed straight to its group here.
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle(cornerRadius: Metrics.Radius.swatch)
                     .fill(category.tint(appearance).color())
-                    .frame(width: 9, height: 9)
+                    .frame(width: Metrics.swatch, height: Metrics.swatch)
                 Eyebrow(category.title.uppercased())
             }
-            .padding(.bottom, 6)
+            .padding(.bottom, Metrics.sm)
             ForEach(entries) { entry in
                 ShortcutRow(entry: entry, context: context)
             }
@@ -164,8 +164,8 @@ struct ShortcutRow: View {
     @Environment(\.palette) private var palette
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            VStack(alignment: .leading, spacing: 1) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.lg) {
+            VStack(alignment: .leading, spacing: Metrics.hairline) {
                 Text(ActionTitle.reference(entry.id, context))
                     .font(Typography.actionName)
                     .foregroundStyle(palette.text.color())
@@ -176,7 +176,7 @@ struct ShortcutRow: View {
                         .foregroundStyle(palette.dimmed.color())
                 }
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: Metrics.md)
             if entry.chords.isEmpty {
                 Text(entry.menu.map { "\($0.menuTitle) menu" } ?? "Menu only")
                     .font(Typography.readoutSmall)
@@ -185,14 +185,14 @@ struct ShortcutRow: View {
                 // More than one chord is normal — the normal nudge answers to
                 // both `Z` and `←`. The menu can only draw the first; this is
                 // the only place the alternates are visible at all.
-                HStack(spacing: 4) {
+                HStack(spacing: Metrics.xs) {
                     ForEach(entry.chords, id: \.self) { chord in
                         KeyCapView(chord: chord)
                     }
                 }
             }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, Metrics.xs)
     }
 }
 
@@ -210,13 +210,13 @@ struct KeyCapView: View {
         Text(chord.display)
             .font(Typography.keyCap)
             .foregroundStyle(palette.text.color())
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
+            .padding(.horizontal, Metrics.sm)
+            .padding(.vertical, Metrics.xxs)
             .background(
-                RoundedRectangle(cornerRadius: 4).fill(palette.background.color())
+                RoundedRectangle(cornerRadius: Metrics.Radius.chip).fill(palette.background.color())
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: Metrics.Radius.chip)
                     .stroke(palette.rule.color(), lineWidth: 1)
             )
             .fixedSize()

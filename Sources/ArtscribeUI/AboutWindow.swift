@@ -47,6 +47,17 @@ public struct AboutWindow: View {
     public static let minimumWidth: Double = 560
     public static let minimumHeight: Double = 520
 
+    /// This window's own numbers, kept here rather than in `Metrics` because
+    /// nothing else uses them — see that type's note on when a value earns a
+    /// token. A generous inset and a wide gap between blocks: this is a page to
+    /// read, not a panel to operate.
+    private static let contentInset = EdgeInsets(
+        top: 26, leading: 28, bottom: 26, trailing: 28)
+    private static let blockGap: CGFloat = 18
+    /// The widest a form sheet's column of short centred lines should get. Past
+    /// this an iPad stretches four lines across thirteen inches.
+    private static let sheetWidth: CGFloat = 520
+
     public init(
         about: AboutWindowController, theme: ThemeController,
         welcome: WelcomeState? = nil
@@ -77,8 +88,8 @@ public struct AboutWindow: View {
                     // A finger-sized target rather than the height of 13pt
                     // text. `contentShape` because a plain button's hit region
                     // is its label, and padding alone would not extend it.
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
+                    .padding(.horizontal, Metrics.gutter)
+                    .padding(.vertical, Metrics.md)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -100,7 +111,7 @@ public struct AboutWindow: View {
 
     public var body: some View {
         ScrollView {
-            VStack(spacing: 18) {
+            VStack(spacing: Self.blockGap) {
                 identity
                 // The four modifiers below used to be chained onto
                 // `welcomeAgain` rather than onto the tagline — the button was
@@ -116,8 +127,7 @@ public struct AboutWindow: View {
                 linkRow
                 licences
             }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 26)
+            .padding(Self.contentInset)
             .frame(maxWidth: .infinity)
         }
         // As in `ShortcutWindow` and `PracticeWindow`: a minimum is a floor for a
@@ -128,7 +138,7 @@ public struct AboutWindow: View {
         #if os(macOS)
         .frame(minWidth: Self.minimumWidth, minHeight: Self.minimumHeight)
         #else
-        .frame(maxWidth: 520, maxHeight: .infinity)
+        .frame(maxWidth: Self.sheetWidth, maxHeight: .infinity)
         .frame(maxWidth: .infinity)
         #endif
         .background(palette.background.color())
@@ -142,8 +152,8 @@ public struct AboutWindow: View {
     // MARK: - Who this is
 
     private var identity: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 11) {
+        VStack(spacing: Metrics.md) {
+            HStack(spacing: Metrics.xl) {
                 AboutMark()
                 Text("Artscripture")
                     .font(.system(size: 22, weight: .semibold))
@@ -167,7 +177,7 @@ public struct AboutWindow: View {
     /// like the rest of this app rather than like a web page, and so a URL that
     /// fails to parse cannot become a control that silently does nothing.
     private var linkRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Metrics.md) {
             ForEach(Array(AboutInfo.links.enumerated()), id: \.element.id) { index, link in
                 if index > 0 {
                     Text("·").foregroundStyle(palette.rule.color())
@@ -186,13 +196,13 @@ public struct AboutWindow: View {
     /// `#if` — so the iPadOS build's claim to contain no GPL code is something a
     /// test on a Mac can check. See `AboutInfo.licences(on:)`.
     private var licences: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Rectangle().fill(palette.rule.color()).frame(height: 1)
+        VStack(alignment: .leading, spacing: Metrics.xl) {
+            Rectangle().fill(palette.rule.color()).frame(height: Metrics.hairline)
 
             Button {
                 showingLicences.toggle()
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: Metrics.sm) {
                     Image(systemName: showingLicences ? "chevron.down" : "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
                     Text("Open-source licences")
@@ -209,7 +219,7 @@ public struct AboutWindow: View {
             .accessibilityHint(showingLicences ? "Hides the list" : "Shows the list")
 
             if showingLicences {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: Metrics.lg) {
                     ForEach(AboutInfo.licences) { licence in
                         AboutLicenceRow(licence: licence)
                     }
@@ -243,6 +253,8 @@ private struct AboutLinkButton: View {
     let open: (URL) -> Void
     @Environment(\.palette) private var palette
     @State private var hovering = false
+    @ScaledMetric(relativeTo: .body) private var typeScale: CGFloat = 1
+    private var metrics: ControlMetrics { ControlMetrics.current.scaled(by: typeScale) }
 
     var body: some View {
         // A link whose address will not parse is drawn dimmed and inert rather
@@ -257,6 +269,9 @@ private struct AboutLinkButton: View {
                 Text(link.title)
                     .foregroundStyle(palette.accent.color())
                     .underline(hovering)
+                    // Three links in a row, each a few words of text: without
+                    // this they are as tall as their type and no taller.
+                    .hitRegion(target: metrics.target, drawn: metrics.chromeHeight)
             }
             .buttonStyle(.plain)
             .onHover { hovering = $0 }
@@ -276,8 +291,8 @@ private struct AboutLicenceRow: View {
     @Environment(\.palette) private var palette
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: Metrics.xxs) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.md) {
                 Text(licence.component)
                     .font(Typography.readoutEmphasis)
                     .foregroundStyle(palette.text.color())
@@ -302,6 +317,10 @@ private struct AboutLicenceRow: View {
 /// same three trailing bars in the selection colour. Two places draw this mark
 /// and they should stay the same mark.
 private struct AboutMark: View {
+    /// The wordmark's box. Fixed so the bars sit on one baseline
+    /// whatever the tallest of them happens to be.
+    private static let markHeight: CGFloat = 24
+
     @Environment(\.palette) private var palette
 
     /// Height out of 24, and whether the bar is part of the trailing tail the
@@ -312,14 +331,14 @@ private struct AboutMark: View {
     ]
 
     var body: some View {
-        HStack(alignment: .center, spacing: 2) {
+        HStack(alignment: .center, spacing: Metrics.xxs) {
             ForEach(Array(Self.bars.enumerated()), id: \.offset) { _, bar in
                 Capsule()
                     .fill((bar.tail ? palette.selection : palette.text).color())
-                    .frame(width: 2, height: bar.height)
+                    .frame(width: Metrics.accentBar, height: bar.height)
             }
         }
-        .frame(height: 24)
+        .frame(height: Self.markHeight)
         .accessibilityHidden(true)
     }
 }

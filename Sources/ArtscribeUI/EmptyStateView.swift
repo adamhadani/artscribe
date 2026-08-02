@@ -25,6 +25,13 @@ struct EmptyStateView: View {
     /// there for the rest.
     private static let shown = 5
 
+    /// The dashed drop target's own inset, and the gap between it and the
+    /// recents below. Both are deliberately larger than anything on the scale:
+    /// this is the emptiest screen in the app and the space is the design.
+    private static let dropZoneInset = EdgeInsets(
+        top: 30, leading: 44, bottom: 30, trailing: 44)
+    private static let blockGap: CGFloat = 26
+
     private var shownRecents: [URL] {
         Array(recents.urls.prefix(Self.shown))
     }
@@ -40,13 +47,13 @@ struct EmptyStateView: View {
     }
 
     var body: some View {
-        VStack(spacing: 26) {
+        VStack(spacing: Self.blockGap) {
             // The drop target, drawn as one. A dashed outline does two jobs
             // here: it says *this rectangle is where a file goes*, which the
             // words alone only assert, and it separates the centred invitation
             // from the left-aligned list below it — two different kinds of
             // thing that were previously distinguished only by alignment.
-            VStack(spacing: 8) {
+            VStack(spacing: Metrics.md) {
                 Text(EmptyStatePrompt.headline(for: EmptyStatePrompt.current))
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(palette.text.color())
@@ -54,11 +61,10 @@ struct EmptyStateView: View {
                     .font(Typography.readout)
                     .foregroundStyle(palette.dimmed.color())
             }
-            .padding(.horizontal, 44)
-            .padding(.vertical, 30)
-            .frame(maxWidth: 460)
+            .padding(Self.dropZoneInset)
+            .frame(maxWidth: Metrics.readingWidth)
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: Metrics.Radius.panel)
                     // Dashed and dim: an invitation, not a control. A solid
                     // border at this size reads as a panel with a job, which is
                     // the wrong weight for the emptiest screen in the app.
@@ -79,7 +85,7 @@ struct EmptyStateView: View {
                 Button {
                     ViewerActions.open(model, url: sample)
                 } label: {
-                    VStack(spacing: 3) {
+                    VStack(spacing: Metrics.xs) {
                         Text("Try a sample track")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(palette.accent.color())
@@ -97,7 +103,7 @@ struct EmptyStateView: View {
             // Only when there is something to list. An empty "Recent" heading on
             // a first run would be a promise the app cannot keep.
             if !shownRecents.isEmpty {
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: Metrics.hairline) {
                     // **The only way to empty the list on iPad.** macOS has
                     // File ▸ Open Recent ▸ Clear Menu; iPadOS reaches the menu
                     // bar only with a hardware keyboard, so without this the
@@ -119,8 +125,8 @@ struct EmptyStateView: View {
                         .pointerStyle(.link)
                             #endif
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.bottom, 7)
+                    .padding(.horizontal, Metrics.lg)
+                    .padding(.bottom, Metrics.md)
                     ForEach(shownRecents, id: \.self) { url in
                         RecentEntryRow(url: url) { ViewerActions.open(model, url: url) }
                     }
@@ -128,7 +134,7 @@ struct EmptyStateView: View {
                 // Wide enough for a long track name, narrow enough that the
                 // block still reads as one thing rather than spanning a large
                 // window.
-                .frame(maxWidth: 460)
+                .frame(maxWidth: Metrics.readingWidth)
             }
 
             // **The iPad's only route to the About panel without a hardware
@@ -177,7 +183,7 @@ private struct RecentEntryRow: View {
 
     var body: some View {
         Button(action: open) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Metrics.xxs) {
                 Text(RecentEntryLabel.name(for: url))
                     .font(Typography.fileName)
                     // The accent, not the ordinary text colour: these are the
@@ -197,10 +203,10 @@ private struct RecentEntryRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.horizontal, Metrics.lg)
+            .padding(.vertical, Metrics.md)
             .background(
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: Metrics.Radius.badge)
                     .fill(palette.rule.color(opacity: hovering ? 0.5 : 0))
             )
             // The whole row, including the gap beside a short name, not just the

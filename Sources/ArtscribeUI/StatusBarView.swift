@@ -6,6 +6,21 @@ import SwiftUI
 /// slot, so nothing shifts sideways while you zoom or while the playhead runs.
 struct StatusBarView: View {
     let model: ViewerModel
+    /// How much of the screen below this bar belongs to the system — the home
+    /// indicator on iOS, zero on a Mac.
+    ///
+    /// **Without it the bar reads as top-aligned**, and correctly so: the
+    /// content stops at the safe area while the background carries on to the
+    /// bottom of the screen, so 8 pt of padding sits above the labels and 8 + 20
+    /// below them. Nothing is misaligned; the eye simply sees the painted band,
+    /// not the safe area, and judges the balance against that.
+    ///
+    /// Half the inset is added on top, which centres the content in what is
+    /// actually visible while still leaving it clear of the indicator. Measured
+    /// from `DocumentView`'s own geometry rather than read off a UIKit
+    /// singleton, which would be a nonisolated `UIDevice`-style trap and
+    /// untestable besides.
+    var bottomInset: CGFloat = 0
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -21,12 +36,13 @@ struct StatusBarView: View {
             row(StatusBarFields.candidates[3])
             row(StatusBarFields.candidates[4])
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
+        .padding(.horizontal, Metrics.gutter)
+        .padding(.top, Metrics.md + bottomInset / 2)
+        .padding(.bottom, Metrics.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(palette.panel.color())
         .overlay(alignment: .top) {
-            Rectangle().fill(palette.rule.color()).frame(height: 1)
+            Rectangle().fill(palette.rule.color()).frame(height: Metrics.hairline)
         }
     }
 
@@ -36,11 +52,11 @@ struct StatusBarView: View {
     /// position readout is the worst offender of all, changing sixty times a
     /// second.
     private func row(_ fields: [StatusBarFields.Field]) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 14) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.gutter) {
             ForEach(fields, id: \.self) { field in
                 view(for: field).frame(width: StatusBarFields.width(of: field), alignment: .leading)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: Metrics.md)
             // Outside the droppable set on purpose. DEGRADED is spec §8 — a
             // stall the user is not told about is the whole thing that rule
             // exists to prevent — so it must survive every width. LOADED IN
@@ -98,7 +114,7 @@ struct StatusBarView: View {
     /// Position and play state together, because they are read together: the
     /// triangle says whether the number is moving.
     private var transport: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Metrics.xxs) {
             Eyebrow(model.isPlaying ? "▶ PLAYING" : "■ POSITION")
             Text(positionText)
                 .font(Typography.readout)
@@ -120,7 +136,7 @@ struct StatusBarView: View {
     private func field(
         _ label: String, _ value: String, emphasised: Bool = false, tint: Color? = nil
     ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Metrics.xxs) {
             Eyebrow(label)
             Text(value)
                 .font(emphasised ? Typography.readoutEmphasis : Typography.readout)
