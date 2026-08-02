@@ -39,7 +39,12 @@ struct IPadAppMain: App {
     /// `CurrentRouteDeviceSource`, which reports the one route the system chose;
     /// there is nothing to pick, and that is correct rather than a limitation.
     @State private var devices = OutputDeviceController(source: PlatformAudio.makeDeviceSource())
-    @State private var recents = RecentFiles()
+    /// **Handed `FirstRunReset.readyDefaults` rather than the standard suite**,
+    /// which is what guarantees a pending TestFlight reset has been applied
+    /// before either of these reads a flag. A stored property's default value
+    /// is evaluated before `init()` runs, so a reset performed there would
+    /// always be too late. See `FirstRunReset`.
+    @State private var recents = RecentFiles(defaults: FirstRunReset.readyDefaults)
     @State private var theme = ThemeController()
     @State private var nudge = NudgeSettings()
     @State private var interaction = InteractionSettings()
@@ -55,7 +60,7 @@ struct IPadAppMain: App {
     /// a button, and `DocumentView` presents the sheet.
     @State private var about = AboutWindowController()
     @State private var settingsSheet = SettingsWindowController()
-    @State private var welcome = WelcomeState()
+    @State private var welcome = WelcomeState(defaults: FirstRunReset.readyDefaults)
 
     private var context: MenuContext {
         MenuContext(
