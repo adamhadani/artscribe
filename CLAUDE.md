@@ -188,6 +188,40 @@ nobody asked first.
 `NSApp.activate()` silently fails from a background shell and no window could become key
 (`activate(ignoringOtherApps: true)` works). Blind fixes address symptoms and leave causes.
 
+**Sizes live in three files, and which one is a question about what the number is *for*.**
+`Palette` holds colour, `Typography` type, and `Metrics` spacing — a 2 pt scale plus the radii
+and the app's standard `gutter`. `ControlMetrics` is separate and is not taste: it holds hit
+targets, which come from Apple's guidance and vary by *input device*, keyed on
+`EmptyStatePrompt.Surface` so all three readings are checkable in one `make check`. A value used
+in one place stays a named `private static let` in its own view — a global with one caller is
+indirection, not centralisation.
+
+**44 × 44 is a hit *region*, not a drawn size, and conflating them is visible immediately.**
+Drawing the header's Open… button at the full 44 gave a tall pill whose border touched the rules
+above and below. Chrome is drawn at `chromeHeight` (32 on touch) and `hitRegion(target:drawn:)`
+grows what responds — pad out, claim the padding as the content shape, pad back in — so the
+layout keeps its margins and a fingertip still gets its 44. The Mac is unaffected by
+construction: its chrome already equals its target.
+
+**Derive the control from the target; never derive the whitespace from it.** `groupPadding` and
+`barInset` as `target * 0.3` and `target * 0.42` turned 70 pt of group padding into 132 on an
+iPhone and drew the transport row out under the notch on both sides. Reach needs 44 pt; a gap
+needs to look right, and a gap that looks right is nearly the same number on every device.
+
+**SwiftUI does not shrink flexible frames to their floors.** `.frame(minWidth:maxWidth:)` on a
+row that does not fit shrinks its children *proportionally* against the proposal — the transport
+still measured 803 pt in a 750 pt safe area. `ViewThatFits` gets that right and is too expensive
+here: four candidate rows is fifty-six `GeometryReader`s writing into `@Observable` state per
+layout pass. It surfaced as a **playback** failure — `the playhead tracks real time at 1.0x`
+drifting 26%, audio fine, main thread not. `TransportDensity` computes the packing instead: one
+row, and a pure function tests can drive at any width without a window.
+
+**A bar whose content stops at the safe area reads as top-aligned.** The status bar's background
+carries on under the home indicator while its content does not, so 8 pt sat above the labels and
+8 + 20 below. Nothing was misaligned; the eye judges balance against the painted band. Half the
+inset now goes on top, measured from `DocumentView`'s geometry rather than read off a UIKit
+singleton.
+
 **Look at the pixels, on each platform, before calling UI done.** Three defects in the welcome
 sheet were invisible to 967 passing tests and to two code reviews, and all three were obvious
 in the first screenshot. A `TabView` carrying `.tabViewStyle(.page(…))` behind `#if !os(macOS)`
