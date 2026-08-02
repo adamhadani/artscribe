@@ -12,6 +12,8 @@ import SwiftUI
 struct VolumeSliderView: View {
     let model: ViewerModel
     @Environment(\.palette) private var palette
+    @ScaledMetric(relativeTo: .body) private var typeScale: CGFloat = 1
+    private var metrics: ControlMetrics { ControlMetrics.current.scaled(by: typeScale) }
 
     private static let trackWidth: Double = 92
     private static let trackHeight: Double = 4
@@ -19,9 +21,9 @@ struct VolumeSliderView: View {
 
     var body: some View {
         let volume = model.volume
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
             Eyebrow(volume.isMuted ? "MUTED  (M)" : "VOLUME  (↑↓)")
-            HStack(spacing: 9) {
+            HStack(spacing: Metrics.lg) {
                 track(volume)
                 Text(Readout.percent(volume.level))
                     .font(Typography.readout)
@@ -49,7 +51,17 @@ struct VolumeSliderView: View {
                 .offset(x: (Self.trackWidth - Self.knobDiameter) * volume.level)
         }
         .frame(width: Self.trackWidth, height: Self.knobDiameter)
-        .contentShape(.rect)
+        // Drawn 11 pt tall, **answers over the full target height** — and
+        // without taking that height in the layout, which is what the negative
+        // padding is for: pad out, claim the padding as the content shape, pad
+        // back in. The status bar keeps its height and the track stops being an
+        // 11 pt ribbon to hit.
+        //
+        // A 44 pt knob would be a different control; the guidance is about the
+        // region that responds, not the pixels that are painted. `level(atX:)`
+        // reads only the x, so a taller region cannot change the value it maps
+        // to.
+        .hitRegion(target: metrics.target, drawn: Self.knobDiameter)
         .gesture(
             DragGesture(minimumDistance: 0, coordinateSpace: .local)
                 .onChanged { value in

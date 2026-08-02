@@ -34,51 +34,117 @@ struct TransportBarView: View {
     @Environment(\.palette) private var palette
 
     /// Big enough to hit without aiming, which is what "control surface rather
-    /// than toolbar afterthought" means in points.
-    private static let glyphSize: CGFloat = 13
-    private static let buttonSize = CGSize(width: 30, height: 24)
+    /// than toolbar afterthought" means in points — and on touch that phrase
+    /// has an actual number behind it. See `ControlMetrics`.
+    @ScaledMetric(relativeTo: .body) private var typeScale: CGFloat = 1
+    private var metrics: ControlMetrics { ControlMetrics.current.scaled(by: typeScale) }
+
+    /// The three readouts in this bar are **text**, not targets, so they take
+    /// `@ScaledMetric` directly rather than going through `ControlMetrics` — a
+    /// readout has to fit its digits at whatever size the user reads at, which
+    /// is a different question from how big a thumb is.
+    ///
+    /// Each has a floor beneath it, reached only by the tightest density in
+    /// `body`: fourteen finger-sized buttons, a speed readout and a pitch
+    /// slider do not all fit across an iPhone in landscape, and something has
+    /// to give. The floors are where each still holds its widest string —
+    /// `62.5%`, a slider you can still aim at, `+12`.
+    ///
+    /// Nothing moves on a Mac or a full-size iPad, which take a density that
+    /// uses the preferred widths — so the bar still does not reflow as `100%`
+    /// becomes `62.5%`.
+    @ScaledMetric(relativeTo: .body) private var speedWidth: CGFloat = 46
+    @ScaledMetric(relativeTo: .body) private var speedFloor: CGFloat = 38
+    @ScaledMetric(relativeTo: .body) private var sliderWidth: CGFloat = 92
+    @ScaledMetric(relativeTo: .body) private var sliderFloor: CGFloat = 56
+    @ScaledMetric(relativeTo: .body) private var pitchLabelWidth: CGFloat = 58
+    @ScaledMetric(relativeTo: .body) private var pitchLabelFloor: CGFloat = 40
 
     private var state: TransportState { model.transportState }
 
+    /// The width this bar has been given. Measured off a frame pinned to the
+    /// proposal, so it is what the *container* offers and never what the
+    /// content demanded — measuring the content would make the density depend
+    /// on itself.
+    @State private var available: CGFloat = 0
+
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(TransportControl.groups.enumerated()), id: \.offset) { index, controls in
-                if index > 0 { separator }
-                row(controls)
-            }
-            separator
-            pitchControl
-            Spacer(minLength: 8)
+        let density = TransportDensity.fitting(available: available, row: row, metrics: metrics)
+        bar(
+            buttonWidth: density.buttonWidth,
+            readouts: density.readoutsAtFloor ? .floor : .preferred
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            available = $0
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
         .background(palette.background.color())
         .overlay(alignment: .top) {
-            Rectangle().fill(palette.rule.color()).frame(height: 1)
+            Rectangle().fill(palette.rule.color()).frame(height: Metrics.hairline)
         }
-        // The row itself is out of the focus chain, so a click cannot land the
-        // keyboard here even before `restoreFocus` runs.
+        // The row itself is out of the focus chain, so a click cannot land
+        // the keyboard here even before `restoreFocus` runs.
         .focusable(false)
     }
 
+    /// This bar's shape, handed to the arithmetic in `TransportDensity`.
+    private var row: TransportDensity.Row {
+        TransportDensity.Row(
+            buttons: TransportControl.allCases.count,
+            groups: TransportControl.groups.count,
+            gaps: TransportControl.groups.reduce(0) { $0 + max(0, $1.count - 1) },
+            speedPreferred: speedWidth, speedFloor: speedFloor,
+            sliderPreferred: sliderWidth, sliderFloor: sliderFloor,
+            labelPreferred: pitchLabelWidth, labelFloor: pitchLabelFloor,
+            pitchGap: Metrics.sm, slack: Metrics.md)
+    }
+
+    /// How much room the three readouts get. Two settings rather than a scale
+    /// factor: there is a width at which each still holds its widest string —
+    /// `62.5%`, a slider you can still aim at, `+12` — and no reason to sit
+    /// anywhere between that and the comfortable one.
+    private enum ReadoutWidth {
+        case preferred
+        case floor
+    }
+
+    private func bar(buttonWidth: CGFloat, readouts: ReadoutWidth) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Array(TransportControl.groups.enumerated()), id: \.offset) { index, controls in
+                if index > 0 { separator }
+                row(controls, buttonWidth: buttonWidth, readouts: readouts)
+            }
+            separator
+            pitchControl(readouts)
+            Spacer(minLength: Metrics.md)
+        }
+        .padding(.horizontal, metrics.barInset)
+        .padding(.vertical, metrics.rowPadding)
+    }
+
     @ViewBuilder
-    private func row(_ controls: [TransportControl]) -> some View {
-        HStack(spacing: 3) {
+    private func row(
+        _ controls: [TransportControl], buttonWidth: CGFloat, readouts: ReadoutWidth
+    ) -> some View {
+        HStack(spacing: metrics.spacing) {
             ForEach(controls, id: \.self) { control in
-                button(control)
+                button(control, width: buttonWidth)
                 // The speed sits *between* its two buttons, where a mixer would
                 // put the value it steps.
-                if control == .slower { speedReadout }
+                if control == .slower { speedReadout(readouts) }
             }
         }
-        .padding(.horizontal, 7)
+        .padding(.horizontal, metrics.groupPadding)
     }
 
     private var separator: some View {
-        Rectangle().fill(palette.rule.color()).frame(width: 1, height: 16)
+        Rectangle().fill(palette.rule.color())
+            .frame(width: Metrics.hairline, height: metrics.target * 0.67)
     }
 
-    private func button(_ control: TransportControl) -> some View {
+    private func button(_ control: TransportControl, width: CGFloat) -> some View {
         let enabled = control.isEnabled(in: state)
         let isOn = control.isOn(in: state)
         return Button {
@@ -86,23 +152,27 @@ struct TransportBarView: View {
             restoreFocus()
         } label: {
             Image(systemName: control.symbol(in: state))
-                .font(.system(size: Self.glyphSize, weight: .medium))
-                .frame(width: Self.buttonSize.width, height: Self.buttonSize.height)
+                .font(.system(size: metrics.glyph, weight: .medium))
+                // Whatever width the chosen density settled on — see `body`.
+                // **Height never varies**, because height is the axis a thumb
+                // is actually short of and the axis nothing here competes for.
+                .frame(width: width, height: metrics.buttonHeight)
                 .foregroundStyle(tint(enabled: enabled, isOn: isOn))
                 .background(
-                    RoundedRectangle(cornerRadius: 5)
+                    RoundedRectangle(cornerRadius: metrics.cornerRadius)
                         .fill(
                             isOn
                                 ? palette.loop.color(opacity: 0.22)
                                 : palette.panel.color(opacity: enabled ? 1 : 0.5))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 5)
+                    RoundedRectangle(cornerRadius: metrics.cornerRadius)
                         .stroke(
                             isOn ? palette.loop.color() : palette.rule.color(),
                             lineWidth: isOn ? 1.5 : 1)
                 )
                 .contentShape(Rectangle())
+                .hitRegion(target: metrics.target, drawn: metrics.buttonHeight)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -133,7 +203,7 @@ struct TransportBarView: View {
     /// Between `−` and `+`, carrying the status bar's emphasis rule — the same
     /// `SpeedStepping.isAltered` both readouts ask, so they cannot disagree
     /// about what "not normal speed" looks like.
-    private var speedReadout: some View {
+    private func speedReadout(_ readouts: ReadoutWidth) -> some View {
         Text(state.speedLabel)
             .font(state.speedIsEmphasised ? Typography.readoutEmphasis : Typography.readout)
             .monospacedDigit()
@@ -142,7 +212,7 @@ struct TransportBarView: View {
                     ? (state.speedIsEmphasised ? palette.emphasis.color() : palette.text.color())
                     : palette.dimmed.color()
             )
-            .frame(width: 46)
+            .frame(width: readouts == .floor ? speedFloor : speedWidth)
             .help("Speed  (1–4, Q, W)")
     }
 
@@ -157,8 +227,8 @@ struct TransportBarView: View {
     /// Bound through `setPitch(cents:)` rather than to `model.pitch` directly,
     /// so a drag goes down the same path as a key press and there is still one
     /// place a pitch reaches the render thread.
-    private var pitchControl: some View {
-        HStack(spacing: 6) {
+    private func pitchControl(_ readouts: ReadoutWidth) -> some View {
+        HStack(spacing: Metrics.sm) {
             Slider(
                 value: Binding(
                     get: { Double(model.pitch.cents) },
@@ -167,13 +237,17 @@ struct TransportBarView: View {
                 in: Double(PitchState.minCents)...Double(PitchState.maxCents),
                 step: Double(PitchState.centsPerSemitone)
             )
-            .controlSize(.mini)
-            .frame(width: 92)
+            // Read off the metric rather than off the platform: a mini slider's
+            // thumb is a pointer-sized grab, and where the row is sized for a
+            // fingertip the thumb has to be too.
+            .controlSize(metrics.target >= 44 ? .regular : .mini)
+            .frame(
+                width: readouts == .floor ? sliderFloor : sliderWidth,
+                height: metrics.buttonHeight
+            )
             .disabled(!state.hasTrack)
             .help("Pitch, independent of speed  ([, ], ⇧ for cents, ⌥] to reset)")
 
-            // Fixed width, so the bar does not reflow as the readout appears and
-            // disappears — the same reason the speed readout is a fixed 46.
             Text(model.pitchLabel.isEmpty ? "±0" : model.pitchLabel)
                 .font(
                     model.pitch.isAltered ? Typography.readoutEmphasis : Typography.readout
@@ -185,7 +259,9 @@ struct TransportBarView: View {
                             ? palette.emphasis.color() : palette.text.color())
                         : palette.dimmed.color()
                 )
-                .frame(width: 58, alignment: .leading)
+                .frame(
+                    width: readouts == .floor ? pitchLabelFloor : pitchLabelWidth,
+                    alignment: .leading)
         }
     }
 }

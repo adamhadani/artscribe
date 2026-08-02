@@ -36,6 +36,15 @@ struct TitleBarView: View {
     /// not have a "back".
     var onClose: (() -> Void)?
     @Environment(\.palette) private var palette
+    /// Follows the user's text-size setting. A plain `CGFloat` scaled by the
+    /// body text style, used as a *factor* rather than as a size, because the
+    /// base value depends on the surface and `@ScaledMetric` takes a literal.
+    /// See `ControlMetrics.scaled(by:)` for why it is clamped.
+    @ScaledMetric(relativeTo: .body) private var typeScale: CGFloat = 1
+    private var metrics: ControlMetrics { ControlMetrics.current.scaled(by: typeScale) }
+    /// The decode progress bar. Fixed, so the header does not reflow as
+    /// the phase label changes length underneath it.
+    private static let progressWidth: CGFloat = 130
     #if os(macOS)
     /// Computed, not stored: a stored `private` property would make the
     /// synthesised memberwise initialiser private too, and `DocumentView`
@@ -45,7 +54,7 @@ struct TitleBarView: View {
     #endif
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: Metrics.gutter) {
             if let onClose, model.hasTrack {
                 Button(action: onClose) {
                     // Chevron plus a word: the glyph alone reads as "undo" or
@@ -54,6 +63,10 @@ struct TitleBarView: View {
                         .labelStyle(.titleAndIcon)
                         .font(Typography.readoutSmall)
                         .foregroundStyle(palette.accent.color())
+                        // The words are 10 pt tall; the region that answers a
+                        // thumb is not. `contentShape` after the frame is what
+                        // makes the padding tappable rather than merely empty.
+                        .hitRegion(target: metrics.target, drawn: metrics.chromeHeight)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Close track")
@@ -66,7 +79,7 @@ struct TitleBarView: View {
 
             Rectangle()
                 .fill(palette.rule.color())
-                .frame(width: 1, height: 14)
+                .frame(width: Metrics.hairline, height: 14)
 
             Text(model.fileName ?? "No file open")
                 .font(Typography.fileName)
@@ -81,17 +94,17 @@ struct TitleBarView: View {
             // the inspector's chrome. It is now an inline banner beside the
             // decode and device notices — see `SessionFallbackBanner`.
 
-            Spacer(minLength: 12)
+            Spacer(minLength: Metrics.xl)
 
             if model.isLoading {
-                HStack(spacing: 8) {
+                HStack(spacing: Metrics.md) {
                     Text(model.loadPhase?.label ?? "Loading…")
                         .font(Typography.readoutSmall)
                         .foregroundStyle(palette.dimmed.color())
                     ProgressView(value: model.progress)
                         .progressViewStyle(.linear)
                         .tint(palette.accent.color())
-                        .frame(width: 130)
+                        .frame(width: Self.progressWidth)
                     Text("\(Int((model.progress * 100).rounded()))%")
                         .font(Typography.readoutSmall)
                         .foregroundStyle(palette.dimmed.color())
@@ -110,9 +123,15 @@ struct TitleBarView: View {
                     Button(
                         "About Artscripture", systemImage: "info.circle", action: auxiliary.about)
                 } label: {
+                    // **The control this whole file was reopened for.** It was
+                    // a bare 15 pt glyph: a 15 × 15 pt target, on the one route
+                    // to Settings, Shortcuts, Practice and About that a device
+                    // without a hardware keyboard has.
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 15))
+                        .font(.system(size: metrics.glyph))
                         .foregroundStyle(palette.dimmed.color())
+                        .frame(width: metrics.chromeHeight, height: metrics.chromeHeight)
+                        .hitRegion(target: metrics.target, drawn: metrics.chromeHeight)
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
@@ -124,16 +143,19 @@ struct TitleBarView: View {
                 .buttonStyle(.plain)
                 .font(Typography.readout)
                 .foregroundStyle(palette.text.color())
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
+                .padding(.horizontal, metrics.groupPadding * 1.4)
+                .frame(minHeight: metrics.chromeHeight)
                 .background(
-                    RoundedRectangle(cornerRadius: 5).fill(palette.panel.color())
+                    RoundedRectangle(cornerRadius: metrics.cornerRadius)
+                        .fill(palette.panel.color())
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .stroke(palette.rule.color(), lineWidth: 1))
+                    RoundedRectangle(cornerRadius: metrics.cornerRadius)
+                        .stroke(palette.rule.color(), lineWidth: 1)
+                )
+                .hitRegion(target: metrics.target, drawn: metrics.chromeHeight)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Metrics.gutter)
         // Clear of the window's traffic lights, which macOS draws on top of this
         // header — the wordmark used to read `A ● ● ● IBE`. Measured rather than
         // assumed so that full screen, where the buttons are removed, gets no
@@ -141,10 +163,10 @@ struct TitleBarView: View {
         #if os(macOS)
         .padding(.leading, trafficLights.leading)
         #endif
-        .padding(.vertical, 9)
+        .padding(.vertical, metrics.barPadding)
         .background(palette.background.color())
         .overlay(alignment: .bottom) {
-            Rectangle().fill(palette.rule.color()).frame(height: 1)
+            Rectangle().fill(palette.rule.color()).frame(height: Metrics.hairline)
         }
     }
 }
@@ -157,7 +179,7 @@ struct ErrorBannerView: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: Metrics.lg) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(palette.danger.color())
                 .font(.system(size: 12))
@@ -165,17 +187,17 @@ struct ErrorBannerView: View {
                 .font(Typography.bannerBody)
                 .foregroundStyle(palette.text.color())
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 8)
+            Spacer(minLength: Metrics.md)
             Button("Dismiss", action: onDismiss)
                 .buttonStyle(.plain)
                 .font(Typography.readoutSmall)
                 .foregroundStyle(palette.dimmed.color())
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
+        .padding(.horizontal, Metrics.gutter)
+        .padding(.vertical, Metrics.lg)
         .background(palette.danger.color(opacity: 0.12))
         .overlay(alignment: .leading) {
-            Rectangle().fill(palette.danger.color()).frame(width: 2)
+            Rectangle().fill(palette.danger.color()).frame(width: Metrics.accentBar)
         }
     }
 }
@@ -204,7 +226,7 @@ struct SessionFallbackBanner: View {
 
     var body: some View {
         if model.isSessionStoredAwayFromTheTrack {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: Metrics.lg) {
                 Image(systemName: "externaldrive.badge.exclamationmark")
                     .foregroundStyle(palette.emphasis.color())
                     .font(.system(size: 12))
@@ -212,13 +234,13 @@ struct SessionFallbackBanner: View {
                     .font(Typography.bannerBody)
                     .foregroundStyle(palette.text.color())
                     .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 8)
+                Spacer(minLength: Metrics.md)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
+            .padding(.horizontal, Metrics.gutter)
+            .padding(.vertical, Metrics.lg)
             .background(palette.emphasis.color(opacity: 0.12))
             .overlay(alignment: .leading) {
-                Rectangle().fill(palette.emphasis.color()).frame(width: 2)
+                Rectangle().fill(palette.emphasis.color()).frame(width: Metrics.accentBar)
             }
         }
     }

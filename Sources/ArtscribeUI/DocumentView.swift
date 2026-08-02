@@ -42,6 +42,15 @@ public struct DocumentView: View {
     /// on the last explicit scheme when handed a `nil`. `ThemeController` does
     /// the resolving and always passes something concrete.
     @Environment(\.colorScheme) private var colorScheme
+    /// See `StatusBarView.bottomInset`.
+    @State private var bottomInset: CGFloat = 0
+
+    /// The whole track at a glance, above the zoomed lanes.
+    private static let overviewHeight: CGFloat = 58
+    /// Sized for the tour's *tallest* page rather than its first — a Mac
+    /// sheet does not scroll, so fitting page one clips the one that
+    /// matters. iOS uses a detent instead and ignores this.
+    private static let welcomeSheet = CGSize(width: 540, height: 440)
 
     public init(context: MenuContext) {
         self.context = context
@@ -67,6 +76,11 @@ public struct DocumentView: View {
     #endif
 
     public var body: some View {
+        // The system's own strip at the foot of the screen — the home indicator.
+        // Read here, where the window's geometry is, and handed to the one view
+        // whose balance depends on it. `onGeometryChange` rather than wrapping
+        // everything in a `GeometryReader`, which would take over the layout of
+        // the whole document.
         VStack(spacing: 0) {
             #if os(macOS)
             TitleBarView(model: model) { ViewerActions.open(model) }
@@ -129,7 +143,7 @@ public struct DocumentView: View {
 
             if model.hasTrack {
                 OverviewStripView(model: model)
-                    .frame(height: 58)
+                    .frame(height: Self.overviewHeight)
                 TimeRulerView(model: model)
                 // Only when the file has a cue sheet and the user has not put
                 // the lane away, so a track with no markers costs no height at
@@ -147,7 +161,12 @@ public struct DocumentView: View {
             // every press: see `TransportBarView` for why that second half is
             // not optional in a keyboard-first app.
             TransportBarView(model: model) { hasKeyboardFocus = true }
-            StatusBarView(model: model)
+            StatusBarView(model: model, bottomInset: bottomInset)
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.safeAreaInsets.bottom
+        } action: {
+            bottomInset = $0
         }
         .background(Palette.of(appearance).background.color())
         // **The auxiliary windows, as sheets.** On macOS these are real windows —
@@ -289,7 +308,7 @@ public struct DocumentView: View {
             // icon rows of two lines each under a three-line paragraph. A Mac
             // sheet does not scroll, so a size that fits the *first* page
             // clips the one that matters.
-            .frame(width: 540, height: 440)
+            .frame(width: Self.welcomeSheet.width, height: Self.welcomeSheet.height)
                 #endif
         }
         .onChange(of: context.welcome.replayRequested) { _, wanted in

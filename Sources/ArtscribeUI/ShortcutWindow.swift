@@ -56,6 +56,11 @@ public struct ShortcutWindow: View {
     public static let minimumWidth: Double = 760
     public static let minimumHeight: Double = 460
 
+    /// Wider than the drawn divider, because a 1 pt line is not a thing
+    /// anyone can grab.
+    private static let dividerGrab: CGFloat = 9
+    private static let searchFieldWidth: CGFloat = 220
+
     public init(context: MenuContext, theme: ThemeController) {
         self.context = context
         self.theme = theme
@@ -72,7 +77,7 @@ public struct ShortcutWindow: View {
         @Bindable var shortcuts = shortcuts
         return VStack(spacing: 0) {
             header(query: $shortcuts.query)
-            Rectangle().fill(palette.rule.color()).frame(height: 1)
+            Rectangle().fill(palette.rule.color()).frame(height: Metrics.hairline)
             // One reader over the whole split. The list's width is *computed*
             // rather than expressed as a min/ideal/max frame, because the
             // divider has to be somewhere the reader put it and a flexible
@@ -84,7 +89,7 @@ public struct ShortcutWindow: View {
                     ShortcutKeyboardView(
                         layer: layer, query: shortcuts.query, appearance: appearance
                     )
-                    .padding(14)
+                    .padding(Metrics.gutter)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     // Spec §12 and the brief: Reduce Motion turns the layer
                     // cross-fade off rather than shortening it. A keyboard that
@@ -164,7 +169,7 @@ public struct ShortcutWindow: View {
             .frame(width: ShortcutSplit.dividerWidth)
             .overlay {
                 Color.clear
-                    .frame(width: 9)
+                    .frame(width: Self.dividerGrab)
                     .contentShape(Rectangle())
                     // SwiftUI's own pointer style, as the ruler and the lanes
                     // already use — not an `NSCursor.push()`/`pop()` pair, which
@@ -195,10 +200,10 @@ public struct ShortcutWindow: View {
     // MARK: - Chrome
 
     private func header(query: Binding<String>) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Metrics.xl) {
             Eyebrow("KEYBOARD SHORTCUTS")
 
-            HStack(spacing: 5) {
+            HStack(spacing: Metrics.sm) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 10))
                     .foregroundStyle(palette.dimmed.color())
@@ -220,18 +225,21 @@ public struct ShortcutWindow: View {
                     .help("Clear the filter")
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .frame(width: 220)
-            .background(RoundedRectangle(cornerRadius: 5).fill(palette.panel.color()))
+            .padding(.horizontal, Metrics.md)
+            .padding(.vertical, Metrics.xs)
+            .frame(width: Self.searchFieldWidth)
+            .background(
+                RoundedRectangle(cornerRadius: Metrics.Radius.control).fill(palette.panel.color())
+            )
             .overlay(
-                RoundedRectangle(cornerRadius: 5).stroke(palette.rule.color(), lineWidth: 1))
+                RoundedRectangle(cornerRadius: Metrics.Radius.control).stroke(
+                    palette.rule.color(), lineWidth: 1))
 
-            Spacer(minLength: 8)
+            Spacer(minLength: Metrics.md)
             layerPicker
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
+        .padding(.horizontal, Metrics.gutter)
+        .padding(.vertical, Metrics.lg)
         .background(palette.background.color())
     }
 
@@ -242,7 +250,7 @@ public struct ShortcutWindow: View {
     /// back, so the held gesture is legible as the same control the picker is,
     /// and a click is the way to get there without holding anything.
     private var layerPicker: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Metrics.lg) {
             Text(held.isEmpty ? "Hold ⇧ ⌥ ⌘ — or pick a layer" : "Holding")
                 .font(Typography.readoutSmall)
                 .foregroundStyle(held.isEmpty ? palette.dimmed.color() : palette.accent.color())

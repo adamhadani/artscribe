@@ -183,14 +183,14 @@ struct TimelineEdgeOverlay: View {
             .font(Typography.readout)
             .monospacedDigit()
             .foregroundStyle(palette.text.color())
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
+            .padding(.horizontal, Metrics.md)
+            .padding(.vertical, Metrics.xs)
             .background(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                RoundedRectangle(cornerRadius: Metrics.Radius.control, style: .continuous)
                     .fill(palette.panel.color().opacity(0.96))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                RoundedRectangle(cornerRadius: Metrics.Radius.control, style: .continuous)
                     .strokeBorder(ink.color(opacity: 0.9), lineWidth: 1)
             )
             .fixedSize()

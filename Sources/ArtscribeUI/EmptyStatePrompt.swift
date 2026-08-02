@@ -20,7 +20,11 @@ public enum EmptyStatePrompt {
 
     /// Which sentence to use. Named for the *interaction* rather than the OS,
     /// because that is what decides it: whether a file can be dragged in.
-    public enum Surface {
+    /// `CaseIterable` so a test can walk *every* surface rather than a list
+    /// someone has to remember to extend — the whole reason this is an explicit
+    /// case rather than an `#if`. `Sendable` because it is a plain enum and
+    /// crosses into tests and metrics that are.
+    public enum Surface: CaseIterable, Sendable {
         /// A pointer, a file system in a window, and drag-and-drop.
         case desktop
         /// Touch, with multitasking — a drop is possible and normal.
