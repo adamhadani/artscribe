@@ -72,7 +72,7 @@ happened once in this project, and the only clue was a test count that did not m
 │  Artscripture                    │
 │                                  │
 │  Black Codes                     │   title    — file name, extension dropped
-│  50% · looping 1:23–1:27         │   subtitle — see below
+│  50% · looping 01:23–01:27       │   subtitle — see below
 │                                  │
 │  ─────●───────────────────────   │
 │  1:25                     7:44   │   whole-track position
@@ -97,7 +97,7 @@ Speed always; then loop or practice state when either applies.
 |---|---|
 | Plain playback | `100%` |
 | Slowed | `50%` |
-| Loop enabled | `50% · looping 1:23–1:27` |
+| Loop enabled | `50% · looping 01:23–01:27` |
 | Practice ramp running | `65% · practice, rep 4 of 12` |
 
 Speed and loop are exactly what the user cannot see with the screen locked, and both change
