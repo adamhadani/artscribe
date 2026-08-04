@@ -204,7 +204,8 @@ public struct DocumentView: View {
         }
         .sheet(isPresented: sheetBinding(for: context.settings.windowState)) {
             SettingsSheet(
-                model: model, theme: context.theme, settings: context.settings
+                model: model, theme: context.theme, settings: context.settings,
+                welcome: context.welcome, recents: context.recents
             )
             // `.form`, like Practice: this is a column of label/value rows and
             // wants the form sheet's measure. `.page` would strand short rows

@@ -7,10 +7,12 @@ import SwiftUI
 /// automatically, complete with ⌘, — so nothing here hand-rolls a window or a
 /// shortcut.
 ///
-/// Two tabs, and deliberately no third. Theme moved here out of `View ▸ Theme`
-/// the moment there was a Settings window to move it into: two preference
-/// surfaces is one too many, and the state did not move with it — the control
-/// still points at the same `ThemeController` the menu did.
+/// Two tabs for a shipped build, and deliberately no third — the **Beta** tab
+/// is present only where `InstallEnvironment` says this copy did not come from
+/// the App Store. Theme moved here out of `View ▸ Theme` the moment there was a
+/// Settings window to move it into: two preference surfaces is one too many, and
+/// the state did not move with it — the control still points at the same
+/// `ThemeController` the menu did.
 public struct SettingsView: View {
     /// Tall enough that the longest tab does not scroll. macOS only — on iPad
     /// this is a sheet and takes its height from the presentation, where a
@@ -22,10 +24,21 @@ public struct SettingsView: View {
 
     private let model: ViewerModel
     private let theme: ThemeController
+    private let welcome: WelcomeState
+    private let recents: RecentFiles
 
-    public init(model: ViewerModel, theme: ThemeController) {
+    /// Read once here rather than in the body: `InstallEnvironment.current`
+    /// touches the file system, and a `TabView`'s body runs far more often than
+    /// an install changes.
+    private let installEnvironment = InstallEnvironment.current
+
+    public init(
+        model: ViewerModel, theme: ThemeController, welcome: WelcomeState, recents: RecentFiles
+    ) {
         self.model = model
         self.theme = theme
+        self.welcome = welcome
+        self.recents = recents
     }
 
     public var body: some View {
@@ -34,6 +47,15 @@ public struct SettingsView: View {
                 .tabItem { Label("Playback", systemImage: "waveform") }
             AppearanceSettingsTab(theme: theme)
                 .tabItem { Label("Appearance", systemImage: "circle.lefthalf.filled") }
+            // Absent on the App Store, where its one button would be a way for a
+            // real user to throw away their recents by accident. See the type.
+            if installEnvironment != .appStore {
+                BetaSettingsTab(
+                    welcome: welcome, recents: recents,
+                    environment: installEnvironment, build: Bundle.main.buildVersion
+                )
+                .tabItem { Label("Beta", systemImage: "hammer") }
+            }
         }
         // A settings window does not resize to fit its tabs on its own, and an
         // unset width gives whichever tab is shown first the final say.
