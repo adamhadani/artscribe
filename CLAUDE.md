@@ -173,6 +173,41 @@ field on something else. Where a model has to hold a reference for its own use, 
 object into the view separately — `MenuContext` already carries `recents`, `devices`, `theme`
 and the rest for exactly this reason.
 
+**On iOS the App Store receipt is not in the app bundle, and a build that
+introduces a "last seen" key cannot fire its own transition.** Two independent
+defects shipped together in build 164's TestFlight first-run reset, and either
+alone would have made it do nothing:
+
+- `InstallEnvironment` probed `Bundle.main.bundleURL/StoreKit/sandboxReceipt`.
+  iOS puts the bundle and the app's data in **sibling containers**, and the
+  receipt goes in the data one — `…/Containers/Data/Application/<UUID>/StoreKit/…`
+  against `…/Containers/Bundle/Application/<UUID>/Artscripture.app`. So every
+  TestFlight build called itself `.development`. `NSHomeDirectory()` returns the
+  data container root exactly; macOS is the other way round and really does keep
+  it inside the bundle, at `Contents/_MASReceipt/`. Measured on an iPad simulator
+  running iOS 26.2, not read off a blog — the first two write-ups found were both
+  wrong about which container it is.
+- `shouldReset` treated `stored == nil` as "a fresh container, nothing to put
+  back". But the build that *introduces* a key is exactly the build on which
+  every existing container has `nil` beside a full one. **Whenever a new
+  `UserDefaults` key gates a migration, `nil` is the case that migration exists
+  for**, not the case to skip.
+
+`ARTSCRIBE_INSTALL_ENV=testFlight|appStore|development` now forces the answer, so
+the branch is reachable on a Mac and on a simulator. It exists because an upload
+is a twelve-minute round trip that cannot be stepped through, and the reset
+shipped twice without its only meaningful branch ever having run. Drive it with
+`SIMCTL_CHILD_ARTSCRIBE_INSTALL_ENV=…` and prove an update for real by building
+twice with different `ARTSCRIBE_BUILD_NUMBER` values and installing the second
+*over* the first — `simctl install` keeps the data container, exactly as
+TestFlight does.
+
+Two things that wasted time inside that loop, both measurement rather than code:
+`print` from a simulator app does not reach `log show` (use `NSLog`), and
+**`simctl uninstall` mints a new data-container UUID**, so a `get_app_container`
+path cached across a reinstall silently points at a dead container — which read
+as "the app ignored my change" for two rounds.
+
 **Match the fix to the tool.** Small contained changes — a layout tweak, a one-file fix, a
 doc correction — should just be made. Spawning a subagent costs 20–80 minutes and 200–400k
 tokens because it re-reads this file, re-establishes context, runs the acceptance harness and

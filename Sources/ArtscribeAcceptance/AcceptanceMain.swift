@@ -138,7 +138,7 @@ struct AcceptanceMain: App {
         .windowResizability(.contentMinSize)
 
         Settings {
-            SettingsView(model: model, theme: theme)
+            SettingsView(model: model, theme: theme, welcome: welcome, recents: recents)
         }
     }
 

@@ -26,13 +26,54 @@ struct FirstRunResetTests {
     /// Every documented location, and the `nil` that a `swift run` build gives.
     @Test("a receipt is found wherever the platform puts it")
     func receiptIsFoundOnEitherPlatform() {
-        let bundle = URL(fileURLWithPath: "/tmp/Artscripture.app")
-        for path in InstallEnvironment.receiptPaths {
-            let planted = bundle.appending(path: path)
-            let found = InstallEnvironment.receiptName(inBundleAt: bundle) { $0 == planted }
-            #expect(found == (path as NSString).lastPathComponent, "not found at \(path)")
+        let bundle = URL(fileURLWithPath: "/tmp/Bundle/Artscripture.app")
+        let home = URL(fileURLWithPath: "/tmp/Data")
+        for planted in InstallEnvironment.receiptCandidates(bundle: bundle, home: home) {
+            let found = InstallEnvironment.receiptName(bundle: bundle, home: home) { $0 == planted }
+            #expect(
+                found == planted.lastPathComponent, "not found at \(planted.path)")
         }
-        #expect(InstallEnvironment.receiptName(inBundleAt: bundle) { _ in false } == nil)
+        let none = InstallEnvironment.receiptName(bundle: bundle, home: home) { _ in false }
+        #expect(none == nil)
+    }
+
+    /// **The defect that made this feature dead on arrival.**
+    ///
+    /// On iOS the receipt is not in the app bundle — it is in the *data*
+    /// container, a sibling root (`…/Containers/Data/Application/<UUID>/`,
+    /// which is what `NSHomeDirectory()` returns) rather than
+    /// `…/Containers/Bundle/Application/<UUID>/Artscripture.app`. Probing only
+    /// under the bundle finds nothing on a real TestFlight install, every build
+    /// calls itself `.development`, and the reset can never fire.
+    ///
+    /// Measured on an iPad simulator running iOS 26.2:
+    ///
+    /// ```
+    /// bundleURL  = …/Containers/Bundle/Application/<UUID>/Artscripture.app
+    /// receiptURL = …/Containers/Data/Application/<UUID>/StoreKit/receipt
+    /// ```
+    @Test("a TestFlight receipt in the data container is found")
+    func receiptIsFoundInTheDataContainer() {
+        let bundle = URL(fileURLWithPath: "/tmp/Containers/Bundle/App/Artscripture.app")
+        let home = URL(fileURLWithPath: "/tmp/Containers/Data/App")
+        let planted = home.appending(path: "StoreKit/sandboxReceipt")
+
+        let found = InstallEnvironment.receiptName(bundle: bundle, home: home) { $0 == planted }
+
+        #expect(found == "sandboxReceipt", "the receipt was not found outside the bundle")
+        #expect(InstallEnvironment.of(receiptName: found) == .testFlight)
+    }
+
+    /// The override that makes every branch reachable on a Mac, which is the
+    /// only reason any of this could be checked before an upload.
+    @Test("the environment can be overridden for local testing")
+    func environmentOverride() {
+        let key = InstallEnvironment.overrideKey
+        #expect(InstallEnvironment.override(in: [key: "testFlight"]) == .testFlight)
+        #expect(InstallEnvironment.override(in: [key: "appStore"]) == .appStore)
+        #expect(InstallEnvironment.override(in: [:]) == nil, "an unset variable must not override")
+        let typo = InstallEnvironment.override(in: [key: "nonsense"])
+        #expect(typo == nil, "a typo must not override")
     }
 
     // MARK: - When to reset
@@ -54,11 +95,20 @@ struct FirstRunResetTests {
         #expect(!FirstRunReset.shouldReset(environment: .testFlight, stored: "163", current: "163"))
     }
 
-    /// A container with no recorded build is a genuinely fresh install: there is
-    /// nothing to put back, and the user is about to get the first run anyway.
-    @Test("a fresh container is not a reset")
-    func freshInstallDoesNothing() {
-        #expect(!FirstRunReset.shouldReset(environment: .testFlight, stored: nil, current: "163"))
+    /// **The other half of why build 164 showed nobody the tour.**
+    ///
+    /// `nil` was read as "a genuinely fresh install, nothing to put back". It is
+    /// not: 164 was the first build to *write* `lastRunBuildVersion`, so every
+    /// existing tester's container had `nil` alongside a welcome flag and a full
+    /// recents list. The one case the transition had to cover was the one it
+    /// excluded.
+    ///
+    /// Treating `nil` as a change is right in both directions, because on a
+    /// container that really is fresh the reset clears a flag that is already
+    /// false and a list that is already empty.
+    @Test("a container from before this feature existed still resets")
+    func aContainerPredatingTheFeatureResets() {
+        #expect(FirstRunReset.shouldReset(environment: .testFlight, stored: nil, current: "165"))
     }
 
     /// **The one that would be a bug report.** A shipped app must never do this,
@@ -99,6 +149,33 @@ struct FirstRunResetTests {
         #expect(!WelcomeState(defaults: defaults).hasBeenSeen, "the tour was not offered again")
         #expect(recents.urls.isEmpty, "the recents survived, so the sample is still not offered")
         #expect(defaults.integer(forKey: "someTesterPreference") == 42, "a preference was lost")
+    }
+
+    /// **The manual reset has to act on the live objects, and be visible now.**
+    ///
+    /// `WelcomeState` reads its flag once in `init`, so a reset routed through a
+    /// fresh instance would write to `UserDefaults` and leave the object the
+    /// sheet is bound to still saying "seen" — a reset that works perfectly and
+    /// appears to do nothing until the next launch. And `DocumentView` only
+    /// samples `hasBeenSeen` in `onAppear`; `replayRequested` is the one trigger
+    /// it watches while already on screen.
+    @MainActor
+    @Test("a manual reset clears the live state and asks for the tour now")
+    func manualResetActsOnTheLiveObjects() throws {
+        let name = "reset-live-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+
+        let welcome = WelcomeState(defaults: defaults)
+        welcome.markSeen()
+        let recents = RecentFiles(defaults: defaults)
+        recents.note(URL(fileURLWithPath: "/tmp/a.wav"))
+
+        FirstRunReset.reset(welcome: welcome, recents: recents)
+
+        #expect(!welcome.hasBeenSeen, "the live object still says the tour has been seen")
+        #expect(recents.urls.isEmpty)
+        #expect(welcome.replayRequested, "the tour would not appear until the next launch")
     }
 
     @MainActor

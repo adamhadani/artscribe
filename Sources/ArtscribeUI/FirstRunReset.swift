@@ -39,23 +39,51 @@ public enum FirstRunReset {
 
     /// Whether to put the first-run state back.
     ///
-    /// Nil `stored` is a genuinely fresh container — there is nothing to reset,
-    /// and resetting anyway would be harmless but would also mean the flag is
-    /// doing nothing. The rule is *changed*, not merely *different from
-    /// current*, so a tester who rolls back to an earlier build gets the tour
-    /// too, which is what they want when they are comparing two builds.
+    /// **`nil` counts as a change, and the first version of this got that
+    /// wrong.** It read `nil` as "a genuinely fresh container, nothing to put
+    /// back" — but the build that introduces a key is precisely the build on
+    /// which every existing container has `nil` *and* a welcome flag and a full
+    /// recents list. Build 164 shipped the reset and reset nobody, because the
+    /// one transition it had to cover was the one case it excluded.
+    ///
+    /// Counting it as a change is right in both directions: on a container that
+    /// really is fresh, the reset clears a flag that is already false and a list
+    /// that is already empty.
+    ///
+    /// The rule is *changed*, not *newer*, so a tester who rolls back to compare
+    /// two builds gets the tour too — which is what they want.
     public static func shouldReset(
         environment: InstallEnvironment, stored: String?, current: String
     ) -> Bool {
         guard environment == .testFlight else { return false }
-        guard let stored else { return false }
         return stored != current
     }
 
-    /// Clears the first-run state. Also the manual `Reset to a New Install`.
+    /// Clears the first-run state at launch, before the app's own `WelcomeState`
+    /// exists. Reaches the flag through a throwaway instance, which is only
+    /// sound *because* nothing is holding a live one yet — see `readyDefaults`.
     @MainActor public static func reset(defaults: UserDefaults, recents: RecentFiles) {
-        WelcomeState(defaults: defaults).forget()
+        reset(welcome: WelcomeState(defaults: defaults), recents: recents)
+    }
+
+    /// Clears the first-run state on the objects the app is **actually holding**.
+    ///
+    /// The manual reset has to take this route rather than the one above, and
+    /// the difference is not cosmetic: `WelcomeState` reads `welcomeSeen` once
+    /// in `init` and keeps it, so clearing the flag through a *fresh* instance
+    /// writes to `UserDefaults` and leaves the live object — the one the sheet's
+    /// presentation is bound to — still saying it has been seen. The reset would
+    /// work perfectly and appear to do nothing until the next launch.
+    ///
+    /// `replayRequested` on top of `forget()` because the two answer different
+    /// questions: `forget()` makes the state genuinely new-user, and
+    /// `replayRequested` is the one trigger `DocumentView` watches while it is
+    /// already on screen. Without it the tour waits for a relaunch, which is the
+    /// same "nothing happened" the paragraph above describes.
+    @MainActor public static func reset(welcome: WelcomeState, recents: RecentFiles) {
+        welcome.forget()
         recents.clear()
+        welcome.replayRequested = true
     }
 
     /// Applies a pending reset and records the build, once per launch.

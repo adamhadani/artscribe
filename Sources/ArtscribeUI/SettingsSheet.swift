@@ -16,10 +16,12 @@ struct SettingsSheet: View {
     let model: ViewerModel
     let theme: ThemeController
     let settings: SettingsWindowController
+    let welcome: WelcomeState
+    let recents: RecentFiles
 
     var body: some View {
         NavigationStack {
-            SettingsView(model: model, theme: theme)
+            SettingsView(model: model, theme: theme, welcome: welcome, recents: recents)
                 .navigationTitle("Settings")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

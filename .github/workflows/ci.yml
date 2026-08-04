@@ -156,15 +156,24 @@ jobs:
       - name: Generate the Xcode project
         run: xcodegen generate
 
-      # A concrete simulator name rather than a generic destination: `xcodebuild
-      # test` cannot run against `generic/platform=iOS Simulator`, and the error
-      # it gives ("Unable to find a device matching the provided destination
+      # A concrete simulator rather than a generic destination: `xcodebuild test`
+      # cannot run against `generic/platform=iOS Simulator`, and the error it
+      # gives ("Unable to find a device matching the provided destination
       # specifier") does not say so.
+      #
+      # **Resolved rather than named.** This step hard-coded `name=iPad (A16)`
+      # until 2026-08-04, when GitHub rotated the `macos-26` image, that device
+      # stopped existing, and every branch went red at once on code nobody had
+      # touched. A name is a bet on the runner's image; a UDID looked up on the
+      # machine cannot go stale. The script prints what it did find when it
+      # fails, so an image change costs one run rather than one per guess.
       - name: Run the portable suites on an iPad simulator
         run: |
           set -o pipefail
+          UDID=$(./App/ipad-simulator.sh)
+          echo "simulator: $UDID"
           xcodebuild test -scheme ArtscribePortableTests \
-            -destination 'platform=iOS Simulator,name=iPad (A16)' \
+            -destination "platform=iOS Simulator,id=$UDID" \
             -derivedDataPath .build/xcode-iostest | tee ios-tests.log
 
       # **A green run that executed nothing also exits 0.** `xcodebuild test`
@@ -175,7 +184,7 @@ jobs:
       # shape as the seventeen checks that skipped themselves for a whole run
       # here once. So the count is asserted rather than assumed.
       #
-      # 200 is a floor, not the number: the run is 248 today, and the bound is
+      # 200 is a floor, not the number: the run is 262 today, and the bound is
       # loose enough that adding or moving a suite does not trip it while still
       # catching "nothing ran".
       - name: Assert the suites actually ran

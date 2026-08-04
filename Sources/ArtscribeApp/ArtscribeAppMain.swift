@@ -209,7 +209,7 @@ struct ArtscribeAppMain: App {
         // puts the item in the app menu and wires ⌘, to it, so neither is
         // hand-rolled here.
         Settings {
-            SettingsView(model: model, theme: theme)
+            SettingsView(model: model, theme: theme, welcome: welcome, recents: recents)
         }
     }
 
