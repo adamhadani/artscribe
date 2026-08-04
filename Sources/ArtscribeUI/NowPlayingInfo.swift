@@ -92,7 +92,7 @@ public struct NowPlayingInfo: Equatable, Sendable {
             let practice = snapshot.practice
             return "\(speed) · practice, rep \(practice.repetition) of \(practice.total)"
         }
-        guard snapshot.loop.isEnabled, snapshot.loop.range.count > 0 else { return speed }
+        guard snapshot.loop.isActive else { return speed }
         let start = TimeCode.coarse(
             frames: snapshot.loop.range.start, sampleRate: snapshot.sampleRate)
         let end = TimeCode.coarse(
