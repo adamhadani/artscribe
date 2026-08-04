@@ -13,14 +13,16 @@ struct NowPlayingPolicyTests {
 
     private func snapshot(
         playhead: FrameIndex = 44100,
+        seekGeneration: Int = 0,
         loop: LoopRegion = LoopRegion(),
         isPlaying: Bool = true,
-        speedRatio: Double = 1
+        speedRatio: Double = 1,
+        practice: NowPlayingPractice = NowPlayingPractice()
     ) -> NowPlayingSnapshot {
         NowPlayingSnapshot(
-            trackURL: track, playhead: playhead, totalFrames: 4_410_000,
-            sampleRate: 44100, speedRatio: speedRatio, isPlaying: isPlaying, loop: loop,
-            practice: NowPlayingPractice())
+            trackURL: track, playhead: playhead, seekGeneration: seekGeneration,
+            totalFrames: 4_410_000, sampleRate: 44100, speedRatio: speedRatio,
+            isPlaying: isPlaying, loop: loop, practice: practice)
     }
 
     /// Bars 12–16: one second in, two seconds long.
@@ -55,6 +57,34 @@ struct NowPlayingPolicyTests {
         #expect(NowPlayingPolicy.shouldPublish(previous: before, current: after))
     }
 
+    /// **The bug this counter exists for.** A skip *forward* is the same pair of
+    /// playhead values as ordinary playback — larger than before — so a rule
+    /// that reads the direction of travel stays silent on it. The system then
+    /// keeps extrapolating from the pre-skip anchor and the lock screen's clock
+    /// sits exactly the skip amount behind the audio, permanently; a second
+    /// press doubles it. Spec §3.3 lists seek among the publish triggers.
+    @Test("a forward seek is republished, unlike the same motion from playback")
+    func forwardSeekPublishes() {
+        let before = snapshot(playhead: 44100, seekGeneration: 7)
+        // Ten seconds on at 44.1 kHz: what the lock screen's own ⟳ produces.
+        let seeked = snapshot(playhead: 485_100, seekGeneration: 8)
+        #expect(NowPlayingPolicy.shouldPublish(previous: before, current: seeked))
+
+        // The control: the identical destination, reached by playing there.
+        let played = snapshot(playhead: 485_100, seekGeneration: 7)
+        #expect(!NowPlayingPolicy.shouldPublish(previous: before, current: played))
+    }
+
+    /// A seek that lands where the playhead already was — `F` on the in point,
+    /// or a skip clamped at the end of the track — is still a seek, and the
+    /// counter is what says so.
+    @Test("a seek is republished even when the playhead does not move")
+    func standingSeekPublishes() {
+        #expect(
+            NowPlayingPolicy.shouldPublish(
+                previous: snapshot(seekGeneration: 3), current: snapshot(seekGeneration: 4)))
+    }
+
     @Test("pausing is republished")
     func pausePublishes() {
         #expect(
@@ -76,6 +106,18 @@ struct NowPlayingPolicyTests {
                 previous: snapshot(), current: snapshot(loop: enabledLoop)))
     }
 
+    /// The whole reason `NowPlayingPractice` is in the snapshot: while a ramp
+    /// runs, the subtitle counts repetitions, and a rep can turn over at a
+    /// speed the schedule holds constant. Nothing else in the snapshot moves.
+    @Test("a practice repetition alone is republished")
+    func practiceRepetitionPublishes() {
+        let fourth = NowPlayingPractice(isRunning: true, repetition: 4, total: 12)
+        let fifth = NowPlayingPractice(isRunning: true, repetition: 5, total: 12)
+        #expect(
+            NowPlayingPolicy.shouldPublish(
+                previous: snapshot(practice: fourth), current: snapshot(practice: fifth)))
+    }
+
     @Test("an identical snapshot is not republished")
     func identicalIsSilent() {
         #expect(!NowPlayingPolicy.shouldPublish(previous: snapshot(), current: snapshot()))
@@ -83,12 +125,24 @@ struct NowPlayingPolicyTests {
 
     // MARK: - What the buttons do
 
-    @Test("play, pause and toggle map straight through")
+    @Test("play and pause map straight through")
     func transportCommands() {
         let now = snapshot()
         #expect(NowPlayingPolicy.action(for: .play, snapshot: now, skipSeconds: 10) == .play)
         #expect(NowPlayingPolicy.action(for: .pause, snapshot: now, skipSeconds: 10) == .pause)
-        #expect(NowPlayingPolicy.action(for: .toggle, snapshot: now, skipSeconds: 10) == .toggle)
+    }
+
+    /// `NowPlayingAction` has no `.toggle` on purpose. Resolving it inside the
+    /// adapter — the one file that does not compile on the platform this suite
+    /// runs on — would make the ⏯ button's real behaviour untestable, and an
+    /// assertion that `.toggle` maps to `.toggle` proves nothing at all.
+    @Test("toggle resolves against what the transport is doing")
+    func toggleResolvesBothWays() {
+        let playing = snapshot(isPlaying: true)
+        #expect(NowPlayingPolicy.action(for: .toggle, snapshot: playing, skipSeconds: 10) == .pause)
+
+        let paused = snapshot(isPlaying: false)
+        #expect(NowPlayingPolicy.action(for: .toggle, snapshot: paused, skipSeconds: 10) == .play)
     }
 
     /// Inside a four-second loop a ten-second skip-back lands outside the

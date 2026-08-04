@@ -206,4 +206,29 @@ extension ViewerModel {
         loadPhase = nil
         errorMessage = message
     }
+
+    // MARK: - Testing
+
+    /// Adopts a track synchronously, bypassing the async decode pipeline.
+    ///
+    /// `audio`/`pyramid` have no public setter — `open(url:)` is the only
+    /// production path — so unit tests over `ViewerModel+Interaction` (the drag
+    /// and click state machine) need a same-module seam to reach a state where
+    /// `hasTrack` is true. Internal, not public: invisible outside `ArtscribeUI`,
+    /// so only `ArtscribeUITests` can reach it via `@testable import`.
+    ///
+    /// Here rather than on `ViewerModel` itself because that file is at the
+    /// project's 400-line limit and this is the file about adopting a track.
+    func loadForTesting(audio: DecodedAudio, pyramid: PeakPyramid, widthPixels: Int = 1000) {
+        self.audio = audio
+        self.pyramid = pyramid
+        fileName = "test-track"
+        generation += 1
+        selection.clear()
+        loop = LoopRegion()
+        playhead = 0
+        wrapTracker.reset()
+        reachedEnd = false
+        viewport = Viewport(totalFrames: audio.frameCount, widthPixels: widthPixels)
+    }
 }

@@ -13,10 +13,15 @@ public enum NowPlayingRemoteCommand: CaseIterable, Sendable {
 }
 
 /// What pressing one should do to the model.
+///
+/// **Every case is resolved**: there is no `.toggle` here, though there is one in
+/// `NowPlayingRemoteCommand`, because iOS really does send that command. Which of
+/// play and pause it means is a decision, and a decision resolved in the adapter
+/// is a decision nothing can test — `NowPlayingController` is the one file that
+/// does not compile on the platform the unit suite runs on.
 public enum NowPlayingAction: Equatable, Sendable {
     case play
     case pause
-    case toggle
     /// Back to the top of the passage — the app's `restartLoop`, which `F` also
     /// invokes.
     case restartLoop
@@ -34,8 +39,18 @@ public enum NowPlayingPolicy {
     /// `(elapsed, rate, timestamp)`, so ordinary forward motion needs no
     /// message at all — and the display link that drives this polls sixty times
     /// a second. What does need one is any change it cannot predict: a
-    /// different track, speed, loop, ramp or transport state, or the playhead
-    /// moving *backwards*, which is a loop wrap or a seek.
+    /// different track, speed, loop, ramp or transport state, the playhead
+    /// moving *backwards*, or a **seek**.
+    ///
+    /// A seek is the one that cannot be read off the playhead. Forwards, a
+    /// ten-second skip and 16 ms of playback are the same pair of numbers, so
+    /// inferring the discontinuity from the direction of travel silently
+    /// swallows every forward seek — and the system then keeps extrapolating
+    /// from the pre-skip anchor, leaving the displayed elapsed exactly the skip
+    /// amount behind the audio, for good, and twice that after a second press.
+    /// `NowPlayingSnapshot.seekGeneration` makes the jump explicit, which is why
+    /// there is no branch for it here: forward motion holds every other field
+    /// equal, and a seek does not.
     public static func shouldPublish(
         previous: NowPlayingSnapshot?, current: NowPlayingSnapshot
     ) -> Bool {
@@ -59,7 +74,10 @@ public enum NowPlayingPolicy {
         switch command {
         case .play: return .play
         case .pause: return .pause
-        case .toggle: return .toggle
+        // Resolved here rather than in the adapter, on the app's own idea of
+        // what the transport is doing — `ViewerModel.isPlaying` is the latch the
+        // user set, not `PlaybackEngine.isPlaying`.
+        case .toggle: return snapshot.isPlaying ? .pause : .play
         case .skipBackward:
             // Inside a fenced-off passage, "back ten seconds" lands outside it.
             // The useful blind action is "again, from the top".

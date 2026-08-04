@@ -18,8 +18,19 @@ import MediaPlayer
 /// pure and unit-tested on macOS — which is the only reason any of this is
 /// checkable without a device. Resist adding a rule here; it belongs next to its
 /// tests.
+///
+/// ## It is alive only because `PlayheadClock` survives a sleeping display
+///
+/// Everything below is driven by `tickPlayback`, which is driven by
+/// `PlayheadClock` — and a `CADisplayLink` stops firing when the screen sleeps,
+/// which is *precisely* when a lock screen exists. The clock watches its own
+/// pulse and hands over to a 60 Hz timer after 250 ms of silence (see
+/// `PlayheadClockPolicy`), and that standby path is what keeps the elapsed time
+/// and the practice-rep subtitle moving on a locked iPad. Simplify it away and
+/// this feature freezes on the frame the screen went dark, with the audio still
+/// playing and nothing failing anywhere.
 @MainActor
-public final class NowPlayingController {
+final class NowPlayingController {
 
     /// What was last handed to the info centre, so an unchanged snapshot costs
     /// nothing. See `NowPlayingPolicy.shouldPublish`.
@@ -29,21 +40,41 @@ public final class NowPlayingController {
     /// every update would leave one press invoking the action many times.
     private var registered = false
 
+    /// The skip interval iOS has been told to draw, so the comparison below
+    /// costs nothing sixty times a second. `nil` until the first update.
+    private var appliedSkipInterval: Double?
+
+    /// The model the buttons act on, refreshed on every update rather than
+    /// captured when the commands were registered.
+    ///
+    /// The handlers used to close over the model passed to `register`, which
+    /// bound them to the first one they ever saw. That is correct today only
+    /// because `IPadAppMain` keeps a single `ViewerModel` for the life of the
+    /// process — an invariant asserted in a different file, by a type that has
+    /// no idea this one depends on it. Weak, because a controller that outlives
+    /// every window must not be what keeps a model alive.
+    private weak var model: ViewerModel?
+
     /// The one instance. `MPRemoteCommandCenter` and `MPNowPlayingInfoCenter` are
     /// process-global, so their owner is too: a second controller would pass its
     /// own `registered` guard and add a second handler to the same command,
     /// making one button press fire twice. iPadOS creates a `DocumentView` per
     /// scene, so "one per view" is not the same as "one per process".
-    public static let shared = NowPlayingController()
+    static let shared = NowPlayingController()
 
     private init() {}
 
     /// Called from the same poll that already drives the playhead readout.
     /// Cheap on the overwhelming majority of calls: it builds a snapshot,
     /// compares, and returns.
-    public func update(from model: ViewerModel) {
-        register(model)
-        let snapshot = Self.snapshot(of: model)
+    func update(from model: ViewerModel) {
+        // Compared before assigning, like every other 60 Hz write in this
+        // project: storing into a `weak` costs a side-table write, and this
+        // runs on every display refresh for the life of the app.
+        if self.model !== model { self.model = model }
+        register()
+        applySkipInterval(model.prefs.nudgeAmounts[.coarse])
+        let snapshot = NowPlayingSnapshot(of: model)
         guard NowPlayingPolicy.shouldPublish(previous: published, current: snapshot) else {
             return
         }
@@ -52,26 +83,9 @@ public final class NowPlayingController {
     }
 
     /// A closed track must not leave the previous one on the lock screen.
-    public func clear() {
+    func clear() {
         published = nil
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-    }
-
-    // MARK: - Reading the model
-
-    private static func snapshot(of model: ViewerModel) -> NowPlayingSnapshot {
-        NowPlayingSnapshot(
-            trackURL: model.hasTrack ? model.trackURL : nil,
-            playhead: model.playhead,
-            totalFrames: model.totalFrames,
-            sampleRate: model.sampleRate,
-            speedRatio: model.speed.ratio,
-            isPlaying: model.isPlaying,
-            loop: model.loop,
-            practice: NowPlayingPractice(
-                isRunning: model.ramp.isRunning,
-                repetition: model.ramp.repetition,
-                total: model.ramp.total))
     }
 
     // MARK: - Publishing
@@ -92,7 +106,7 @@ public final class NowPlayingController {
 
     // MARK: - The buttons
 
-    private func register(_ model: ViewerModel) {
+    private func register() {
         guard !registered else { return }
         registered = true
         let centre = MPRemoteCommandCenter.shared()
@@ -105,43 +119,60 @@ public final class NowPlayingController {
         centre.seekForwardCommand.isEnabled = false
         centre.seekBackwardCommand.isEnabled = false
 
-        handle(centre.playCommand, .play, model)
-        handle(centre.pauseCommand, .pause, model)
-        handle(centre.togglePlayPauseCommand, .toggle, model)
-        handle(centre.skipBackwardCommand, .skipBackward, model)
-        handle(centre.skipForwardCommand, .skipForward, model)
+        handle(centre.playCommand, .play)
+        handle(centre.pauseCommand, .pause)
+        handle(centre.togglePlayPauseCommand, .toggle)
+        handle(centre.skipBackwardCommand, .skipBackward)
+        handle(centre.skipForwardCommand, .skipForward)
     }
 
-    private func handle(
-        _ command: MPRemoteCommand, _ which: NowPlayingRemoteCommand, _ model: ViewerModel
-    ) {
+    /// The interval iOS draws *inside* the skip glyph — the `10` in `⟲10`.
+    ///
+    /// Rewritten whenever the app's coarse "Rewind / skip" amount changes, not
+    /// once at registration: `perform` reads the amount live, so a lock screen
+    /// set up on the first tick would go on drawing `⟲10` while skipping 5 for
+    /// the rest of the process. Compared first, so at 60 Hz this is a `Double`
+    /// comparison and nothing else.
+    private func applySkipInterval(_ seconds: Double) {
+        guard seconds != appliedSkipInterval else { return }
+        appliedSkipInterval = seconds
+        let intervals = [NSNumber(value: seconds)]
+        let centre = MPRemoteCommandCenter.shared()
+        centre.skipBackwardCommand.preferredIntervals = intervals
+        centre.skipForwardCommand.preferredIntervals = intervals
+    }
+
+    private func handle(_ command: MPRemoteCommand, _ which: NowPlayingRemoteCommand) {
         command.isEnabled = true
-        // The interval iOS draws inside the skip glyph. The app's own coarse
-        // "Rewind / skip" amount, so changing it in Settings changes the lock
-        // screen and there is no second number to keep in sync.
-        if let skip = command as? MPSkipIntervalCommand {
-            skip.preferredIntervals = [NSNumber(value: model.prefs.nudgeAmounts[.coarse])]
-        }
-        command.addTarget { [weak self, weak model] _ in
-            guard let self, let model else { return .noSuchContent }
-            return self.perform(which, on: model)
+        command.addTarget { [weak self] _ in
+            guard let self else { return .noSuchContent }
+            return self.perform(which)
         }
     }
 
-    private func perform(
-        _ command: NowPlayingRemoteCommand, on model: ViewerModel
-    ) -> MPRemoteCommandHandlerStatus {
-        let snapshot = Self.snapshot(of: model)
+    private func perform(_ command: NowPlayingRemoteCommand) -> MPRemoteCommandHandlerStatus {
+        guard let model else { return .noSuchContent }
+        let snapshot = NowPlayingSnapshot(of: model)
         let action = NowPlayingPolicy.action(
             for: command, snapshot: snapshot,
             skipSeconds: model.prefs.nudgeAmounts[.coarse])
         switch action {
-        case .play: model.play()
+        case .play:
+            // Through `Space`'s own path, so a resume from the lock screen gets
+            // the preroll every other resume gets — putting the iPad down and
+            // picking it up again is the case that setting exists for. Guarded
+            // because `togglePlayPause` is a *toggle*: iOS may send `play` to
+            // something already playing, and that must not pause it.
+            if !model.isPlaying { model.togglePlayPause() }
         case .pause: model.pause()
-        case .toggle:
-            if snapshot.isPlaying { model.pause() } else { model.play() }
         case .restartLoop: model.restartLoop()
-        case .seek(let frame): model.seek(to: frame)
+        case .seek(let frame):
+            // At either end of the track the skip target clamps to the frame the
+            // playhead is already on. `.seek` is one of the two paths that reset
+            // the stretcher (CLAUDE.md on looping), and a lock-screen button can
+            // be leant on blind, so the redundant one is guarded here exactly as
+            // the nudge keys guard theirs.
+            if frame != model.playhead { model.seek(to: frame) }
         case .none: return .noSuchContent
         }
         update(from: model)

@@ -26,6 +26,17 @@ public struct NowPlayingPractice: Equatable, Sendable {
 public struct NowPlayingSnapshot: Equatable, Sendable {
     public var trackURL: URL?
     public var playhead: FrameIndex
+    /// Counts deliberate jumps of the playhead, so a *seek* is distinguishable
+    /// from playback having advanced to the same frame.
+    ///
+    /// Without it the two are the same snapshot, and `shouldPublish` — which
+    /// must stay silent for ordinary forward motion — cannot tell them apart:
+    /// a ten-second skip forward would be folded into the extrapolation the
+    /// system is already doing and the lock screen's clock would sit exactly
+    /// that far behind the audio, permanently. `ViewerModel.seek(to:)` is the
+    /// single path a user seek takes, so one counter there covers the lock
+    /// screen's own ⟳, `⌥X`, a nudge and a click on the waveform alike.
+    public var seekGeneration: Int
     public var totalFrames: FrameIndex
     public var sampleRate: Double
     public var speedRatio: Double
@@ -34,18 +45,48 @@ public struct NowPlayingSnapshot: Equatable, Sendable {
     public var practice: NowPlayingPractice
 
     public init(
-        trackURL: URL? = nil, playhead: FrameIndex = 0, totalFrames: FrameIndex = 0,
-        sampleRate: Double = 0, speedRatio: Double = 1, isPlaying: Bool = false,
-        loop: LoopRegion = LoopRegion(), practice: NowPlayingPractice = NowPlayingPractice()
+        trackURL: URL? = nil, playhead: FrameIndex = 0, seekGeneration: Int = 0,
+        totalFrames: FrameIndex = 0, sampleRate: Double = 0, speedRatio: Double = 1,
+        isPlaying: Bool = false, loop: LoopRegion = LoopRegion(),
+        practice: NowPlayingPractice = NowPlayingPractice()
     ) {
         self.trackURL = trackURL
         self.playhead = playhead
+        self.seekGeneration = seekGeneration
         self.totalFrames = totalFrames
         self.sampleRate = sampleRate
         self.speedRatio = speedRatio
         self.isPlaying = isPlaying
         self.loop = loop
         self.practice = practice
+    }
+}
+
+/// Reading the app.
+///
+/// Deliberately **not** inside `NowPlayingController`, which is the one file in
+/// this feature that does not compile on the platform the unit suite runs on.
+/// Every field here is a wire between the model and a decision, and a wire that
+/// only exists on iOS is a wire no `make check` can see break — `seekGeneration`
+/// in particular, whose whole purpose is to make `shouldPublish` fire, and which
+/// would otherwise be provable only by hand on a device.
+extension NowPlayingSnapshot {
+
+    @MainActor
+    init(of model: ViewerModel) {
+        self.init(
+            trackURL: model.hasTrack ? model.trackURL : nil,
+            playhead: model.playhead,
+            seekGeneration: model.seekGeneration,
+            totalFrames: model.totalFrames,
+            sampleRate: model.sampleRate,
+            speedRatio: model.speed.ratio,
+            isPlaying: model.isPlaying,
+            loop: model.loop,
+            practice: NowPlayingPractice(
+                isRunning: model.ramp.isRunning,
+                repetition: model.ramp.repetition,
+                total: model.ramp.total))
     }
 }
 

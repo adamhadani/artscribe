@@ -168,6 +168,56 @@ struct ViewerModelNudgeTests {
         #expect(counter.count == 0)
     }
 
+    // MARK: - The redundant seek, and the counter that watches for one
+
+    /// `.seek` is one of the two paths that reset the stretcher, and a reset at
+    /// a loop boundary clicks — this project's most important defect class. `F`
+    /// pressed twice, or the lock screen's ⟲ leant on blind against an enabled
+    /// loop, must not issue the second one. The nudge keys above have guarded
+    /// this since Task 14; `restartLoop` did not.
+    @Test("F on the in point issues no second seek")
+    func restartOnTheInPointIsANoOp() {
+        let model = makeModel()
+        model.seek(to: 100_000)
+        model.setLoopIn()
+        model.seek(to: 300_000)
+        model.setLoopOut()
+        model.restartLoop()
+        #expect(model.playhead == 100_000)
+
+        let seeks = model.seekGeneration
+        model.restartLoop()
+        #expect(model.playhead == 100_000)
+        #expect(model.seekGeneration == seeks, "a redundant seek would reset the stretcher")
+    }
+
+    /// The lock screen's clock is anchored on this counter — it is how a skip
+    /// forward is told from ordinary playback, which is the same pair of
+    /// numbers. See `NowPlayingSnapshot.seekGeneration`.
+    @Test("every deliberate jump moves the seek counter, and a refused one does not")
+    func seekGenerationCountsUserJumps() {
+        let model = makeModel()
+        let start = model.seekGeneration
+        model.seek(to: 100_000)
+        #expect(model.seekGeneration == start + 1)
+
+        // A seek onto the frame the playhead already occupies — what a skip
+        // clamped at the end of the track produces. Still a seek, and the lock
+        // screen still has to hear about it, because its own ⟳ produced it.
+        model.seek(to: 100_000)
+        #expect(model.seekGeneration == start + 2)
+
+        // A nudge goes out through `seek(to:)`, so it counts…
+        model.nudge(.normal, direction: .forward)
+        #expect(model.seekGeneration == start + 3)
+
+        // …and one refused at the end of the file does not.
+        model.seek(to: Self.totalFrames)
+        let atEnd = model.seekGeneration
+        model.nudge(.coarse, direction: .forward)
+        #expect(model.seekGeneration == atEnd)
+    }
+
     @Test("attaching a store adopts what it holds")
     func nudgeSettingsAreAdopted() {
         let name = "com.artscripture.tests.model.\(UUID().uuidString)"

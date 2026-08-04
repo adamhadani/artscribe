@@ -1,6 +1,8 @@
 import ArtscribeKit
+import AudioDecode
 import Foundation
 import Testing
+import Waveform
 
 @testable import ArtscribeUI
 
@@ -160,5 +162,86 @@ struct NowPlayingInfoTests {
         let info = try #require(NowPlayingInfo(snapshot))
         #expect(info.elapsed == 0)
         #expect(info.duration == 0)
+    }
+}
+
+/// The wire between the app and the two pure decisions.
+///
+/// `NowPlayingController` cannot be built on macOS, so if the model is only ever
+/// read from inside it, nothing in `make check` can see that reading go wrong —
+/// and the field this exists to protect, `seekGeneration`, is precisely one
+/// whose absence is silent: the lock screen keeps working, and only its clock is
+/// wrong, on a device, gradually.
+@MainActor
+@Suite("Now Playing snapshot")
+struct NowPlayingSnapshotTests {
+
+    private static let sampleRate: Double = 44100
+    private static let totalFrames: FrameIndex = 441_000  // 10 s
+
+    private func makeModel() -> ViewerModel {
+        let storage = AudioStorage(channels: 1, capacityFrames: Int(Self.totalFrames))
+        let audio = DecodedAudio(
+            channels: 1, sampleRate: Self.sampleRate, frameCount: Self.totalFrames,
+            storage: storage)
+        let model = ViewerModel()
+        model.loadForTesting(audio: audio, pyramid: PeakPyramid.build(audio), widthPixels: 1000)
+        // `loadForTesting` bypasses the loading pipeline, which is what sets
+        // this — and the title comes from it, so without it every snapshot here
+        // would report no track and the assertions below would all be vacuous.
+        model.trackURL = URL(fileURLWithPath: "/tmp/Black Codes.flac")
+        return model
+    }
+
+    /// **The end of the chain the critical bug ran down.** A skip forward from
+    /// the lock screen's own ⟳ reaches `seek(to:)`, and if the snapshot cannot
+    /// carry the discontinuity out again, `shouldPublish` sees nothing but a
+    /// larger playhead and stays silent — leaving the system extrapolating from
+    /// the pre-skip anchor for good.
+    @Test("a forward seek on the model publishes; playing to the same frame does not")
+    func aSeekReachesThePolicy() {
+        let model = makeModel()
+        model.seek(to: 44100)
+        let before = NowPlayingSnapshot(of: model)
+
+        model.seek(to: 220_500)
+        let seeked = NowPlayingSnapshot(of: model)
+        #expect(
+            NowPlayingPolicy.shouldPublish(previous: before, current: seeked),
+            "a forward seek must republish, or the lock-screen clock lags it for ever")
+
+        // The control: the same distance, but as the poll would have written it.
+        var played = before
+        played.playhead = 220_500
+        #expect(!NowPlayingPolicy.shouldPublish(previous: before, current: played))
+    }
+
+    @Test("the snapshot carries what the lock screen draws")
+    func snapshotReadsTheModel() {
+        let model = makeModel()
+        model.seek(to: 88200)
+        model.setLoopIn()
+        model.seek(to: 176_400)
+        model.setLoopOut()
+        model.setSpeedPreset(0.5)
+
+        let snapshot = NowPlayingSnapshot(of: model)
+        #expect(snapshot.trackURL == model.trackURL)
+        #expect(NowPlayingInfo(snapshot)?.title == "Black Codes")
+        #expect(snapshot.playhead == model.playhead)
+        #expect(snapshot.totalFrames == Self.totalFrames)
+        #expect(snapshot.sampleRate == Self.sampleRate)
+        #expect(snapshot.speedRatio == 0.5)
+        #expect(snapshot.loop == model.loop)
+        #expect(!snapshot.isPlaying)
+    }
+
+    /// A closed track must not leave the previous one on the lock screen, and
+    /// `NowPlayingInfo` returning `nil` is how the controller is told to clear.
+    @Test("a model with no track produces nothing to publish")
+    func noTrackPublishesNothing() {
+        let snapshot = NowPlayingSnapshot(of: ViewerModel())
+        #expect(snapshot.trackURL == nil)
+        #expect(NowPlayingInfo(snapshot) == nil)
     }
 }
