@@ -332,6 +332,11 @@ public struct DocumentView: View {
             // Closing the window must not leave the audio graph running or the
             // display link ticking against a window nobody can see.
             model.teardownPlayback()
+            // Nor the previous track's title sitting on the lock screen after
+            // the window that was playing it is gone. See `NowPlayingController`.
+            #if !os(macOS)
+            NowPlayingController.shared.clear()
+            #endif
         }
     }
 

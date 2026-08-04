@@ -463,6 +463,21 @@ call cannot arrive. Two rules there are worth knowing before touching it:
   `interruptionEnded` — the system does repeat them — resumes a track the user has since
   paused.
 
+**The lock screen is `MPNowPlayingInfoCenter`, and the rate it is given must be the
+*real* one.** `NowPlayingInfo` publishes `speed.ratio` while playing and `0` while
+paused. The system extrapolates position between updates from
+`(elapsed, rate, timestamp)`, so publishing `1.0` at half speed makes the lock-screen
+timer run at twice the true rate and visibly outrun the audio — the
+speed-ratio-versus-time-ratio trap in a new place, and mutation-tested for it.
+
+Nothing republishes on the display link's tick. `NowPlayingPolicy.shouldPublish`
+compares consecutive snapshots and speaks only when something the system cannot
+predict has changed — including the playhead moving *backwards*, which is a loop wrap.
+
+`MPRemoteCommandCenter` is **iOS only on purpose**: it is claimed process-globally by
+whichever app registered last, so a Mac build would silently capture the media keys
+from whatever the user actually had playing.
+
 **Rubber Band is macOS-only, and that is a Homebrew fact, not a design one.** The formula
 builds a macOS dylib and nothing else, so `CRubberBand` is a `.when(platforms: [.macOS])`
 dependency and `RubberBandStretcher.swift` sits behind `#if canImport(CRubberBand)`.

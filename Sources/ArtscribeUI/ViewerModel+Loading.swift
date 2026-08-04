@@ -123,6 +123,12 @@ extension ViewerModel {
     /// the selection do not — their frames mean nothing without a recording.
     public func closeTrack() {
         teardownSession()
+        // Putting the track away must not leave it on the lock screen: the
+        // window stays open (there is no exit on a phone — see the comment
+        // above), so nothing else marks this moment. See `NowPlayingController`.
+        #if !os(macOS)
+        NowPlayingController.shared.clear()
+        #endif
         releaseSecurityScope()
         loadTask?.cancel()
         loadToken += 1

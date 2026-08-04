@@ -29,7 +29,14 @@ public final class NowPlayingController {
     /// every update would leave one press invoking the action many times.
     private var registered = false
 
-    public init() {}
+    /// The one instance. `MPRemoteCommandCenter` and `MPNowPlayingInfoCenter` are
+    /// process-global, so their owner is too: a second controller would pass its
+    /// own `registered` guard and add a second handler to the same command,
+    /// making one button press fire twice. iPadOS creates a `DocumentView` per
+    /// scene, so "one per view" is not the same as "one per process".
+    public static let shared = NowPlayingController()
+
+    private init() {}
 
     /// Called from the same poll that already drives the playhead readout.
     /// Cheap on the overwhelming majority of calls: it builds a snapshot,
@@ -132,7 +139,7 @@ public final class NowPlayingController {
         case .play: model.play()
         case .pause: model.pause()
         case .toggle:
-            if model.isPlaying { model.pause() } else { model.play() }
+            if snapshot.isPlaying { model.pause() } else { model.play() }
         case .restartLoop: model.restartLoop()
         case .seek(let frame): model.seek(to: frame)
         case .none: return .noSuchContent

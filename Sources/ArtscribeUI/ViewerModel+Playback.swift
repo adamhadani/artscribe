@@ -131,6 +131,16 @@ extension ViewerModel {
                 + "Check the output device in the Playback menu."
         }
 
+        // The lock screen and Control Centre. Ahead of the `isPlaying` guard
+        // below on purpose: a press of the in-app pause button changes nothing
+        // about `playhead`, so a call placed after that guard would never see
+        // the transition and the lock screen would keep reading "playing"
+        // forever. `update(from:)` is cheap on the calls that change nothing —
+        // see `NowPlayingController`.
+        #if !os(macOS)
+        NowPlayingController.shared.update(from: self)
+        #endif
+
         guard transport.isPlaying else { return }
         let frame = PlayheadSync.audibleFrame(
             engineFrame: session.engine.currentFrame,
