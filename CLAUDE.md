@@ -421,10 +421,13 @@ Two things about that job worth keeping:
 - **It asserts a test *count*, not just an exit code.** `xcodebuild test` exits 0 against a
   scheme with nothing attached, and `-quiet` removes even the count from the log — the same
   shape as the seventeen acceptance checks that silently skipped themselves for a whole run
-  here. A green run that executed nothing must fail. `ArtscribeUI` and above are AppKit and are macOS-only. When adding
-to `Playback`, that is the line to keep — `swift build --destination` will not tell you, but
-`make ios-check` will — it builds the **iPad scheme**, so it compiles
-`ArtscribeUI` and everything below it.
+  here. A green run that executed nothing must fail.
+
+**`ArtscribeUI` builds for iOS too**, and has since the iPad app: it is SwiftUI with `#if
+os(macOS)` around the AppKit parts, not an AppKit module. `ArtscribeApp` is the macOS shell and
+`ArtscribeAcceptance` is macOS-only; those two are the line. When adding to `Playback` or to
+`ArtscribeUI`, `swift build --destination` will not tell you — but `make ios-check` will,
+because it builds the **iPad scheme**, so it compiles `ArtscribeUI` and everything below it.
 
 **It used to build `Playback` alone**, which meant an iOS-only error in the UI
 passed the local gate and failed in CI. That happened twice in one afternoon,
@@ -462,6 +465,21 @@ call cannot arrive. Two rules there are worth knowing before touching it:
   *began* has to be remembered (`wasPlayingWhenInterrupted`) and consumed once, or a repeated
   `interruptionEnded` — the system does repeat them — resumes a track the user has since
   paused.
+
+**The lock screen is `MPNowPlayingInfoCenter`, and the rate it is given must be the
+*real* one.** `NowPlayingInfo` publishes `speed.ratio` while playing and `0` while
+paused. The system extrapolates position between updates from
+`(elapsed, rate, timestamp)`, so publishing `1.0` at half speed makes the lock-screen
+timer run at twice the true rate and visibly outrun the audio — the
+speed-ratio-versus-time-ratio trap in a new place, and mutation-tested for it.
+
+Nothing republishes on the display link's tick. `NowPlayingPolicy.shouldPublish`
+compares consecutive snapshots and speaks only when something the system cannot
+predict has changed — including the playhead moving *backwards*, which is a loop wrap.
+
+`MPRemoteCommandCenter` is **iOS only on purpose**: it is claimed process-globally by
+whichever app registered last, so a Mac build would silently capture the media keys
+from whatever the user actually had playing.
 
 **Rubber Band is macOS-only, and that is a Homebrew fact, not a design one.** The formula
 builds a macOS dylib and nothing else, so `CRubberBand` is a `.when(platforms: [.macOS])`

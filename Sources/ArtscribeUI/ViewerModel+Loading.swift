@@ -123,6 +123,12 @@ extension ViewerModel {
     /// the selection do not — their frames mean nothing without a recording.
     public func closeTrack() {
         teardownSession()
+        // Putting the track away must not leave it on the lock screen: the
+        // window stays open (there is no exit on a phone — see the comment
+        // above), so nothing else marks this moment. See `NowPlayingController`.
+        #if !os(macOS)
+        NowPlayingController.shared.clear()
+        #endif
         releaseSecurityScope()
         loadTask?.cancel()
         loadToken += 1
@@ -199,5 +205,30 @@ extension ViewerModel {
         isLoading = false
         loadPhase = nil
         errorMessage = message
+    }
+
+    // MARK: - Testing
+
+    /// Adopts a track synchronously, bypassing the async decode pipeline.
+    ///
+    /// `audio`/`pyramid` have no public setter — `open(url:)` is the only
+    /// production path — so unit tests over `ViewerModel+Interaction` (the drag
+    /// and click state machine) need a same-module seam to reach a state where
+    /// `hasTrack` is true. Internal, not public: invisible outside `ArtscribeUI`,
+    /// so only `ArtscribeUITests` can reach it via `@testable import`.
+    ///
+    /// Here rather than on `ViewerModel` itself because that file is at the
+    /// project's 400-line limit and this is the file about adopting a track.
+    func loadForTesting(audio: DecodedAudio, pyramid: PeakPyramid, widthPixels: Int = 1000) {
+        self.audio = audio
+        self.pyramid = pyramid
+        fileName = "test-track"
+        generation += 1
+        selection.clear()
+        loop = LoopRegion()
+        playhead = 0
+        wrapTracker.reset()
+        reachedEnd = false
+        viewport = Viewport(totalFrames: audio.frameCount, widthPixels: widthPixels)
     }
 }

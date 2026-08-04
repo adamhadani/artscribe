@@ -59,6 +59,14 @@ extension ViewerModel {
     /// it goes away.
     public func teardownPlayback() {
         teardownSession()
+        // Nor may the window going away leave the track it was playing sitting
+        // on the lock screen. Here rather than at the one call site so the view
+        // carries no `#if`, and next to `closeTrack()`'s matching call so the
+        // two ways a track stops being on screen stay in step. See
+        // `NowPlayingController`.
+        #if !os(macOS)
+        NowPlayingController.shared.clear()
+        #endif
     }
 
     func teardownSession() {
@@ -130,6 +138,16 @@ extension ViewerModel {
                 "Playback did not start: the audio render thread never reported playing. "
                 + "Check the output device in the Playback menu."
         }
+
+        // The lock screen and Control Centre. Ahead of the `isPlaying` guard
+        // below on purpose: a press of the in-app pause button changes nothing
+        // about `playhead`, so a call placed after that guard would never see
+        // the transition and the lock screen would keep reading "playing"
+        // forever. `update(from:)` is cheap on the calls that change nothing —
+        // see `NowPlayingController`.
+        #if !os(macOS)
+        NowPlayingController.shared.update(from: self)
+        #endif
 
         guard transport.isPlaying else { return }
         let frame = PlayheadSync.audibleFrame(
@@ -273,6 +291,12 @@ extension ViewerModel {
         guard hasTrack else { return }
         let target = Swift.max(0, Swift.min(frame, totalFrames))
         playhead = target
+        // A jump the lock screen cannot infer from the playhead: forwards, a
+        // skip and a poll's worth of playback are the same two numbers. See
+        // `NowPlayingSnapshot.seekGeneration`. Bumped even when `target` equals
+        // the current playhead, because this is the seek — the callers that
+        // must not issue a redundant one guard before they get here.
+        seekGeneration &+= 1
         // A deliberate jump is shaped exactly like a loop wrap and is not one:
         // `F`, or a nudge back into the loop, must not count as a repetition of
         // the practice ramp. Dropped here, at the single path every user seek
@@ -310,6 +334,12 @@ extension ViewerModel {
     /// so it doubles as "play this phrase again from the top".
     public func restartLoop() {
         guard hasTrack, loop.range.count > 0 else { return }
+        // Already on the in point. `.seek` is one of the two paths that reset
+        // the stretcher (CLAUDE.md on looping), so pressing `F` twice — or
+        // leaning on the lock screen's ⟲, which cannot see where the playhead
+        // is — would click on a tool whose whole purpose is repetition. The
+        // nudge keys have carried this guard since Task 14; this one did not.
+        guard loop.range.start != playhead else { return }
         seek(to: loop.range.start)
     }
 

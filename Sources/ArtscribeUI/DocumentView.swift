@@ -329,8 +329,9 @@ public struct DocumentView: View {
             #if os(macOS)
             trackpad.stop()
             #endif
-            // Closing the window must not leave the audio graph running or the
-            // display link ticking against a window nobody can see.
+            // Closing the window must not leave the audio graph running, the
+            // display link ticking against a window nobody can see, or the
+            // track it was playing on the lock screen.
             model.teardownPlayback()
         }
     }

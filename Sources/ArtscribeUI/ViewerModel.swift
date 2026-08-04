@@ -322,6 +322,17 @@ public final class ViewerModel {
     static let doubleClickSeconds = 0.4
     static let clickSlopPoints = 3.0
 
+    /// Counts deliberate jumps of the playhead. Bumped by `seek(to:)` and by
+    /// nothing else — emphatically **not** by the display-link poll, which is
+    /// the motion this exists to be distinguishable from.
+    ///
+    /// Read by the lock screen (`NowPlayingSnapshot.seekGeneration`), which
+    /// cannot otherwise tell a ten-second skip from 16 ms of playback and
+    /// silently swallowed every forward seek when it tried to.
+    /// `@ObservationIgnored`: nothing draws from it, and the view that cares
+    /// about a seek is already redrawn by `playhead` moving.
+    @ObservationIgnored var seekGeneration = 0
+
     public init() {}
 
     // MARK: - Geometry
@@ -375,26 +386,4 @@ public final class ViewerModel {
     /// The lanes' height in points, which is what puts the loop's top and
     /// bottom bars — and therefore its body grab band — somewhere definite.
     var lanePointHeight: Double { Swift.max(1, laneSize.height) }
-
-    // MARK: - Testing
-
-    /// Adopts a track synchronously, bypassing the async decode pipeline.
-    ///
-    /// `audio`/`pyramid` have no public setter — `open(url:)` is the only
-    /// production path — so unit tests over `ViewerModel+Interaction` (the drag
-    /// and click state machine) need a same-module seam to reach a state where
-    /// `hasTrack` is true. Internal, not public: invisible outside `ArtscribeUI`,
-    /// so only `ArtscribeUITests` can reach it via `@testable import`.
-    func loadForTesting(audio: DecodedAudio, pyramid: PeakPyramid, widthPixels: Int = 1000) {
-        self.audio = audio
-        self.pyramid = pyramid
-        fileName = "test-track"
-        generation += 1
-        selection.clear()
-        loop = LoopRegion()
-        playhead = 0
-        wrapTracker.reset()
-        reachedEnd = false
-        viewport = Viewport(totalFrames: audio.frameCount, widthPixels: widthPixels)
-    }
 }

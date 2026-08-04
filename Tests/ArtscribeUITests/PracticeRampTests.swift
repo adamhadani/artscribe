@@ -185,6 +185,10 @@ struct PracticeRampTests {
         model.startRamp()
         let start = model.loop.range.start
 
+        // Played on into the loop. The playhead has to have genuinely left the
+        // in point, or `restartLoop` refuses the seek as redundant and this
+        // asserts nothing.
+        model.seek(to: start + model.loop.range.count - 2000)
         model.notePlayhead(start + model.loop.range.count - 2000)
         // `F`, straight back to the in point — the same movement a wrap makes.
         model.restartLoop()
