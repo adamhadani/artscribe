@@ -99,14 +99,21 @@ ios-check:
 # compiled for one. Regenerates the project first because the test bundle is
 # declared in project.yml and the .xcodeproj is gitignored.
 #
-# A named simulator, not `generic/platform=iOS Simulator`: `xcodebuild test`
+# A concrete simulator, not `generic/platform=iOS Simulator`: `xcodebuild test`
 # refuses a generic destination, and says only "Unable to find a device matching
-# the provided destination specifier". Override with `SIM=`.
-SIM ?= iPad (A16)
+# the provided destination specifier".
+#
+# **Resolved at run time rather than named.** This used to say
+# `name=iPad (A16)`, and on 2026-08-04 GitHub rotated the `macos-26` image, that
+# device stopped existing, and every branch went red at once — on code nobody
+# had touched, with an error naming the destination and not the cause.
+# `App/ipad-simulator.sh` asks the machine what it has, creates one if there is
+# nothing suitable, and prints what it found when it cannot. `SIM=` still
+# overrides, by name or UDID.
 ios-test:
 	xcodegen generate
 	xcodebuild test -scheme ArtscribePortableTests \
-	    -destination 'platform=iOS Simulator,name=$(SIM)' \
+	    -destination "platform=iOS Simulator,id=$$(SIM='$(SIM)' ./App/ipad-simulator.sh)" \
 	    -derivedDataPath $(XCODE_DERIVED)-iostest \
 	    | grep -E "Test run with|Suite .* (passed|failed)|error:|TEST (SUCCEEDED|FAILED)"
 
