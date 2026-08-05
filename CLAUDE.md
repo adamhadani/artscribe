@@ -465,6 +465,33 @@ call cannot arrive. Two rules there are worth knowing before touching it:
   *began* has to be remembered (`wasPlayingWhenInterrupted`) and consumed once, or a repeated
   `interruptionEnded` — the system does repeat them — resumes a track the user has since
   paused.
+- **"Was playing" is a question about the transport, never about the graph.** The graph is
+  started the moment a track is opened and keeps running while the transport sits paused, so
+  `AudioOutput.isRunning` answers *yes* for every open document. Asking it meant an alarm
+  ending with `shouldResume` started a track nobody had pressed play on, and every unplugged
+  headphone raised a "playback paused" banner over silence. `TransportLink.isPlaying` asks the
+  model instead.
+
+**A callback that is declared, invoked, documented and tested can still be connected to
+nothing, and no test of either end will say so.** `AudioOutput.onInterrupted` and
+`onResumeRequested` were optional properties, called on exactly the right events, covered by
+six passing tests — and never assigned anywhere in the app. So from the first iPad build until
+166, a phone call or another app taking the session stopped the audio and left the transport
+button drawn as Pause, the Playback menu reading "Pause", and the lock screen claiming to
+play, until the app was relaunched. Nothing errored and nothing logged. The user found it by
+switching to Spotify and switching back.
+
+The far end being tested is what makes this invisible: `AudioOutputInterruptionTests` assigned
+the closures *itself*, so it proved the graph would call whatever was plugged in, and said
+nothing about whether anything was. **A closure that may be `nil` is a wire that may not be
+connected.** `TransportLink` is now a required `init` parameter with no default — the one
+version of this the compiler can check — and the one named escape hatch, `.unmanaged`, is a
+claim a reviewer can see rather than an omission nobody can.
+
+The join is tested by `ViewerModel.makeTransportLink()` being internal and named: the test
+drives *the object the app builds* rather than a look-alike assembled in the test file. That
+distinction is the whole lesson — all three behaviours were correct and tested; nothing
+connected them.
 
 **The lock screen is `MPNowPlayingInfoCenter`, and the rate it is given must be the
 *real* one.** `NowPlayingInfo` publishes `speed.ratio` while playing and `0` while
