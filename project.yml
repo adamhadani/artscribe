@@ -48,7 +48,7 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
-    MARKETING_VERSION: "0.3.0"
+    MARKETING_VERSION: "1.0"
     # The build number, and it has to *move*. App Store Connect refuses a second
     # upload carrying a build number it has already seen, so a tracked literal
     # works exactly once and then fails at the least convenient moment — after
