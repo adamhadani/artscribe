@@ -34,9 +34,18 @@ extension ViewerModel {
     /// waveform, zoom, and selection all still work without an audio device, and
     /// throwing away a decoded file because the speakers are busy would be a far
     /// worse answer than saying so.
-    func openSession(for audio: DecodedAudio) {
+    ///
+    /// - Parameter coordinator: the platform session. Injectable for the same
+    ///   reason `AudioOutput`'s is — it is the only way to deliver, on the Mac
+    ///   this is developed on, the interruptions that only happen on a phone.
+    func openSession(
+        for audio: DecodedAudio,
+        coordinator: any AudioSessionCoordinator = PlatformAudio.makeSession()
+    ) {
         do {
-            let session = try PlaybackSession(audio: audio, stretchEngine: speed.engine)
+            let session = try PlaybackSession(
+                audio: audio, stretchEngine: speed.engine, session: coordinator,
+                transport: makeTransportLink())
             self.session = session
             devices?.attach(output: session.output)
             try session.start()

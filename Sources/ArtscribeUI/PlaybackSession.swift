@@ -22,13 +22,24 @@ final class PlaybackSession {
     /// loop, so it is counted and surfaced rather than assumed impossible.
     private(set) var droppedCommands: UInt64 = 0
 
-    init(audio: DecodedAudio, stretchEngine: StretchEngine) throws {
+    /// - Parameters:
+    ///   - session: injectable so a test can deliver the interruptions macOS
+    ///     never sends, exactly as `AudioOutput.init` allows.
+    ///   - transport: how an interruption reaches the model above. **Required**:
+    ///     the optional properties it replaced were never assigned, and the
+    ///     transport spent every interruption claiming to play. See
+    ///     `TransportLink`.
+    init(
+        audio: DecodedAudio, stretchEngine: StretchEngine,
+        session: any AudioSessionCoordinator = PlatformAudio.makeSession(),
+        transport: TransportLink
+    ) throws {
         ring = CommandRing(capacity: 256)
         engine = PlaybackEngine(
             audio: audio, stretcher: PlatformStretcher.make(engine: stretchEngine), ring: ring,
             maxBlock: 1024)
         output = try AudioOutput(
-            engine: engine, sampleRate: audio.sampleRate)
+            engine: engine, sampleRate: audio.sampleRate, session: session, transport: transport)
     }
 
     func push(_ command: PlaybackCommand) {

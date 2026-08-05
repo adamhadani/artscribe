@@ -105,6 +105,70 @@ public enum AudioSessionPolicy {
     }
 }
 
+/// The seam between the audio graph and whatever owns the transport above it.
+///
+/// **Required, not optional, and that is the whole point.** `AudioOutput` used to
+/// declare `onInterrupted` and `onResumeRequested` as optional properties. It
+/// invoked both, documented both, and had them covered by six tests — and
+/// nothing in the app ever assigned either one. So through build 166 a phone
+/// call, an alarm, or another app claiming the session stopped the audio and
+/// left the transport button drawn as Pause, the menu reading "Pause", and the
+/// lock screen claiming to play, for ever. Nothing errored and nothing logged;
+/// the user found it by switching to Spotify and switching back.
+///
+/// A closure that may be `nil` is a wire that may not be connected, and no test
+/// of the far end can tell you whether anyone plugged it in. An `init` parameter
+/// with no default is the only version of this the compiler can check.
+@MainActor
+public struct TransportLink {
+
+    /// Whether the **user** considers the track playing.
+    ///
+    /// Deliberately not `AudioOutput.isRunning`, which is what this used to ask
+    /// and is the wrong question: the graph is started the moment a track is
+    /// opened and keeps running while the transport sits paused, so `isRunning`
+    /// answers "yes" about a file nobody has pressed play on. An interruption
+    /// that ended with `shouldResume` therefore started a track the user had
+    /// never started — precisely what Apple's guidance says not to do, and the
+    /// second defect found while fixing the first.
+    public var isPlaying: () -> Bool
+
+    /// The platform stopped us and the transport has to say so.
+    ///
+    /// The graph is already stopped by the time this runs. What the owner has to
+    /// do is bring its own idea of "playing" back into line; `AudioOutput` cannot
+    /// do it, because the transport state lives in `PlaybackEngine` and the model
+    /// above it, and two owners of "is it playing" is how they came to disagree.
+    public var onInterrupted: () -> Void
+
+    /// The interruption is over and it is reasonable to carry on: the user was
+    /// playing when it began, and the system says resuming is appropriate.
+    ///
+    /// A request, not an instruction, and it deliberately does not restart the
+    /// graph — the owner calls its own `play`, which starts the graph on the way
+    /// past and applies whatever else a resume means to it.
+    public var onResumeRequested: () -> Void
+
+    public init(
+        isPlaying: @escaping () -> Bool,
+        onInterrupted: @escaping () -> Void,
+        onResumeRequested: @escaping () -> Void
+    ) {
+        self.isPlaying = isPlaying
+        self.onInterrupted = onInterrupted
+        self.onResumeRequested = onResumeRequested
+    }
+
+    /// For a graph with no transport above it to notify: `artscribe-cli`, which
+    /// plays one file straight through on macOS, where `UnmanagedAudioSession`
+    /// never posts an event for any of this to answer.
+    ///
+    /// Named rather than defaulted so that using it is a claim a reviewer can
+    /// check, instead of an omission nobody can see.
+    public static let unmanaged = TransportLink(
+        isPlaying: { false }, onInterrupted: {}, onResumeRequested: {})
+}
+
 /// The platform's audio session, or the absence of one.
 ///
 /// Owned by `AudioOutput`, which activates it around the engine's own start and

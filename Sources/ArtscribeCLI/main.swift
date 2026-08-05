@@ -95,8 +95,11 @@ func makeSession(url: URL, device: String?, speed: SpeedState) async throws -> S
     let engine = PlaybackEngine(
         audio: audio, stretcher: PlatformStretcher.make(engine: speed.engine), ring: ring,
         maxBlock: 1024)
+    // No transport sits above this one: the CLI plays a file straight through on
+    // macOS, where the session is `UnmanagedAudioSession` and no interruption can
+    // arrive for a link to answer.
     let output = try AudioOutput(
-        engine: engine, sampleRate: audio.sampleRate)
+        engine: engine, sampleRate: audio.sampleRate, transport: .unmanaged)
 
     let devices = OutputDeviceController(source: CoreAudioDeviceSource(), output: output)
     if let wanted = device {

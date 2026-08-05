@@ -23,6 +23,17 @@ extension ViewerModel {
             pause()
             return
         }
+        resumeWithPreroll()
+    }
+
+    /// Resume, one preroll earlier. The play half of `Space`, and what an audio
+    /// interruption ending calls once the system and the remembered state agree
+    /// (`ViewerModel.audioMayResume`).
+    ///
+    /// Shared rather than repeated, and worth being one function: an
+    /// interruption ends in exactly the situation preroll was written for — a
+    /// resume from a position the user did not choose.
+    func resumeWithPreroll() {
         // Not before a play that cannot happen. With no audio session `play()`
         // raises a notice and returns, and moving the playhead for a resume that
         // never occurred would be a visible lie — pressed twice on a machine

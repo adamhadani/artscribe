@@ -66,24 +66,11 @@ public final class AudioOutput: AudioOutputDeviceSink {
     /// `nil` by the engine itself — the UI clears it once it has been shown.
     public private(set) var notice: String?
 
-    /// The platform stopped us and the transport must say so. Never called on
-    /// macOS, where nothing can take the output away mid-passage.
+    /// How the graph reaches the transport above it, and asks it what it thinks.
     ///
-    /// The graph is already stopped by the time this runs; what the owner has to
-    /// do is bring its own idea of "playing" back into line. `AudioOutput` cannot
-    /// do that itself — the transport state lives in `PlaybackEngine` and the
-    /// model above it, and having two owners of "is it playing" is how they come
-    /// to disagree.
-    public var onInterrupted: (@MainActor () -> Void)?
-
-    /// The interruption is over and it is reasonable to carry on: the user was
-    /// playing when it started, and the system says resuming is appropriate (it
-    /// says so for a timer, and does not for a phone call).
-    ///
-    /// A request, not an instruction, and it deliberately does not restart the
-    /// graph — the owner calls `play`, which starts the graph on the way past. See
-    /// `AudioSessionPolicy` for both halves of the rule.
-    public var onResumeRequested: (@MainActor () -> Void)?
+    /// A required `init` parameter rather than the two optional properties this
+    /// replaced — see `TransportLink` for the bug that cost.
+    private let transport: TransportLink
 
     /// Whether the transport was playing when the current interruption began.
     /// Remembered here because the session cannot tell us: by the time the
@@ -114,11 +101,13 @@ public final class AudioOutput: AudioOutputDeviceSink {
     ///   driven on a Mac, where no interruption can actually happen.
     public init(
         engine: PlaybackEngine, sampleRate: Double,
-        session: any AudioSessionCoordinator = PlatformAudio.makeSession()
+        session: any AudioSessionCoordinator = PlatformAudio.makeSession(),
+        transport: TransportLink
     ) throws {
         self.engine = engine
         self.sourceSampleRate = sampleRate
         self.session = session
+        self.transport = transport
         let channels = engine.channelCount
 
         guard
@@ -330,11 +319,15 @@ public final class AudioOutput: AudioOutputDeviceSink {
     /// function only carries it out, and its one piece of real logic is which
     /// "was playing" to ask about.
     private func handle(_ event: AudioSessionEvent) {
-        // `isRunning` is false by the time an interruption *ends* — the system
-        // stopped us when it began. So the end of an interruption is judged
-        // against what was remembered at its start, and everything else against
-        // the graph as it is now.
-        if case .interruptionBegan = event { wasPlayingWhenInterrupted = isRunning }
+        // The transport is asked, not the graph. `isRunning` was the previous
+        // answer and it is true from the moment a track is opened — so it called
+        // a paused file "playing" and resumed one nobody had started. See
+        // `TransportLink.isPlaying`.
+        //
+        // The *end* of an interruption cannot ask at all: the transport was
+        // brought into line when it began, so by now it correctly reads paused.
+        // What was true at the start is what has to be consulted at the end.
+        if case .interruptionBegan = event { wasPlayingWhenInterrupted = transport.isPlaying() }
         let wasPlaying: Bool
         if case .interruptionEnded = event {
             wasPlaying = wasPlayingWhenInterrupted
@@ -342,7 +335,7 @@ public final class AudioOutput: AudioOutputDeviceSink {
             // left standing would resume a track the user has since paused.
             wasPlayingWhenInterrupted = false
         } else {
-            wasPlaying = isRunning
+            wasPlaying = transport.isPlaying()
         }
 
         switch AudioSessionPolicy.response(to: event, wasPlaying: wasPlaying) {
@@ -354,10 +347,10 @@ public final class AudioOutput: AudioOutputDeviceSink {
             // owner reads it from inside the callback.
             stop()
             notice = Self.pauseNotice(for: event)
-            onInterrupted?()
+            transport.onInterrupted()
 
         case .resume:
-            onResumeRequested?()
+            transport.onResumeRequested()
 
         case .reconfigure:
             handleConfigurationChange()
